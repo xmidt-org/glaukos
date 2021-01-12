@@ -11,7 +11,7 @@ _is_sourced() {
 		&& [ "${FUNCNAME[1]}" = 'source' ]
 }
 
-# check arguments for an option that would cause /__PROJECT__ to stop
+# check arguments for an option that would cause /glaukos to stop
 # return true if there is one
 _want_help() {
 	local arg
@@ -26,17 +26,17 @@ _want_help() {
 }
 
 _main() {
-	# if command starts with an option, prepend __PROJECT__
+	# if command starts with an option, prepend glaukos
 	if [ "${1:0:1}" = '-' ]; then
-		set -- /__PROJECT__ "$@"
+		set -- /glaukos "$@"
 	fi
-		# skip setup if they aren't running /__PROJECT__ or want an option that stops /__PROJECT__
-	if [ "$1" = '/__PROJECT__' ] && ! _want_help "$@"; then
-		echo "Entrypoint script for __PROJECT__ Server ${VERSION} started."
+		# skip setup if they aren't running /glaukos or want an option that stops /glaukos
+	if [ "$1" = '/glaukos' ] && ! _want_help "$@"; then
+		echo "Entrypoint script for glaukos Server ${VERSION} started."
 
-		if [ ! -s /etc/__PROJECT__/__PROJECT__.yaml ]; then
+		if [ ! -s /etc/glaukos/glaukos.yaml ]; then
 		  echo "Building out template for file"
-		  /spruce merge /__PROJECT__.yaml /tmp/__PROJECT___spruce.yaml > /etc/__PROJECT__/__PROJECT__.yaml
+		  /spruce merge /glaukos.yaml /tmp/glaukos_spruce.yaml > /etc/glaukos/glaukos.yaml
 		fi
 	fi
 

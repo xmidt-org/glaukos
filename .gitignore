@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+glaukos
 
 # Test binary, build with `go test -c`
 *.test
@@ -21,3 +22,5 @@ report.json
 
 # Vim
 *.swp
+
+errors.txt

@@ -1,12 +1,12 @@
 [Unit]
-Description=__PROJECT__ description here
+Description=The tool to provide cluster metrics
 After=network.target remote-fs.target nss-lookup.target
 
 [Service]
 Type=simple
-PIDFile=/run/__PROJECT__.pid
-ExecStartPre=/usr/bin/rm -f /run/__PROJECT__.pid
-ExecStart=/usr/bin/__PROJECT__
+PIDFile=/run/glaukos.pid
+ExecStartPre=/usr/bin/rm -f /run/glaukos.pid
+ExecStart=/usr/bin/glaukos
 ExecReload=/bin/kill -s HUP $MAINPID
 TimeoutStopSec=10
 KillMode=process
