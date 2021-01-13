@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/xmidt-org/bascule/acquire"
@@ -21,7 +20,6 @@ type WebhookConfig struct {
 
 // determineTokenAcquirer always returns a valid TokenAcquirer
 func determineTokenAcquirer(config WebhookConfig) (webhookClient.Acquirer, error) {
-	fmt.Println("DETERMINE TOKEN ACQUIRER")
 	defaultAcquirer := &acquire.DefaultAcquirer{}
 	if config.JWT.AuthURL != "" && config.JWT.Buffer != 0 && config.JWT.Timeout != 0 {
 		return acquire.NewRemoteBearerTokenAcquirer(config.JWT)
