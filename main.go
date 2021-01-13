@@ -5,11 +5,13 @@
 package main
 
 import (
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/justinas/alice"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -20,6 +22,7 @@ import (
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
+	"github.com/xmidt-org/glaukos/event"
 	"github.com/xmidt-org/themis/config"
 	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
@@ -70,8 +73,8 @@ func main() {
 		provideMetrics(),
 		basculechecks.ProvideMetrics(),
 		basculemetrics.ProvideMetrics(),
-		// fx.Supply(event.GetLogger),
-		// event.Provide(),
+		fx.Supply(event.GetLogger),
+		event.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
@@ -88,8 +91,23 @@ func main() {
 			func(config WebhookConfig) webhookClient.SecretGetter {
 				return secretGetter.NewConstantSecret(config.Request.Config.Secret)
 			},
-			func(sg webhookClient.SecretGetter) (basculehttp.TokenFactory, error) {
-				return hashTokenFactory.New("Sha1", sha1.New, sg)
+			func(sg webhookClient.SecretGetter, sc SecretConfig, wc WebhookConfig, loggerFunc func(context.Context) log.Logger) (alice.Chain, error) {
+				if sc.Header != "" && wc.Request.Config.Secret != "" {
+					if htf, err := hashTokenFactory.New("Sha1", sha1.New, sg); err != nil {
+						return alice.New(), err
+					} else {
+						authConstructor := basculehttp.NewConstructor(
+							// basculehttp.WithCLogger(loggerFunc),
+							basculehttp.WithTokenFactory("Sha1", htf),
+							basculehttp.WithHeaderName(sc.Header),
+							basculehttp.WithHeaderDelimiter(sc.Delimiter),
+						)
+
+						return alice.New(authConstructor), nil
+					}
+				} else {
+					return alice.New(), nil
+				}
 			},
 			func(config WebhookConfig) webhookClient.BasicConfig {
 				return webhookClient.BasicConfig{
@@ -117,7 +135,7 @@ func main() {
 					},
 				},
 			),
-			// event.ConfigureRoutes,
+			event.ConfigureRoutes,
 			BuildMetricsRoutes,
 			BuildHealthRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
