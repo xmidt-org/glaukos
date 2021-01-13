@@ -25,18 +25,18 @@ RUN make test release
 FROM alpine:3.12.1
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /src/__PROJECT__ /src/__PROJECT__.yaml /src/deploy/packaging/entrypoint.sh /go/bin/spruce /src/Dockerfile /src/NOTICE /src/LICENSE /src/CHANGELOG.md /
-COPY --from=builder /src/deploy/packaging/__PROJECT__.yaml /tmp/__PROJECT__.yaml
+COPY --from=builder /src/glaukos /src/glaukos.yaml /src/deploy/packaging/entrypoint.sh /go/bin/spruce /src/Dockerfile /src/NOTICE /src/LICENSE /src/CHANGELOG.md /
+COPY --from=builder /src/deploy/packaging/glaukos_spruce.yaml /tmp/glaukos_spruce.yaml
 
-RUN mkdir /etc/__PROJECT__/ && touch /etc/__PROJECT__/__PROJECT__.yaml && chmod 666 /etc/__PROJECT__/__PROJECT__.yaml
+RUN mkdir /etc/glaukos/ && touch /etc/glaukos/glaukos.yaml && chmod 666 /etc/glaukos/glaukos.yaml
 
 USER nobody
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-EXPOSE 6600
-EXPOSE 6601
-EXPOSE 6602
-EXPOSE 6603
+EXPOSE 4200
+EXPOSE 4201
+EXPOSE 4202
+EXPOSE 4203
 
-CMD ["/__PROJECT__"]
+CMD ["/glaukos"]

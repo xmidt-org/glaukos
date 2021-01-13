@@ -1,16 +1,16 @@
 %define __os_install_post %{nil}
 %define debug_package %{nil}
 
-Name:       __PROJECT__
+Name:       glaukos
 Version:    {{{ git_tag_version }}}
 Release:    1%{?dist}
-Summary:    __PROJECT__ summary here.
+Summary:    The tool to provide metrics on the xmidt cluster.
 
 Vendor:     Comcast
 Packager:   Comcast
 Group:      System Environment/Daemons
 License:    ASL 2.0
-URL:        https://github.com/xmidt-org/__PROJECT__
+URL:        https://github.com/xmidt-org/glaukos
 Source0:    %{name}-%{version}.tar.gz
 
 Prefix:     /opt
@@ -20,7 +20,7 @@ BuildRequires: golang >= 1.15
 BuildRequires: git
 
 %description
-__PROJECT__ description here.
+The tool to provide metrics on the xmidt cluster.
 
 %prep
 %setup -q
