@@ -26,7 +26,7 @@ FROM alpine:3.12.1
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /src/glaukos /src/glaukos.yaml /src/deploy/packaging/entrypoint.sh /go/bin/spruce /src/Dockerfile /src/NOTICE /src/LICENSE /src/CHANGELOG.md /
-COPY --from=builder /src/deploy/packaging/glaukos.yaml /tmp/glaukos.yaml
+COPY --from=builder /src/deploy/packaging/glaukos_spruce.yaml /tmp/glaukos_spruce.yaml
 
 RUN mkdir /etc/glaukos/ && touch /etc/glaukos/glaukos.yaml && chmod 666 /etc/glaukos/glaukos.yaml
 

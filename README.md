@@ -1,4 +1,4 @@
-# Glaukos
+# glaukos
 
 Glaukos is a service that produces metrics about the XMiDT cluster as a whole.
 
@@ -15,16 +15,9 @@ Glaukos is a service that provides metrics on the XMiDT cluster as a whole. Curr
 
 
 ## Table of Contents
-
-- [Glaukos](#glaukos)
-  - [Summary](#summary)
-  - [Table of Contents](#table-of-contents)
   - [Code of Conduct](#code-of-conduct)
   - [Details](#details)
   - [Build](#build)
-    - [Source](#source)
-    - [Makefile](#makefile)
-    - [Docker](#docker)
   - [Contributing](#contributing)
 
 ## Code of Conduct
@@ -55,9 +48,9 @@ make build
 
 The Makefile has the following options you may find helpful:
 
-- `make build`: builds the Glaukos binary
-- `make docker`: fetches all dependencies from source and builds a Glaukos docker image
-- `make test`: runs unit tests with coverage for Glaukos
+- `make build`: builds the glaukos binary
+- `make docker`: fetches all dependencies from source and builds a glaukos docker image
+- `make test`: runs unit tests with coverage for glaukos
 - `make clean`: deletes previously-built binaries and object files
 
 ### Docker
