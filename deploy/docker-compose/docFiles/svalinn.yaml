@@ -1,0 +1,75 @@
+---
+primary:
+  address: ":7100"
+pprof:
+  address: ":7102"
+  readTimeout: "15s"
+  idleTimeout: "15s"
+metric:
+  address: ":7103"
+  metricsOptions:
+    namespace: "codex"
+    subsystem: "svalinn"
+  readTimeout: "15s"
+  idleTimeout: "15s"
+log:
+  file: "stdout"
+  level: "INFO"
+  json: true
+
+endpoint: "/device-status"
+requestParser:
+  queueSize: 3000
+  maxWorkers: 10000
+  metadataMaxSize: 1000
+  payloadMaxSize: 1000
+  defaultTTL: 1h
+  regexRules:
+    - regex: "device-status/.*/online$"
+      storePayload: true
+      ruleTTL: 5m
+      eventType: "State"
+    - regex: "device-status/.*/offline$"
+      storePayload: true
+      ruleTTL: 5m
+      eventType: "State"
+batchInserter:
+  queueSize: 3000
+  maxWorkers: 1000
+  maxBatchSize: 30
+  maxBatchWaitTime: 10ms
+insertRetries:
+  maxElapsedTime: -1
+blacklistInterval: 1m
+
+health:
+  port: ":7101"
+  endpoint: "/health"
+
+db:
+  hosts:
+    - "yb-tserver-n1"
+  database: "devices"
+  opTimeout: 1s
+
+authHeader: ["YXV0aEhlYWRlcg=="]
+
+secret:
+  header: "X-Webpa-Signature"
+  delimiter: "="
+
+webhook:
+  registrationInterval: 1m
+  timeout: "1m"
+  registrationURL: "http://caduceus:6000/hook"
+  request:
+    config:
+      url: "http://svalinn:7100"
+      secret: "super secret"
+      maxRetryCount: 3
+    events: [".*"]
+  basic: "Basic dXNlcjpwYXNz"
+
+cipher:
+  - type: none
+    kid: none

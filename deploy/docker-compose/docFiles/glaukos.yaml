@@ -1,0 +1,58 @@
+prometheus:
+  defaultNamespace: xmidt
+  defaultSubsystem: glaukos
+  constLabels:
+    development: "true"
+
+log:
+  file: stdout
+  level: DEBUG
+
+health:
+  disableLogging: false
+  custom:
+    server: development
+
+servers:
+  primary:
+    address: :4200
+    disableHTTPKeepAlives: true
+    header:
+      X-Xmidt-Server:
+        - glaukos
+      X-Xmidt-Version:
+        - development
+  metrics:
+    address: :4201
+    disableHTTPKeepAlives: true
+    header:
+      X-Xmidt-Server:
+        - glaukos
+      X-Xmidt-Version:
+        - development
+
+  health:
+    address: :4202
+    disableHTTPKeepAlives: true
+    header:
+      X-Xmidt-Server:
+        - glaukos
+      X-Xmidt-Version:
+        - development
+
+secret:
+  header: "X-Webpa-Signature"
+  delimiter: "="
+
+webhook:
+  registrationInterval: "1m"
+  timeout: "5s"
+  registrationURL: "http://caduceus:6000/hook"
+  webhookCount: 1
+  request:
+    config:
+      url: "http://glaukos:4200/api/v1/events"
+      secret: "secret1234"
+      maxRetryCount:
+    events: "device-status.*"
+  basic: "Basic dXNlcjpwYXNz"

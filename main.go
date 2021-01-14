@@ -67,7 +67,7 @@ func main() {
 
 	app := fx.New(
 		xlog.Logger(),
-		fx.Supply(v),
+		arrange.Supply(v),
 		provideMetrics(),
 		basculechecks.ProvideMetrics(),
 		basculemetrics.ProvideMetrics(),
