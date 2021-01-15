@@ -6,6 +6,7 @@ package main
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -127,12 +128,11 @@ func main() {
 		),
 	)
 
-	switch err := app.Err(); err {
-	case pflag.ErrHelp:
-		return
-	case nil:
+	if err := app.Err(); err == nil {
 		app.Run()
-	default:
+	} else if errors.Is(err, pflag.ErrHelp) {
+		return
+	} else {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
