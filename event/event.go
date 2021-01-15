@@ -214,6 +214,7 @@ func doRequest(request *http.Request, logger log.Logger) (int, []byte, error) {
 	}
 
 	data, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
 	if err != nil {
 		logging.Error(logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to read body")
 		return 0, []byte{}, err
