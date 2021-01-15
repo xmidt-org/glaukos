@@ -162,7 +162,7 @@ func GetEventBootTime(msg Event) (int64, error) {
 
 func getEvents(device string, logger log.Logger, codexAddress string, codexAuth acquire.Acquirer) []Event {
 	eventList := make([]Event, 0)
-	request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/device/%s", codexAddress, device), nil)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/device/%s/events", codexAddress, device), nil)
 	if err != nil {
 		logging.Error(logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to create request")
 		return eventList
@@ -186,7 +186,7 @@ func getEvents(device string, logger log.Logger, codexAddress string, codexAuth 
 		return eventList
 	}
 
-	logging.Info(logger).Log("url", request.URL, "data", data)
+	logging.Debug(logger).Log("url", request.URL, "data", data)
 
 	err = json.Unmarshal(data, &eventList)
 	if err != nil {

@@ -4,77 +4,77 @@ services:
     image: xmidt/glaukos:${GLAUKOS_VERSION}
     container_name: glaukos
     environment:
-      - CODEX_AUTH_TOKEN="YXV0aEhlYWRlcjp0ZXN0"
-      - WEBHOOK_BASIC_AUTH="Basic dXNlcjpwYXNz"
+      - "CODEX_BASIC_AUTH=YXV0aEhlYWRlcjp0ZXN0"
+      - "WEBHOOK_BASIC_AUTH=dXNlcjpwYXNz"
+      - "WEBHOOK_REGISTRATION_INTERVAL=2m"
+      - "CODEX_ADDRESS=http://gungnir:7000"
     ports:
-      - 4200-4202:4200-4202
+      - 4200-4203:4200-4203
     depends_on:
       - caduceus
-      # - gungnir
-    # volumes:
-    #   - ./docFiles/glaukos.yaml:/etc/glaukos/glaukos.yaml
+      - gungnir
     networks:
       - xmidt
 
-  # caduceator0:
-  #   image: xmidt/caduceator:${CADUCEATOR_VERSION}
-  #   container_name: caduceator-0
-  #   ports:
-  #     - 5000-5003:5000-5003
-  #   depends_on:
-  #     - caduceus
-  #   volumes:
-  #     - ./docFiles/caduceator-0.yaml:/etc/caduceator/caduceator.yaml
-  #   networks:
-  #     - xmidt
+  caduceator0:
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
+    container_name: caduceator-0
+    ports:
+      - 5000-5003:5000-5003
+    depends_on:
+      - caduceus
+    volumes:
+      - ./docFiles/caduceator-0.yaml:/etc/caduceator/caduceator.yaml
+    networks:
+      - xmidt
 
-  # caduceator1:
-  #   image: xmidt/caduceator:${CADUCEATOR_VERSION}
-  #   container_name: caduceator-1
-  #   ports:
-  #     - 5010-5013:5010-5013
-  #   depends_on:
-  #     - caduceus
-  #   volumes:
-  #     - ./docFiles/caduceator-1.yaml:/etc/caduceator/caduceator.yaml
-  #   networks:
-  #     - xmidt
+  caduceator1:
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
+    container_name: caduceator-1
+    ports:
+      - 5010-5013:5010-5013
+    depends_on:
+      - caduceus
+    volumes:
+      - ./docFiles/caduceator-1.yaml:/etc/caduceator/caduceator.yaml
+    networks:
+      - xmidt
 
-  # svalinn:
-  #   image: xmidt/svalinn:${SVALINN_VERSION}
-  #   container_name: svalinn
-  #   restart: on-failure
-  #   ports:
-  #     - 7100-7103:7100-7103
-  #   depends_on:
-  #     - caduceus
-  #     - yb-tserver
-  #   volumes:
-  #     - ./docFiles/svalinn.yaml:/etc/svalinn/svalinn.yaml
-  #     - ./docFiles/public.pem:/etc/svalinn/public.pem
-  #   networks:
-  #     - xmidt
+  svalinn:
+    image: xmidt/svalinn:${SVALINN_VERSION}
+    container_name: svalinn
+    restart: on-failure
+    ports:
+      - 7100-7103:7100-7103
+    depends_on:
+      - caduceus
+      - yb-tserver
+    volumes:
+      - ./docFiles/svalinn.yaml:/etc/svalinn/svalinn.yaml
+      - ./docFiles/public.pem:/etc/svalinn/public.pem
+    networks:
+      - xmidt
 
-  # gungnir:
-  #   image: xmidt/gungnir:${GUNGNIR_VERSION}
-  #   container_name: gungnir
-  #   restart: on-failure
-  #   ports:
-  #     - 7000-7003:7000-7003
-  #   depends_on:
-  #     - caduceus
-  #     - yb-tserver
-  #   volumes:
-  #     - ./docFiles/gungnir.yaml:/etc/gungnir/gungnir.yaml
-  #     - ./docFiles/private.pem:/etc/gungnir/private.pem
-  #   networks:
-  #     - xmidt
+  gungnir:
+    image: xmidt/gungnir:${GUNGNIR_VERSION}
+    container_name: gungnir
+    restart: on-failure
+    ports:
+      - 7000-7003:7000-7003
+    depends_on:
+      - caduceus
+      - yb-tserver
+    volumes:
+      - ./docFiles/gungnir.yaml:/etc/gungnir/gungnir.yaml
+      - ./docFiles/private.pem:/etc/gungnir/private.pem
+    networks:
+      - xmidt
 
   caduceus:
     image: xmidt/caduceus:${CADUCEUS_VERSION}
     container_name: caduceus
     environment:
-      - CONSUL_HOST=consul0:8500
+      # - CONSUL_HOST=consul0:8500
       - ARGUS_HOST=http://argus:6600
     ports:
       - 6000-6003:6000-6003
@@ -111,85 +111,50 @@ services:
       - xmidt
     ports:
       - 9090:9090
-    depends_on:
-      - consul0
-      - consul1
     volumes:
       - ./docFiles/prometheus.yml:/prometheus-data/prometheus.yml
     command: --log.level=debug --config.file=/prometheus-data/prometheus.yml
 
-  # Mark Consul Definitions
-  consul0:
-    image: consul:latest
-    container_name: consul0
-    hostname: consul0
-    ports:
-      - 8400:8400
-      - 8500:8500
-      - 8600:8600
-      - 8600:8600/udp
+  yb-manager:
+    image: yugabytedb/yugabyte:latest
+    container_name: yb-manager-n1
+    command:
+      [
+        "/home/yugabyte/bin/yb-master",
+        "--fs_data_dirs=/mnt/disk0,/mnt/disk1",
+        "--master_addresses=yb-manager-n1:7100",
+        "--replication_factor=1",
+      ]
     networks:
       - xmidt
+    ports:
+      - "7111:7000"
+    environment:
+      SERVICE_7000_NAME: yb-manager
+  yb-tserver:
+    image: yugabytedb/yugabyte:latest
+    container_name: yb-tserver-n1
     volumes:
-      - ./docFiles/consul-0.json:/consul.json
-    command: "agent -server -bootstrap-expect 1 -ui -client 0.0.0.0 -config-file consul.json"
-  consul1:
-    image: consul:latest
-    container_name: consul1
-    hostname: consul1
-    ports:
-      - 8401:8400
-      - 8501:8500
-      - 8601:8600
-      - 8601:8600/udp
+      - ./docFiles/create_db.cql:/create_db.cql
+    command:
+      [
+        "/home/yugabyte/bin/yb-tserver",
+        "--fs_data_dirs=/mnt/disk0,/mnt/disk1",
+        "--tserver_master_addrs=yb-manager-n1:7100",
+      ]
     networks:
       - xmidt
+    ports:
+      - "9042:9042"
+      - "6379:6379"
+      - "5433:5433"
+      - "9000:9000"
+    environment:
+      SERVICE_5433_NAME: ysql
+      SERVICE_9042_NAME: ycql
+      SERVICE_6379_NAME: yedis
+      SERVICE_9000_NAME: yb-tserver
     depends_on:
-      - consul0
-    volumes:
-      - ./docFiles/consul-1.json:/consul.json
-    command: "agent -server -bootstrap-expect 1 -ui -client 0.0.0.0 -config-file consul.json"
-
-  # yb-manager:
-  #   image: yugabytedb/yugabyte:latest
-  #   container_name: yb-manager-n1
-  #   command:
-  #     [
-  #       "/home/yugabyte/bin/yb-master",
-  #       "--fs_data_dirs=/mnt/disk0,/mnt/disk1",
-  #       "--master_addresses=yb-manager-n1:7100",
-  #       "--replication_factor=1",
-  #     ]
-  #   networks:
-  #     - xmidt
-  #   ports:
-  #     - "7111:7000"
-  #   environment:
-  #     SERVICE_7000_NAME: yb-manager
-  # yb-tserver:
-  #   image: yugabytedb/yugabyte:latest
-  #   container_name: yb-tserver-n1
-  #   volumes:
-  #     - ./docFiles/create_db.cql:/create_db.cql
-  #   command:
-  #     [
-  #       "/home/yugabyte/bin/yb-tserver",
-  #       "--fs_data_dirs=/mnt/disk0,/mnt/disk1",
-  #       "--tserver_master_addrs=yb-manager-n1:7100",
-  #     ]
-  #   networks:
-  #     - xmidt
-  #   ports:
-  #     - "9042:9042"
-  #     - "6379:6379"
-  #     - "5433:5433"
-  #     - "9000:9000"
-  #   environment:
-  #     SERVICE_5433_NAME: ysql
-  #     SERVICE_9042_NAME: ycql
-  #     SERVICE_6379_NAME: yedis
-  #     SERVICE_9000_NAME: yb-tserver
-  #   depends_on:
-  #     - yb-manager
+      - yb-manager
 networks:
   xmidt:

@@ -50,16 +50,23 @@ scrape_configs:
     static_configs:
       - targets: ["consul0:8500", "consul1:8500"]
 
-  - job_name: "caduceator"
+  - job_name: "caduceator0"
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
     static_configs:
-      - targets: ["caduceator:5003"]
+      - targets: ["caduceator0:5003"]
+
+  - job_name: "caduceator1"
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["caduceator1:5013"]
 
   - job_name: "glaukos"
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
     static_configs:
-      - targets: ["glaukos:5101"]
+      - targets: ["glaukos:4201"]

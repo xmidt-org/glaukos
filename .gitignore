@@ -24,3 +24,6 @@ report.json
 *.swp
 
 errors.txt
+
+# key files
+*.pem

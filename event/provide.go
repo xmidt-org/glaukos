@@ -39,16 +39,9 @@ func Provide() fx.Option {
 			},
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			func(logger log.Logger, metricsIn MetricsIn, codexConfig CodexConfig) BootTimeCalc {
-				var codexAuth acquire.Acquirer = &acquire.DefaultAcquirer{}
-				jwtAuth, err := acquire.NewRemoteBearerTokenAcquirer(codexConfig.Auth.JWT)
-				if err == nil {
-					codexAuth = jwtAuth
-					logging.Debug(logger).Log(logging.MessageKey(), "using jwt")
-				} else if codexConfig.Auth.Basic != "" {
-					codexAuth, err = acquire.NewFixedAuthAcquirer(codexConfig.Auth.Basic)
-					logging.Debug(logger).Log(logging.MessageKey(), "using basic")
-				} else {
-					logging.Error(logger).Log(logging.MessageKey(), "failed to create acquirer")
+				codexAuth, err := determineCodexTokenAcquirer(logger, codexConfig)
+				if err != nil {
+					logging.Error(logger).Log(logging.MessageKey(), "failed to create acquirer", "error", err)
 				}
 
 				return BootTimeCalc{
@@ -62,4 +55,22 @@ func Provide() fx.Option {
 			NewHandlers,
 		),
 	)
+}
+
+func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire.Acquirer, error) {
+	defaultAcquirer := &acquire.DefaultAcquirer{}
+	jwt := config.Auth.JWT
+	if jwt.AuthURL != "" && jwt.Buffer > 0 && jwt.Timeout > 0 {
+		logging.Debug(logger).Log(logging.MessageKey(), "using jwt")
+		return acquire.NewRemoteBearerTokenAcquirer(jwt)
+	}
+
+	if config.Auth.Basic != "" {
+		logging.Debug(logger).Log(logging.MessageKey(), "using basic")
+		return acquire.NewFixedAuthAcquirer(config.Auth.Basic)
+	}
+
+	logging.Error(logger).Log(logging.MessageKey(), "failed to create acquirer")
+	return defaultAcquirer, nil
+
 }
