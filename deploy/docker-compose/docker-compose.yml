@@ -74,7 +74,6 @@ services:
     image: xmidt/caduceus:${CADUCEUS_VERSION}
     container_name: caduceus
     environment:
-      # - CONSUL_HOST=consul0:8500
       - ARGUS_HOST=http://argus:6600
     ports:
       - 6000-6003:6000-6003
