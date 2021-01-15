@@ -20,7 +20,7 @@ RUN apk add --no-cache --no-progress \
 
 RUN go get github.com/geofffranks/spruce/cmd/spruce && chmod +x /go/bin/spruce
 COPY . .
-RUN make
+RUN make test release
 
 FROM alpine:3.12.1
 
