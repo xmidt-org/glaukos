@@ -1,0 +1,218 @@
+---
+########################################
+#   servers
+########################################
+servers:
+  primary:
+    address: :4200
+    disableHTTPKeepAlives: true
+    header:
+      X-Midt-Server:
+        - (( grab server ))
+      X-Midt-Version:
+        - (( grab build ))
+
+  metrics:
+    address: :4201
+    disableHTTPKeepAlives: true
+    header:
+      X-Midt-Server:
+        - (( grab server ))
+      X-Midt-Version:
+        - (( grab build ))
+
+  health:
+    address: :4202
+    disableHTTPKeepAlives: true
+    header:
+      X-Midt-Server:
+        - (( grab server ))
+      X-Midt-Version:
+        - (( grab build ))
+
+prometheus:
+  defaultNamespace: xmidt
+  defaultSubsystem: glaukos
+
+health:
+  disableLogging: false
+  custom:
+    server: (( grab server ))
+
+########################################
+#   labeling/tracing via http headers configuration
+########################################
+
+# The unique fully-qualified-bucket-name of the server.
+# (Optional)
+server: (( grab $HOSTNAME || "glaukos" ))
+
+# Provides this build number to the X-transition-Build header for
+# showing machine version information.  The build number SHOULD
+# match the scheme `version-build` but there is not a strict requirement.
+# (Optional)
+build: (( grab $BUILD || "unknown" ))
+
+# Provides the region information to the X-transition-Region header
+# for showing what region this machine is located in.  The region
+# is arbitrary and optional.
+# (Optional)
+region: east
+
+# Provides the flavor information to the X-transition-Flavor header
+# for showing what flavor this machine is associated with.  The flavor
+# is arbitrary and optional.
+# (Optional)
+flavor: mint
+
+# stage is used for doing complex spruce manipulation
+# change this will only effect spruce and the vars referencing it
+stage: (( grab $STAGE || "development" ))
+
+########################################
+#   Logging Related Configuration
+########################################
+
+# log configures the logging subsystem details
+log:
+  # file is the name of the most recent log file.  If set to "stdout" this
+  # will log to os.Stdout.
+  # (Optional) defaults to os.TempDir()
+  file: "stdout"
+
+  # level is the logging level to use - INFO, DEBUG, WARN, ERROR
+  # (Optional) defaults to ERROR
+  level: (( grab $LOG_LEVEL || "INFO" ))
+
+  # maxsize is the maximum file size in MB
+  # (Optional) defaults to max 100MB
+  maxsize: 50
+
+  # maxage is the maximum number of days to retain old log files
+  # (Optional) defaults to ignore age limit (0)
+  maxage: 30
+
+  # maxbackups is the maximum number of old log files to retain
+  # (Optional) defaults to retain all (0)
+  maxbackups: 10
+
+  # json is a flag indicating whether JSON logging output should be used.
+  # (Optional) defaults to false
+  json: true
+
+########################################
+#   Authorization Related Configuration
+########################################
+secret:
+  # header provides the header key where the hash is expected.
+  # (Optional)
+  header: (( grab $SECRET_HEADER || "X-Webpa-Signature" ))
+
+  # delimiter provides the string that is expected between "Sha1" and the hash.
+  # (Optional)
+  delimiter: (( grab $SECRET_DELIMITER || "=" ))
+
+########################################
+#   Webhook Registration Related Configuration
+########################################
+
+# webhook provides the information needed to register to a webhook.  If the
+# urls and event regex aren't empty and the interval is greater than 0,
+# registration occurs.
+# (Optional)
+webhook:
+  # registrationInterval provides the time to wait between each registration to
+  # the webhook.  If this is set to 0, no registration is done.
+  # (Optional)
+  registrationInterval: (( grab $WEBHOOK_REGISTRATION_INTERVAL || "4m" ))
+  # timeout provides the length of time the request should wait before timing out.
+  timeout: (( grab $WEBHOOK_TIMEOUT_INTERVAL || "1m" ))
+  # registrationURL provides the place to register the webhook.
+  registrationURL: (( grab $WEBHOOK_REGISTRATION_URL || "http://caduceus:6000/hook" ))
+  # request provides the information passed in the webhook registration request.
+  request:
+    # config provides configuration values for the requests to the webhook receiver.
+    config:
+      # url provides the server the webhook should send the events to.  If this
+      # value isn't set, no registration happens.
+      url: "http://glaukos:4200/api/v1/events"
+      # secret provides the key for hashing the messages the webhook sends.
+      # If this is empty, no authentication is done later for incoming requests
+      # to Glaukos.
+      # (Optional)
+      secret: "super secret"
+      # maxRetryCount is the number of times to retry on a failure.
+      # (Optional)
+      maxRetryCount: 3
+    # events provides a list of regular expressions that tells the webhook
+    # which endpoints to send to Glaukos.  If the destination of an event
+    # matches a regular expression in this list, it is sent to Glaukos
+    events: ["device-status.*"]
+
+  # the below configuration values provide a way to add an Authorization header
+  # to the request to the webhook.  If both basic and sat contain empty values,
+  # no header is sent.  sat takes priority over basic if both are set.
+
+  # basic provides a way to use Basic Authorization when registering to a
+  # webhook.  If this value is provided and sat isn't, the following header is
+  # added to the registration request:
+  #
+  # Authorization Basic {basic}
+  #
+  # (Optional)
+  basic: (( concat "Basic " webhookAuthToken ))
+
+  # Authorization Bearer {token}
+  #
+  # (Optional)
+  jwt:
+    # requestHeaders are added to the request for the token.
+    # (Optional)
+    # requestHeaders:
+    #   "": ""
+    # authURL is the URL to access for the token.
+    authURL: ""
+    # timeout is how long the request to get the token will take before
+    # timing out.
+    timeout: "1m"
+    # buffer is the length of time before a token expires to get a new token.
+    # (Optional)
+    buffer: "5s"
+codex:
+  address: (( grab $CODEX_ADDRESS || "localhost:6000" ))
+  auth:
+    # basic provides a way to use Basic Authorization when registering to a
+    # webhook.  If this value is provided and sat isn't, the following header is
+    # added to the registration request:
+    #
+    # Authorization Basic {basic}
+    #
+    # (Optional)
+    basic: (( concat "Basic " codexAuthToken ))
+    # jwt provides a way to use Bearer Authorization when registering to a
+    # webhook.  If the below values are all provided, a request is made to the
+    # URL to get the token to be used in the registration request.  The
+    # header would look like:
+    #
+    # Authorization Bearer {token}
+    #
+    # (Optional)
+    jwt:
+      # requestHeaders are added to the request for the token.
+      # (Optional)
+      # requestHeaders:
+      #   "": ""
+      # authURL is the URL to access for the token.
+      authURL: ""
+      # timeout is how long the request to get the token will take before
+      # timing out.
+      timeout: "1m"
+      # buffer is the length of time before a token expires to get a new token.
+      # (Optional)
+      buffer: "5s"
+
+#codexAuthtoken used to make spruce work better for codex authAcquirer
+codexAuthToken: (( grab $CODEX_BASIC_AUTH || "dXNlcjpwYXNz" ))
+
+#webhookAuthtoken used to make spruce work better for webhook authAcquirer
+webhookAuthToken: (( grab $WEBHOOK_BASIC_AUTH || "dXNlcjpwYXNz" ))
