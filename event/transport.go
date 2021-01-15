@@ -6,6 +6,7 @@ package event
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -34,7 +35,8 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 		statusCode := http.StatusInternalServerError
 		details := []interface{}{}
 
-		if e, ok := err.(kithttp.StatusCoder); ok {
+		var e kithttp.StatusCoder
+		if errors.As(err, &e) {
 			statusCode = e.StatusCode()
 		}
 
