@@ -28,7 +28,7 @@ func setupViper(v *viper.Viper, fs *pflag.FlagSet, name string) (err error) {
 		v.SetConfigFile(file)
 		err = v.ReadInConfig()
 	} else {
-		v.SetConfigName(string(name))
+		v.SetConfigName(name)
 		v.AddConfigPath(fmt.Sprintf("/etc/%s", name))
 		v.AddConfigPath(fmt.Sprintf("$HOME/.%s", name))
 		v.AddConfigPath(".")
