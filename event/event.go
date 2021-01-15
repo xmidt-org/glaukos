@@ -46,7 +46,7 @@ type BootTimeCalc struct {
 	Auth    acquire.Acquirer
 }
 
-var destinationRegex = regexp.MustCompile("^(?P<event>[^\\/]+)\\/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^\\/]+))\\/(?P<type>[^\\/\\s]+)")
+var destinationRegex = regexp.MustCompile(`^(?P<event>[^\\/]+)\\/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^\\/]+))\\/(?P<type>[^\\/\\s]+)`)
 var onlineRegex = regexp.MustCompile(".*/online$")
 var offlineRegex = regexp.MustCompile(".*/offline$")
 
