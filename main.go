@@ -87,6 +87,8 @@ func main() {
 			provideServerChainFactory,
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
+			arrange.UnmarshalKey("queue", event.QueueConfig{}),
+			event.NewEventQueue,
 			func(config WebhookConfig) webhookClient.SecretGetter {
 				return secretGetter.NewConstantSecret(config.Request.Config.Secret)
 			},
@@ -124,6 +126,9 @@ func main() {
 			BuildHealthRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
 				pr.Start()
+			},
+			func(eq *event.EventQueue) {
+				eq.Start()
 			},
 		),
 	)

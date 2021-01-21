@@ -34,21 +34,26 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(m MetadataParser, calc BootTimeCalc, logger log.Logger) Endpoints {
+func NewEndpoints(requestQueue *EventQueue, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(wrp.Message)
 			if !ok {
 				return nil, errors.New("invalid request info")
 			}
-			err := m.Parse(v)
-			if err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "failed to do metadata parser", logging.ErrorKey(), err)
+
+			if err := requestQueue.Queue(v); err != nil {
+				logging.Error(logger).Log(logging.MessageKey(), "failed to queue message", logging.ErrorKey(), err)
+				return nil, err
 			}
-			err = calc.Parse(v)
-			if err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "failed to do boot time parser", logging.ErrorKey(), err)
-			}
+			// err := m.Parse(v)
+			// if err != nil {
+			// 	logging.Error(logger).Log(logging.MessageKey(), "failed to do metadata parser", logging.ErrorKey(), err)
+			// }
+			// err = calc.Parse(v)
+			// if err != nil {
+			// 	logging.Error(logger).Log(logging.MessageKey(), "failed to do boot time parser", logging.ErrorKey(), err)
+			// }
 			return nil, nil
 		},
 	}

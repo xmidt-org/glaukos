@@ -14,20 +14,29 @@ import (
 	"go.uber.org/fx"
 )
 
+// CodexConfig determines the auth and address for connecting to the codex cluster
 type CodexConfig struct {
 	Address string
 	Auth    AuthAcquirerConfig
 }
+
 type AuthAcquirerConfig struct {
 	JWT   acquire.RemoteBearerTokenAcquirerOptions
 	Basic string
+}
+
+type ParsersOut struct {
+	fx.Out
+	BootTimeParser parser `name:"bootTimeParser"`
+	MetadataParser parser `name:"metadataParser"`
 }
 
 // Provide bundles everything needed for setting up the subscribe endpoint
 // together for easier wiring into an uber fx application.
 func Provide() fx.Option {
 	return fx.Options(
-		ProvideMetrics(),
+		ProvideEventMetrics(),
+		ProvideQueueMetrics(),
 		fx.Provide(
 			func(f func(context.Context) log.Logger) GetLoggerFunc {
 				return f
@@ -49,6 +58,12 @@ func Provide() fx.Option {
 					Logger:            logger,
 					Address:           codexConfig.Address,
 					Auth:              codexAuth,
+				}
+			},
+			func(calc BootTimeCalc, mp MetadataParser) ParsersOut {
+				return ParsersOut{
+					BootTimeParser: calc,
+					MetadataParser: mp,
 				}
 			},
 			NewEndpoints,

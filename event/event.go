@@ -23,6 +23,16 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
+const (
+	hardwareKey = "/hw-model"
+	firmwareKey = "/fw-name"
+	bootTimeKey = "/boot-time"
+)
+
+type parser interface {
+	Parse(wrp.Message) error
+}
+
 type MetadataParser struct {
 	MetadataFields metrics.Counter `name:"metadata_fields"`
 }
@@ -46,7 +56,7 @@ type BootTimeCalc struct {
 	Auth    acquire.Acquirer
 }
 
-var destinationRegex = regexp.MustCompile(`^(?P<event>[^\\/]+)\\/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^\\/]+))\\/(?P<type>[^\\/\\s]+)`)
+var destinationRegex = regexp.MustCompile(`^(?P<event>[^\/]+)\/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^\/]+))\/(?P<type>[^\/\s]+)`)
 var onlineRegex = regexp.MustCompile(".*/online$")
 var offlineRegex = regexp.MustCompile(".*/offline$")
 
@@ -59,7 +69,8 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 	4) Record Metric
 	*/
 	if !destinationRegex.MatchString(msg.Destination) || !onlineRegex.MatchString(msg.Destination) {
-		return errors.New("event is not online")
+		logging.Debug(b.Logger).Log(logging.MessageKey(), "event is not an online event")
+		return nil
 	}
 	bootTimeInt, err := GetWRPBootTime(msg)
 	if err != nil {
@@ -113,7 +124,7 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 	restartTime := math.Abs(time.Unix(0, lastestBirthDate).Sub(bootTime).Seconds())
 
 	if lastestBirthDate != int64(0) && previousBootTime != int64(0) {
-		b.BootTimeHistogram.With(HardwareLabel, msg.Metadata["/hw-model"], FirmwareLabel, msg.Metadata["/fw-name"]).Observe(restartTime)
+		b.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
 	} else {
 		logging.Error(b.Logger).Log(logging.MessageKey(), "failed to get restart time")
 	}
@@ -140,7 +151,7 @@ type ResponseEvent struct {
 func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	var bootTime int64
 	var err error
-	if bootTimeStr, ok := msg.Metadata["/boot-time"]; ok {
+	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
 			return 0, err
@@ -151,7 +162,7 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 func GetEventBootTime(msg Event) (int64, error) {
 	var bootTime int64
 	var err error
-	if bootTimeStr, ok := msg.Metadata["/boot-time"]; ok {
+	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
 			return 0, err
@@ -185,8 +196,6 @@ func getEvents(device string, logger log.Logger, codexAddress string, codexAuth 
 		logging.Error(logger).Log("status", status, logging.MessageKey(), "non 200", "url", request.URL)
 		return eventList
 	}
-
-	logging.Debug(logger).Log("url", request.URL, "data", data)
 
 	err = json.Unmarshal(data, &eventList)
 	if err != nil {

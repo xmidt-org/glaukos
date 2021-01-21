@@ -12,19 +12,21 @@ import (
 )
 
 const (
-	KeyLabel      = "metadata_key"
-	FirmwareLabel = "firmware"
-	HardwareLabel = "hardware"
+	KeyLabel       = "metadata_key"
+	FirmwareLabel  = "firmware"
+	HardwareLabel  = "hardware"
+	partnerIDLabel = "partner_id"
 )
 
+// MetricsIn tracks the various event-related metrics
 type MetricsIn struct {
 	fx.In
 	MetadataFields    metrics.Counter   `name:"metadata_fields"`
 	BootTimeHistogram metrics.Histogram `name:"boot_time_duration"`
 }
 
-// ProvideMetrics builds the application metrics and makes them available to the container.
-func ProvideMetrics() fx.Option {
+// ProvideEventMetrics builds the event-related metrics and makes them available to the container.
+func ProvideEventMetrics() fx.Option {
 	return fx.Provide(
 		xmetrics.ProvideCounter(
 			prometheus.CounterOpts{
@@ -41,6 +43,32 @@ func ProvideMetrics() fx.Option {
 			},
 			FirmwareLabel,
 			HardwareLabel,
+		),
+	)
+}
+
+// QueueMetricsIn contains the various queue-related metrics
+type QueueMetricsIn struct {
+	fx.In
+	EventQueue  metrics.Gauge   `name:"event_queue_depth"`
+	EventsCount metrics.Counter `name:"event_count"`
+}
+
+// ProvideQueueMetrics builds the queue-related metrics and makes them available to the container.
+func ProvideQueueMetrics() fx.Option {
+	return fx.Provide(
+		xmetrics.ProvideGauge(
+			prometheus.GaugeOpts{
+				Name: "event_queue_depth",
+				Help: "The depth of the event queue",
+			},
+		),
+		xmetrics.ProvideCounter(
+			prometheus.CounterOpts{
+				Name: "event_count",
+				Help: "Details of incoming events",
+			},
+			partnerIDLabel,
 		),
 	)
 }
