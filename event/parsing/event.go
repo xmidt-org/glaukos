@@ -29,14 +29,17 @@ const (
 	bootTimeKey = "/boot-time"
 )
 
+// Parser is the interface that all glaukos parsers must implement
 type Parser interface {
 	Parse(wrp.Message) error
 }
 
+// MetadataParser parses messages coming in and counts the various metadata keys of each request
 type MetadataParser struct {
 	MetadataFields metrics.Counter `name:"metadata_fields"`
 }
 
+// Parse gathers metrics for each metadata key
 func (m MetadataParser) Parse(msg wrp.Message) error {
 	if len(msg.Metadata) < 1 {
 		return errors.New("no metadata found")
@@ -47,6 +50,8 @@ func (m MetadataParser) Parse(msg wrp.Message) error {
 	return nil
 }
 
+// BootTimeCalc takes online events and calculates the reboot time of a device by getting the last
+// offline event from codex
 type BootTimeCalc struct {
 	BootTimeHistogram metrics.Histogram `name:"boot_time_duration"`
 
@@ -60,14 +65,16 @@ var destinationRegex = regexp.MustCompile(`^(?P<event>[^\/]+)\/((?P<prefix>(?i)m
 var onlineRegex = regexp.MustCompile(".*/online$")
 var offlineRegex = regexp.MustCompile(".*/offline$")
 
-func (b BootTimeCalc) Parse(msg wrp.Message) error {
-	/**
-	Steps to calculate boot time:
+/* Parse calculates boot time of devices by querying codex for the latest offline events and performing
+calculations. An analysis of codex events is only triggered by a device online event from caduceus.
+Steps to calculate boot time:
 	1) Determine if message is online event
 	2) Get lastest Offline event from Codex where metadata field of /boot-time differs of online event.
 	3) Subtract Online birthdate from steps 2 event Birthdate
 	4) Record Metric
-	*/
+*/
+func (b BootTimeCalc) Parse(msg wrp.Message) error {
+	// if event is not an online event, do not continue with calculations
 	if !destinationRegex.MatchString(msg.Destination) || !onlineRegex.MatchString(msg.Destination) {
 		logging.Debug(b.Logger).Log(logging.MessageKey(), "event is not an online event")
 		return nil
@@ -80,10 +87,13 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 
 	matchSub := destinationRegex.FindStringSubmatch(msg.Destination)
 	deviceID := matchSub[2]
+	// get events from codex pertaining to this device id
 	events := getEvents(deviceID, b.Logger, b.Address, b.Auth)
 
 	latestBootTime := bootTimeInt
 	previousBootTime := int64(0)
+
+	// find the previous boot-time and make sure that the boot time we have is the latest one
 	for _, event := range events {
 		if onlineRegex.MatchString(event.Dest) {
 			eventBootTimeInt, err := GetEventBootTime(event)
@@ -105,6 +115,7 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 		}
 	}
 
+	// look through offline events and find the latest offline event
 	lastestBirthDate := int64(0)
 	for _, event := range events {
 		if offlineRegex.MatchString(event.Dest) {
@@ -121,8 +132,10 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 		}
 	}
 
+	// boot time calculation
 	restartTime := math.Abs(time.Unix(0, lastestBirthDate).Sub(bootTime).Seconds())
 
+	// add to metrics or log the error
 	if lastestBirthDate != int64(0) && previousBootTime != int64(0) {
 		b.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
 	} else {
@@ -132,6 +145,7 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 	return nil
 }
 
+// Event is the struct that codex query results will be unmarshalled into
 type Event struct {
 	MsgType         int               `json:"msg_type"`
 	Source          string            `json:"source"`
@@ -148,6 +162,7 @@ type ResponseEvent struct {
 	Data []Event
 }
 
+// GetWRPBootTime grabs the boot-time from a wrp.Message's metadata
 func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	var bootTime int64
 	var err error
@@ -159,6 +174,8 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	}
 	return bootTime, nil
 }
+
+// GetEventBootTime grabs the boot-time from a Event's metadata
 func GetEventBootTime(msg Event) (int64, error) {
 	var bootTime int64
 	var err error
@@ -171,6 +188,7 @@ func GetEventBootTime(msg Event) (int64, error) {
 	return bootTime, nil
 }
 
+// query codex for events related to a device
 func getEvents(device string, logger log.Logger, codexAddress string, codexAuth acquire.Acquirer) []Event {
 	eventList := make([]Event, 0)
 	request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/device/%s/events", codexAddress, device), nil)

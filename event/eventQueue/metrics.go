@@ -22,8 +22,8 @@ type QueueMetricsIn struct {
 	EventsCount metrics.Counter `name:"event_count"`
 }
 
-// ProvideQueueMetrics builds the queue-related metrics and makes them available to the container.
-func ProvideQueueMetrics() fx.Option {
+// ProvideMetrics builds the queue-related metrics and makes them available to the container.
+func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		xmetrics.ProvideGauge(
 			prometheus.GaugeOpts{

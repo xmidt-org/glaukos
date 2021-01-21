@@ -52,6 +52,7 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 	}
 }
 
+// DecodeEvent decodes the request body into a wrp.Message type
 func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 	var message wrp.Message
 	msgBytes, err := ioutil.ReadAll(r.Body)

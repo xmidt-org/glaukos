@@ -18,14 +18,14 @@ import (
 	"go.uber.org/fx"
 )
 
+// GetLoggerFunc is the function used to get a request-specific logger from
+// its context.
+type GetLoggerFunc func(context.Context) log.Logger
+
 // Endpoints is the register go-kit endpoints.
 type Endpoints struct {
 	Event endpoint.Endpoint `name:"eventEndpoint"`
 }
-
-// GetLoggerFunc is the function used to get a request-specific logger from
-// its context.
-type GetLoggerFunc func(context.Context) log.Logger
 
 // EndpointsDecodeIn provides everything needed to handle the endpoints
 // provided.

@@ -10,7 +10,6 @@ import (
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
-	"go.uber.org/fx"
 )
 
 var (
@@ -28,24 +27,17 @@ type QueueConfig struct {
 	MaxWorkers int
 }
 
-// ParsersIn brings together all of the different types of parsers that glaukos uses
-type ParsersIn struct {
-	fx.In
-	BootTimeParser parsing.Parser `name:"bootTimeParser"`
-	MetadataParser parsing.Parser `name:"metadataParser"`
-}
-
 type EventQueue struct {
 	queue   chan wrp.Message
 	workers semaphore.Interface
 	wg      sync.WaitGroup
 	logger  log.Logger
 	config  QueueConfig
-	parsers ParsersIn
+	parsers parsing.ParsersIn
 	metrics QueueMetricsIn
 }
 
-func NewEventQueue(config QueueConfig, parsers ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
+func NewEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
 	if parsers.BootTimeParser == nil {
 		return nil, errors.New("No boot time parser")
 	}
