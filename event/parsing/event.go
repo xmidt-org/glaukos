@@ -2,7 +2,7 @@
  *  Copyright (c) 2020  Comcast Cable Communications Management, LLC
  */
 
-package event
+package parsing
 
 import (
 	"encoding/json"
@@ -29,7 +29,7 @@ const (
 	bootTimeKey = "/boot-time"
 )
 
-type parser interface {
+type Parser interface {
 	Parse(wrp.Message) error
 }
 

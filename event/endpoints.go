@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 
+	eventqueue "github.com/xmidt-org/glaukos/event/eventQueue"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/logging"
 
@@ -34,7 +35,7 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(requestQueue *EventQueue, logger log.Logger) Endpoints {
+func NewEndpoints(requestQueue *eventqueue.EventQueue, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(wrp.Message)
@@ -46,14 +47,6 @@ func NewEndpoints(requestQueue *EventQueue, logger log.Logger) Endpoints {
 				logging.Error(logger).Log(logging.MessageKey(), "failed to queue message", logging.ErrorKey(), err)
 				return nil, err
 			}
-			// err := m.Parse(v)
-			// if err != nil {
-			// 	logging.Error(logger).Log(logging.MessageKey(), "failed to do metadata parser", logging.ErrorKey(), err)
-			// }
-			// err = calc.Parse(v)
-			// if err != nil {
-			// 	logging.Error(logger).Log(logging.MessageKey(), "failed to do boot time parser", logging.ErrorKey(), err)
-			// }
 			return nil, nil
 		},
 	}

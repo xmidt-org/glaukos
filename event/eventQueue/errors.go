@@ -1,4 +1,4 @@
-package event
+package eventqueue
 
 import (
 	"net/http"

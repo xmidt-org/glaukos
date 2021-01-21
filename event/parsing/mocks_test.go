@@ -1,15 +1,15 @@
-package event
+package parsing
 
 import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
-type mockParser struct {
+type MockParser struct {
 	mock.Mock
 }
 
-func (mp *mockParser) Parse(msg wrp.Message) error {
+func (mp *MockParser) Parse(msg wrp.Message) error {
 	args := mp.Called(msg)
 	return args.Error(0)
 }

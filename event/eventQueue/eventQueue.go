@@ -1,10 +1,11 @@
-package event
+package eventqueue
 
 import (
 	"errors"
 	"sync"
 
 	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
@@ -30,8 +31,8 @@ type QueueConfig struct {
 // ParsersIn brings together all of the different types of parsers that glaukos uses
 type ParsersIn struct {
 	fx.In
-	BootTimeParser parser `name:"bootTimeParser"`
-	MetadataParser parser `name:"metadataParser"`
+	BootTimeParser parsing.Parser `name:"bootTimeParser"`
+	MetadataParser parsing.Parser `name:"metadataParser"`
 }
 
 type EventQueue struct {

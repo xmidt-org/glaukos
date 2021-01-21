@@ -10,6 +10,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
+	eventqueue "github.com/xmidt-org/glaukos/event/eventQueue"
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/webpa-common/logging"
 	"go.uber.org/fx"
 )
@@ -27,40 +29,40 @@ type AuthAcquirerConfig struct {
 
 type ParsersOut struct {
 	fx.Out
-	BootTimeParser parser `name:"bootTimeParser"`
-	MetadataParser parser `name:"metadataParser"`
+	BootTimeParser parsing.Parser `name:"bootTimeParser"`
+	MetadataParser parsing.Parser `name:"metadataParser"`
 }
 
 // Provide bundles everything needed for setting up the subscribe endpoint
 // together for easier wiring into an uber fx application.
 func Provide() fx.Option {
 	return fx.Options(
-		ProvideEventMetrics(),
-		ProvideQueueMetrics(),
+		parsing.ProvideEventMetrics(),
+		eventqueue.ProvideQueueMetrics(),
 		fx.Provide(
 			func(f func(context.Context) log.Logger) GetLoggerFunc {
 				return f
 			},
-			func(in MetricsIn) MetadataParser {
-				return MetadataParser{
+			func(in parsing.MetricsIn) parsing.MetadataParser {
+				return parsing.MetadataParser{
 					MetadataFields: in.MetadataFields,
 				}
 			},
 			arrange.UnmarshalKey("codex", CodexConfig{}),
-			func(logger log.Logger, metricsIn MetricsIn, codexConfig CodexConfig) BootTimeCalc {
+			func(logger log.Logger, metricsIn parsing.MetricsIn, codexConfig CodexConfig) parsing.BootTimeCalc {
 				codexAuth, err := determineCodexTokenAcquirer(logger, codexConfig)
 				if err != nil {
 					logging.Error(logger).Log(logging.MessageKey(), "failed to create acquirer", "error", err)
 				}
 
-				return BootTimeCalc{
+				return parsing.BootTimeCalc{
 					BootTimeHistogram: metricsIn.BootTimeHistogram,
 					Logger:            logger,
 					Address:           codexConfig.Address,
 					Auth:              codexAuth,
 				}
 			},
-			func(calc BootTimeCalc, mp MetadataParser) ParsersOut {
+			func(calc parsing.BootTimeCalc, mp parsing.MetadataParser) ParsersOut {
 				return ParsersOut{
 					BootTimeParser: calc,
 					MetadataParser: mp,

@@ -1,4 +1,4 @@
-package event
+package eventqueue
 
 import (
 	"errors"
@@ -8,11 +8,15 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/glaukos/event/parsing"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/semaphore"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 func TestNewEventParser(t *testing.T) {
-	mockMetadataParser := new(mockParser)
-	mockBootTimeCalc := new(mockParser)
+	mockMetadataParser := new(parsing.MockParser)
+	mockBootTimeCalc := new(parsing.MockParser)
 	emptyMetrics := QueueMetricsIn{}
 	tests := []struct {
 		description        string
@@ -104,19 +108,41 @@ func TestNewEventParser(t *testing.T) {
 }
 
 func TestParseEvent(t *testing.T) {
-	// msg := wrp.Message{
-	// 	Source:          "test source",
-	// 	Destination:     "device-status/mac:some_random_mac_address/an-event/some_timestamp",
-	// 	Type:            wrp.SimpleEventMessageType,
-	// 	PartnerIDs:      []string{"test1", "test2"},
-	// 	TransactionUUID: "transaction test uuid",
-	// 	Payload:         []byte(`{"ts":"2019-02-13T21:19:02.614191735Z"}`),
-	// 	Metadata:        map[string]string{"testkey": "testvalue"},
-	// }
+	msg := wrp.Message{
+		Source:          "test source",
+		Destination:     "device-status/mac:some_random_mac_address/an-event/some_timestamp",
+		Type:            wrp.SimpleEventMessageType,
+		PartnerIDs:      []string{"test1", "test2"},
+		TransactionUUID: "transaction test uuid",
+		Payload:         []byte(`{"ts":"2019-02-13T21:19:02.614191735Z"}`),
+		Metadata:        map[string]string{"testkey": "testvalue"},
+	}
 
-	mockMetadataParser := new(mockParser)
-	mockBootTimeCalc := new(mockParser)
+	mockMetadataParser := new(parsing.MockParser)
+	mockBootTimeCalc := new(parsing.MockParser)
 
-	mockMetadataParser.On("Parse", mock.Anything).Return(nil)
-	mockBootTimeCalc.On("Parse", mock.Anything).Return(nil)
+	mockMetadataParser.On("Parse", mock.Anything).Return(nil).Once()
+	mockBootTimeCalc.On("Parse", mock.Anything).Return(nil).Once()
+
+	parsers := ParsersIn{
+		MetadataParser: mockMetadataParser,
+		BootTimeParser: mockBootTimeCalc,
+	}
+
+	queue := EventQueue{
+		config: QueueConfig{
+			MaxWorkers: 10,
+			QueueSize:  10,
+		},
+		parsers: parsers,
+		logger:  logging.NewTestLogger(nil, t),
+		workers: semaphore.New(2),
+	}
+
+	queue.workers.Acquire()
+	queue.ParseEvent(msg)
+
+	mockMetadataParser.AssertCalled(t, "Parse", msg)
+	mockBootTimeCalc.AssertCalled(t, "Parse", msg)
+
 }
