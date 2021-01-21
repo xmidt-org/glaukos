@@ -39,5 +39,3 @@ if [[ $? -ne 0 ]]; then
 fi
 
 docker exec -it yb-tserver-n1 /home/yugabyte/bin/cqlsh yb-tserver-n1 -f /create_db.cql
-
-

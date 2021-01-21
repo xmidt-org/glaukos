@@ -35,7 +35,7 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(requestQueue *eventqueue.EventQueue, logger log.Logger) Endpoints {
+func NewEndpoints(eventQueue *eventqueue.EventQueue, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(wrp.Message)
@@ -43,7 +43,7 @@ func NewEndpoints(requestQueue *eventqueue.EventQueue, logger log.Logger) Endpoi
 				return nil, errors.New("invalid request info")
 			}
 
-			if err := requestQueue.Queue(v); err != nil {
+			if err := eventQueue.Queue(v); err != nil {
 				logging.Error(logger).Log(logging.MessageKey(), "failed to queue message", logging.ErrorKey(), err)
 				return nil, err
 			}

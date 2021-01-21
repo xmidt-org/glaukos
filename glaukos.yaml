@@ -105,7 +105,7 @@ webhook:
 
       # maxRetryCount is the number of times to retry on a failure.
       # (Optional)
-      maxRetryCount: 0
+      maxRetryCount: 1
 
       # alternativeURLs provides endpoints to round robin through on a failure
       # to send an event.  This is only used if the maxRetryCount is greater
