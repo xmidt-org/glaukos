@@ -84,59 +84,43 @@ func (b BootTimeCalc) Parse(msg wrp.Message) error {
 		return err
 	}
 	bootTime := time.Unix(bootTimeInt, 0)
-
-	matchSub := destinationRegex.FindStringSubmatch(msg.Destination)
-	deviceID := matchSub[2]
-	// get events from codex pertaining to this device id
-	events := getEvents(deviceID, b.Logger, b.Address, b.Auth)
-
 	latestBootTime := bootTimeInt
 	previousBootTime := int64(0)
 
+	// get events from codex pertaining to this device id
+	deviceID := destinationRegex.FindStringSubmatch(msg.Destination)[2]
+	events := getEvents(deviceID, b.Logger, b.Address, b.Auth)
+
 	// find the previous boot-time and make sure that the boot time we have is the latest one
 	for _, event := range events {
-		if onlineRegex.MatchString(event.Dest) {
-			eventBootTimeInt, err := GetEventBootTime(event)
-			if err != nil {
-				continue
-			}
+		bootTimeFound, err := checkOnlineEvent(event, msg.TransactionUUID, previousBootTime, latestBootTime)
 
-			if eventBootTimeInt > latestBootTime {
-				logging.Error(b.Logger).Log(logging.MessageKey(), "found newer boot-time")
+		if err != nil {
+			logging.Error(b.Logger).Log(logging.MessageKey(), err)
+			if bootTimeFound < 0 {
+				// something is wrong with this event's boot time, we shouldn't continue
 				return nil
-			}
-			if eventBootTimeInt == latestBootTime && event.TransactionUUID != msg.TransactionUUID {
-				logging.Error(b.Logger).Log(logging.MessageKey(), "found same boot-time")
-				return nil
-			}
-			if eventBootTimeInt > previousBootTime {
-				previousBootTime = eventBootTimeInt
 			}
 		}
+
+		previousBootTime = bootTimeFound
 	}
 
 	// look through offline events and find the latest offline event
-	lastestBirthDate := int64(0)
+	latestBirthDate := int64(0)
 	for _, event := range events {
-		if offlineRegex.MatchString(event.Dest) {
-			eventBootTimeInt, err := GetEventBootTime(event)
-			if err != nil {
-				continue
-			}
+		latestBirthDate, err = checkOfflineEvent(event, previousBootTime, latestBirthDate)
 
-			if eventBootTimeInt == previousBootTime {
-				if event.BirthDate > lastestBirthDate {
-					lastestBirthDate = event.BirthDate
-				}
-			}
+		if err != nil {
+			logging.Error(b.Logger).Log(logging.MessageKey(), err)
 		}
 	}
 
 	// boot time calculation
-	restartTime := math.Abs(time.Unix(0, lastestBirthDate).Sub(bootTime).Seconds())
+	restartTime := math.Abs(time.Unix(0, latestBirthDate).Sub(bootTime).Seconds())
 
 	// add to metrics or log the error
-	if lastestBirthDate != int64(0) && previousBootTime != int64(0) {
+	if latestBirthDate != int64(0) && previousBootTime != int64(0) {
 		b.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
 	} else {
 		logging.Error(b.Logger).Log(logging.MessageKey(), "failed to get restart time")
@@ -248,4 +232,51 @@ func doRequest(request *http.Request, logger log.Logger) (int, []byte, error) {
 	}
 
 	return response.StatusCode, data, nil
+}
+
+// Checks an event and sees if it is an online event.
+// If event is an online event, checks for the boot time to see if it is greater than previousBootTime.
+// Returns either the event's boot time or the previous boot time, whichever is greater.
+// In cases where the event's boot time is found to be equal or greater to the latest boot time, we return -1 and error, indicating
+// that we should not continue to parse metrics from this event
+func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, latestBootTime int64) (int64, error) {
+	if !onlineRegex.MatchString(e.Dest) {
+		return previousBootTime, nil
+	}
+
+	eventBootTimeInt, err := GetEventBootTime(e)
+	if err != nil {
+		return previousBootTime, err
+	}
+
+	if eventBootTimeInt > latestBootTime {
+		return -1, errors.New("found newer boot-time")
+	}
+	if eventBootTimeInt == latestBootTime && e.TransactionUUID != currentUUID {
+		return -1, errors.New("found same boot-time")
+	}
+	if eventBootTimeInt > previousBootTime {
+		return eventBootTimeInt, nil
+	}
+
+	return previousBootTime, nil
+}
+
+func checkOfflineEvent(e Event, previousBootTime int64, latestBirthDate int64) (int64, error) {
+	if !offlineRegex.MatchString(e.Dest) {
+		return latestBirthDate, nil
+	}
+
+	eventBootTimeInt, err := GetEventBootTime(e)
+	if err != nil {
+		return latestBirthDate, err
+	}
+
+	if eventBootTimeInt == previousBootTime {
+		if e.BirthDate > latestBirthDate {
+			return e.BirthDate, nil
+		}
+	}
+
+	return latestBirthDate, nil
 }
