@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/justinas/alice"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -95,6 +96,22 @@ func main() {
 			},
 			func(sg webhookClient.SecretGetter) (basculehttp.TokenFactory, error) {
 				return hashTokenFactory.New("Sha1", sha1.New, sg)
+			},
+			func(sg webhookClient.SecretGetter, sc SecretConfig, wc WebhookConfig) (alice.Chain, error) {
+				if sc.Header != "" && wc.Request.Config.Secret != "" {
+					if htf, err := hashTokenFactory.New("Sha1", sha1.New, sg); err != nil {
+						return alice.New(), err
+					} else {
+						authConstructor := basculehttp.NewConstructor(
+							basculehttp.WithTokenFactory("Sha1", htf),
+							basculehttp.WithHeaderName(sc.Header),
+							basculehttp.WithHeaderDelimiter(sc.Delimiter),
+						)
+						return alice.New(authConstructor), nil
+					}
+				}
+
+				return alice.New(), nil
 			},
 			func(config WebhookConfig) webhookClient.BasicConfig {
 				return webhookClient.BasicConfig{

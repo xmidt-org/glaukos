@@ -11,6 +11,7 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
+	"github.com/justinas/alice"
 	"go.uber.org/fx"
 )
 
@@ -38,16 +39,16 @@ func NewEventHandler(e endpoint.Endpoint, getLogger GetLoggerFunc) http.Handler 
 // handling requests for glaukos's primary subscribing endpoint.
 type RoutesIn struct {
 	fx.In
-	Handler Handler
-	//AuthChain alice.Chain
-	Router  *mux.Router `name:"servers.primary"`
-	APIBase string      `name:"api_base"`
+	Handler   Handler
+	AuthChain alice.Chain
+	Router    *mux.Router `name:"servers.primary"`
+	APIBase   string      `name:"api_base"`
 }
 
 // ConfigureRoutes sets up the router provided to handle traffic for the events parsing endpoint
 func ConfigureRoutes(in RoutesIn) {
 	path := fmt.Sprintf("/%s/events", in.APIBase)
-	//in.Router.Use(in.AuthChain.Then)
+	in.Router.Use(in.AuthChain.Then)
 	in.Router.Handle(path, in.Handler.Event).
 		Name("events").
 		Methods("POST")
