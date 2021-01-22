@@ -12,14 +12,17 @@ import (
 )
 
 const (
-	partnerIDLabel = "partner_id"
+	partnerIDLabel  = "partner_id"
+	reasonLabel     = "reason"
+	queueFullReason = "queue_full"
 )
 
 // QueueMetricsIn contains the various queue-related metrics
 type QueueMetricsIn struct {
 	fx.In
-	EventQueue  metrics.Gauge   `name:"event_queue_depth"`
-	EventsCount metrics.Counter `name:"event_count"`
+	EventsQueueDepth   metrics.Gauge   `name:"events_queue_depth"`
+	EventsCount        metrics.Counter `name:"events_count"`
+	DroppedEventsCount metrics.Counter `name:"dropped_events_count"`
 }
 
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.
@@ -27,16 +30,23 @@ func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		xmetrics.ProvideGauge(
 			prometheus.GaugeOpts{
-				Name: "event_queue_depth",
+				Name: "events_queue_depth",
 				Help: "The depth of the event queue",
 			},
 		),
 		xmetrics.ProvideCounter(
 			prometheus.CounterOpts{
-				Name: "event_count",
+				Name: "events_count",
 				Help: "Details of incoming events",
 			},
 			partnerIDLabel,
+		),
+		xmetrics.ProvideCounter(
+			prometheus.CounterOpts{
+				Name: "dropped_events_count",
+				Help: "The total number of events dropped",
+			},
+			reasonLabel,
 		),
 	)
 }

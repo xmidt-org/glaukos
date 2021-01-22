@@ -175,3 +175,52 @@ func TestParseEvent(t *testing.T) {
 	}
 
 }
+
+func TestQueue(t *testing.T) {
+	tests := []struct {
+		description        string
+		errorExpected      error
+		queueSize          int
+		numEvents          int
+		eventsMetricCount  float64
+		droppedMetricCount float64
+	}{
+		{
+			description:       "Queue not filled",
+			queueSize:         10,
+			numEvents:         7,
+			eventsMetricCount: 7,
+		},
+		{
+			description:        "Queue overflow",
+			queueSize:          10,
+			numEvents:          12,
+			eventsMetricCount:  10,
+			droppedMetricCount: 2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			metrics := QueueMetricsIn{
+				EventsQueueDepth:   p.NewGauge("depth"),
+				DroppedEventsCount: p.NewCounter("dropped"),
+			}
+
+			q := EventQueue{
+				logger:  logging.NewTestLogger(nil, t),
+				workers: semaphore.New(2),
+				metrics: metrics,
+				queue:   make(chan wrp.Message, tc.queueSize),
+			}
+
+			for i := 0; i < tc.numEvents; i++ {
+				q.Queue(wrp.Message{})
+			}
+
+			p.Assert(t, "depth")(xmetricstest.Value(tc.eventsMetricCount))
+			p.Assert(t, "dropped", reasonLabel, queueFullReason)(xmetricstest.Value(tc.droppedMetricCount))
+		})
+	}
+}

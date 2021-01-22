@@ -82,12 +82,13 @@ func (e *EventQueue) Start() {
 func (e *EventQueue) Queue(message wrp.Message) (err error) {
 	select {
 	case e.queue <- message:
-		if e.metrics.EventQueue != nil {
-			e.metrics.EventQueue.Add(1.0)
+		if e.metrics.EventsQueueDepth != nil {
+			e.metrics.EventsQueueDepth.Add(1.0)
 		}
-		logging.Debug(e.logger).Log(logging.MessageKey(), "queued message")
 	default:
-		logging.Error(e.logger).Log(logging.MessageKey(), "queue full")
+		if e.metrics.DroppedEventsCount != nil {
+			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
+		}
 		err = QueueFullError{Message: "Queue Full"}
 	}
 
@@ -103,8 +104,8 @@ func (e *EventQueue) Stop() {
 func (e *EventQueue) ParseEvents() {
 	defer e.wg.Done()
 	for event := range e.queue {
-		if e.metrics.EventQueue != nil {
-			e.metrics.EventQueue.Add(-1.0)
+		if e.metrics.EventsQueueDepth != nil {
+			e.metrics.EventsQueueDepth.Add(-1.0)
 		}
 		e.workers.Acquire()
 		go e.ParseEvent(event)

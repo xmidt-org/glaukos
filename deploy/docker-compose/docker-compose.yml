@@ -8,8 +8,8 @@ services:
       - "WEBHOOK_BASIC_AUTH=dXNlcjpwYXNz"
       - "WEBHOOK_REGISTRATION_INTERVAL=1m"
       - WEBHOOK_MAX_RETRY=0
-      - QUEUE_SIZE=3000
-      - QUEUE_MAX_WORKERS=1000
+      - QUEUE_SIZE=10
+      - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
     ports:
       - 4200-4203:4200-4203
