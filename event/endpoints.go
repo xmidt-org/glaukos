@@ -8,7 +8,7 @@ import (
 	"context"
 	"errors"
 
-	eventqueue "github.com/xmidt-org/glaukos/event/eventQueue"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/logging"
 
@@ -35,7 +35,7 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(eventQueue *eventqueue.EventQueue, logger log.Logger) Endpoints {
+func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(wrp.Message)

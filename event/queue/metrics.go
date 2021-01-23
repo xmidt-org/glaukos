@@ -2,7 +2,7 @@
  *  Copyright (c) 2020  Comcast Cable Communications Management, LLC
  */
 
-package eventqueue
+package queue
 
 import (
 	"github.com/go-kit/kit/metrics"

@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha1"
 	"errors"
 	"fmt"
@@ -22,7 +23,8 @@ import (
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/glaukos/event"
-	eventqueue "github.com/xmidt-org/glaukos/event/eventQueue"
+	"github.com/xmidt-org/glaukos/event/parsing"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/config"
 	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
@@ -88,8 +90,22 @@ func main() {
 			provideServerChainFactory,
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
-			arrange.UnmarshalKey("queue", eventqueue.QueueConfig{}),
-			eventqueue.NewEventQueue,
+			arrange.UnmarshalKey("queue", queue.QueueConfig{}),
+			func(lc fx.Lifecycle, config queue.QueueConfig, parsers parsing.ParsersIn, metrics queue.QueueMetricsIn, logger log.Logger) (*queue.EventQueue, error) {
+				q, err := queue.NewEventQueue(config, parsers, metrics, logger)
+				lc.Append(fx.Hook{
+					OnStart: func(ctx context.Context) error {
+						q.Start()
+						return nil
+					},
+					OnStop: func(ctx context.Context) error {
+						q.Stop()
+						return nil
+					},
+				})
+
+				return q, err
+			},
 			func(config WebhookConfig) webhookClient.SecretGetter {
 				return secretGetter.NewConstantSecret(config.Request.Config.Secret)
 			},
@@ -127,9 +143,6 @@ func main() {
 			BuildHealthRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
 				pr.Start()
-			},
-			func(eq *eventqueue.EventQueue) {
-				eq.Start()
 			},
 		),
 	)

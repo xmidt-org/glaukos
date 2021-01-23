@@ -1,4 +1,4 @@
-package eventqueue
+package queue
 
 import (
 	"errors"
