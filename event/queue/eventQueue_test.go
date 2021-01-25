@@ -91,7 +91,7 @@ func TestNewEventParser(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			queue, err := NewEventQueue(tc.config, tc.parsers, QueueMetricsIn{}, tc.logger)
+			queue, err := newEventQueue(tc.config, tc.parsers, QueueMetricsIn{}, tc.logger)
 
 			assert.Equal(tc.expectedErr, err)
 

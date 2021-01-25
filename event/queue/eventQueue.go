@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/fx"
 )
 
 var (
@@ -37,7 +39,7 @@ type EventQueue struct {
 	metrics QueueMetricsIn
 }
 
-func NewEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
+func newEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
 	if parsers.BootTimeParser == nil {
 		return nil, errors.New("No boot time parser")
 	}
@@ -61,7 +63,7 @@ func NewEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueM
 	queue := make(chan wrp.Message, config.QueueSize)
 	workers := semaphore.New(config.MaxWorkers)
 
-	r := EventQueue{
+	e := EventQueue{
 		config:  config,
 		queue:   queue,
 		logger:  logger,
@@ -70,12 +72,39 @@ func NewEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueM
 		metrics: metrics,
 	}
 
-	return &r, nil
+	return &e, nil
+}
+
+// ProvideEventQueue creates a new queue and appends the start and stop functions to the uber/fx lifecycle.
+func ProvideEventQueue(config QueueConfig, lc fx.Lifecycle, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
+	e, err := newEventQueue(config, parsers, metrics, logger)
+
+	if err != nil {
+		return nil, err
+	}
+
+	lc.Append(fx.Hook{
+		OnStart: func(context context.Context) error {
+			e.Start()
+			return nil
+		},
+		OnStop: func(context context.Context) error {
+			e.Stop()
+			return nil
+		},
+	})
+
+	return e, nil
 }
 
 func (e *EventQueue) Start() {
 	e.wg.Add(1)
 	go e.ParseEvents()
+}
+
+func (e *EventQueue) Stop() {
+	close(e.queue)
+	e.wg.Wait()
 }
 
 // Queue attempts to add a message to the queue and returns an error if the queue is full
@@ -93,11 +122,6 @@ func (e *EventQueue) Queue(message wrp.Message) (err error) {
 	}
 
 	return
-}
-
-func (e *EventQueue) Stop() {
-	close(e.queue)
-	e.wg.Wait()
 }
 
 // ParseEvents goes through the queue and calls ParseEvent on each event in the queue
