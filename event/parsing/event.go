@@ -262,6 +262,9 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 	return previousBootTime, nil
 }
 
+// Checks an event and sees if it is an offline event.
+// If event is an offline event, checks for the boot time to see if it matches the boot time we are looking for.
+// Returns either the event's birthdate or the latest birth date found, whichever is greater.
 func checkOfflineEvent(e Event, previousBootTime int64, latestBirthDate int64) (int64, error) {
 	if !offlineRegex.MatchString(e.Dest) {
 		return latestBirthDate, nil
