@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
 
 	"github.com/go-kit/kit/log"
@@ -24,7 +25,7 @@ const (
 )
 
 // QueueConfig configures the glaukos queue used to parse incoming events from Caduceus
-type QueueConfig struct {
+type Config struct {
 	QueueSize  int
 	MaxWorkers int
 }
@@ -34,12 +35,12 @@ type EventQueue struct {
 	workers semaphore.Interface
 	wg      sync.WaitGroup
 	logger  log.Logger
-	config  QueueConfig
+	config  Config
 	parsers parsing.ParsersIn
 	metrics QueueMetricsIn
 }
 
-func newEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
+func newEventQueue(config Config, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
 	if parsers.BootTimeParser == nil {
 		return nil, errors.New("No boot time parser")
 	}
@@ -76,7 +77,7 @@ func newEventQueue(config QueueConfig, parsers parsing.ParsersIn, metrics QueueM
 }
 
 // ProvideEventQueue creates a new queue and appends the start and stop functions to the uber/fx lifecycle.
-func ProvideEventQueue(config QueueConfig, lc fx.Lifecycle, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
+func ProvideEventQueue(config Config, lc fx.Lifecycle, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
 	e, err := newEventQueue(config, parsers, metrics, logger)
 
 	if err != nil {
@@ -118,7 +119,7 @@ func (e *EventQueue) Queue(message wrp.Message) (err error) {
 		if e.metrics.DroppedEventsCount != nil {
 			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
 		}
-		err = QueueFullError{Message: "Queue Full"}
+		err = NewErrorCode(http.StatusTooManyRequests, errors.New("queue full"))
 	}
 
 	return

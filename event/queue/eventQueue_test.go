@@ -22,7 +22,7 @@ func TestNewEventParser(t *testing.T) {
 	emptyMetrics := QueueMetricsIn{}
 	tests := []struct {
 		description        string
-		config             QueueConfig
+		config             Config
 		logger             log.Logger
 		parsers            parsing.ParsersIn
 		metrics            QueueMetricsIn
@@ -32,7 +32,7 @@ func TestNewEventParser(t *testing.T) {
 		{
 			description: "Custom config success",
 			logger:      log.NewJSONLogger(os.Stdout),
-			config: QueueConfig{
+			config: Config{
 				QueueSize:  100,
 				MaxWorkers: 10,
 			},
@@ -43,7 +43,7 @@ func TestNewEventParser(t *testing.T) {
 			metrics: emptyMetrics,
 			expectedEventQueue: &EventQueue{
 				logger: log.NewJSONLogger(os.Stdout),
-				config: QueueConfig{
+				config: Config{
 					QueueSize:  100,
 					MaxWorkers: 10,
 				},
@@ -62,7 +62,7 @@ func TestNewEventParser(t *testing.T) {
 			},
 			expectedEventQueue: &EventQueue{
 				logger: log.NewNopLogger(),
-				config: QueueConfig{
+				config: Config{
 					QueueSize:  defaultMinQueueSize,
 					MaxWorkers: defaultMinMaxWorkers,
 				},
@@ -154,7 +154,7 @@ func TestParseEvent(t *testing.T) {
 			}
 
 			queue := EventQueue{
-				config: QueueConfig{
+				config: Config{
 					MaxWorkers: 10,
 					QueueSize:  10,
 				},
