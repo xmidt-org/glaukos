@@ -18,6 +18,7 @@ import (
 func Provide() fx.Option {
 	return fx.Options(
 		parsing.Provide(),
+		queue.ProvideEventQueue(),
 		queue.ProvideMetrics(),
 		fx.Provide(
 			func(f func(context.Context) log.Logger) GetLoggerFunc {

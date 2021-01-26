@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
@@ -36,17 +35,18 @@ type EventQueue struct {
 	wg      sync.WaitGroup
 	logger  log.Logger
 	config  Config
-	parsers parsing.ParsersIn
-	metrics QueueMetricsIn
+	parsers []Parser
+	metrics Measures
 }
 
-func newEventQueue(config Config, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
-	if parsers.BootTimeParser == nil {
-		return nil, errors.New("No boot time parser")
-	}
+// Parser is the interface that all glaukos parsers must implement.
+type Parser interface {
+	Parse(wrp.Message) error
+}
 
-	if parsers.MetadataParser == nil {
-		return nil, errors.New("No metadata parser")
+func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
+	if len(parsers) == 0 {
+		return nil, errors.New("No parsers")
 	}
 
 	if config.MaxWorkers < defaultMinMaxWorkers {
@@ -76,26 +76,30 @@ func newEventQueue(config Config, parsers parsing.ParsersIn, metrics QueueMetric
 	return &e, nil
 }
 
-// ProvideEventQueue creates a new queue and appends the start and stop functions to the uber/fx lifecycle.
-func ProvideEventQueue(config Config, lc fx.Lifecycle, parsers parsing.ParsersIn, metrics QueueMetricsIn, logger log.Logger) (*EventQueue, error) {
-	e, err := newEventQueue(config, parsers, metrics, logger)
+// ProvideEventQueue creates an uber/fx option and appends the queue start and stop into the fx lifecycle.
+func ProvideEventQueue() fx.Option {
+	return fx.Provide(
+		func(config Config, lc fx.Lifecycle, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
+			e, err := newEventQueue(config, parsers, metrics, logger)
 
-	if err != nil {
-		return nil, err
-	}
+			if err != nil {
+				return nil, err
+			}
 
-	lc.Append(fx.Hook{
-		OnStart: func(context context.Context) error {
-			e.Start()
-			return nil
+			lc.Append(fx.Hook{
+				OnStart: func(context context.Context) error {
+					e.Start()
+					return nil
+				},
+				OnStop: func(context context.Context) error {
+					e.Stop()
+					return nil
+				},
+			})
+
+			return e, nil
 		},
-		OnStop: func(context context.Context) error {
-			e.Stop()
-			return nil
-		},
-	})
-
-	return e, nil
+	)
 }
 
 func (e *EventQueue) Start() {
@@ -108,7 +112,7 @@ func (e *EventQueue) Stop() {
 	e.wg.Wait()
 }
 
-// Queue attempts to add a message to the queue and returns an error if the queue is full
+// Queue attempts to add a message to the queue and returns an error if the queue is full.
 func (e *EventQueue) Queue(message wrp.Message) (err error) {
 	select {
 	case e.queue <- message:
@@ -125,7 +129,7 @@ func (e *EventQueue) Queue(message wrp.Message) (err error) {
 	return
 }
 
-// ParseEvents goes through the queue and calls ParseEvent on each event in the queue
+// ParseEvents goes through the queue and calls ParseEvent on each event in the queue.
 func (e *EventQueue) ParseEvents() {
 	defer e.wg.Done()
 	for event := range e.queue {
@@ -137,7 +141,7 @@ func (e *EventQueue) ParseEvents() {
 	}
 }
 
-// ParseEvent parses the metadata and boot-time of each event and generates metrics
+// ParseEvent parses the metadata and boot-time of each event and generates metrics.
 func (e *EventQueue) ParseEvent(message wrp.Message) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
@@ -145,13 +149,9 @@ func (e *EventQueue) ParseEvent(message wrp.Message) {
 		e.metrics.EventsCount.With(partnerIDLabel, partnerID).Add(1.0)
 	}
 
-	err := e.parsers.MetadataParser.Parse(message)
-	if err != nil {
-		logging.Error(e.logger).Log(logging.MessageKey(), "failed to do metadata parse", logging.ErrorKey(), err)
+	for _, p := range e.parsers {
+		if err := p.Parse(message); err != nil {
+			logging.Error(e.logger).Log(logging.MessageKey(), "failed to parse", logging.ErrorKey(), err)
+		}
 	}
-	err = e.parsers.BootTimeParser.Parse(message)
-	if err != nil {
-		logging.Error(e.logger).Log(logging.MessageKey(), "failed to do boot time parse", logging.ErrorKey(), err)
-	}
-
 }

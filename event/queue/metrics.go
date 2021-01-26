@@ -17,8 +17,8 @@ const (
 	queueFullReason = "queue_full"
 )
 
-// QueueMetricsIn contains the various queue-related metrics
-type QueueMetricsIn struct {
+// Measures contains the various queue-related metrics.
+type Measures struct {
 	fx.In
 	EventsQueueDepth   metrics.Gauge   `name:"events_queue_depth"`
 	EventsCount        metrics.Counter `name:"events_count"`

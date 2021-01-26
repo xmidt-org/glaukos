@@ -5,7 +5,7 @@ type ErrorCode struct {
 	err  error
 }
 
-// NewErrorCode creates a new error code with the specified status code and error message
+// NewErrorCode creates a new error code with the specified status code and error message.
 func NewErrorCode(code int, err error) ErrorCode {
 	return ErrorCode{
 		code: code,

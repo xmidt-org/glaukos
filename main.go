@@ -89,7 +89,6 @@ func main() {
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			arrange.UnmarshalKey("queue", queue.Config{}),
-			queue.ProvideEventQueue,
 			func(config WebhookConfig) webhookClient.SecretGetter {
 				return secretGetter.NewConstantSecret(config.Request.Config.Secret)
 			},
