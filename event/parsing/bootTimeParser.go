@@ -12,7 +12,6 @@ import (
 	"math"
 	"net/http"
 	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -61,30 +60,22 @@ func (b BootTimeParser) Parse(msg wrp.Message) error {
 		logging.Debug(b.Logger).Log(logging.MessageKey(), "event is not an online event")
 		return nil
 	}
-	bootTimeInt, err := GetWRPBootTime(msg)
+
+	// get boot time and device id from message
+	bootTimeInt, deviceID, err := getMessageInfo(destinationRegex, msg)
 	if err != nil {
 		return err
 	}
-	bootTime := time.Unix(bootTimeInt, 0)
-	latestBootTime := bootTimeInt
+
+	latestBootTime := time.Unix(bootTimeInt, 0)
 	previousBootTime := int64(0)
 
 	// get events from codex pertaining to this device id
-	match := destinationRegex.FindStringSubmatch(msg.Destination)
-	if len(match) < 3 {
-		e := errors.New("error getting device ID from event")
-		logging.Error(b.Logger).Log(logging.MessageKey(), e.Error())
-		return e
-	}
-
-	deviceID := match[2]
 	events := getEvents(deviceID, b.Logger, b.Address, b.Auth)
 
 	// find the previous boot-time and make sure that the boot time we have is the latest one
 	for _, event := range events {
-		previousBootTime, err = checkOnlineEvent(event, msg.TransactionUUID, previousBootTime, latestBootTime)
-
-		if err != nil {
+		if previousBootTime, err = checkOnlineEvent(event, msg.TransactionUUID, previousBootTime, bootTimeInt); err != nil {
 			logging.Error(b.Logger).Log(logging.MessageKey(), err)
 			if previousBootTime < 0 {
 				// something is wrong with this event's boot time, we shouldn't continue
@@ -95,20 +86,18 @@ func (b BootTimeParser) Parse(msg wrp.Message) error {
 	}
 
 	// look through offline events and find the latest offline event
-	latestBirthDate := int64(0)
+	latestOfflineEvent := int64(0)
 	for _, event := range events {
-		latestBirthDate, err = checkOfflineEvent(event, previousBootTime, latestBirthDate)
-
-		if err != nil {
+		if latestOfflineEvent, err = checkOfflineEvent(event, previousBootTime, latestOfflineEvent); err != nil {
 			logging.Error(b.Logger).Log(logging.MessageKey(), err)
 		}
 	}
 
 	// boot time calculation
-	restartTime := math.Abs(time.Unix(0, latestBirthDate).Sub(bootTime).Seconds())
+	restartTime := math.Abs(time.Unix(0, latestOfflineEvent).Sub(latestBootTime).Seconds())
 
 	// add to metrics or log the error
-	if latestBirthDate != 0 && previousBootTime != 0 {
+	if latestOfflineEvent != 0 && previousBootTime != 0 {
 		b.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
 	} else {
 		logging.Error(b.Logger).Log(logging.MessageKey(), "failed to get restart time")
@@ -132,32 +121,6 @@ type Event struct {
 
 type ResponseEvent struct {
 	Data []Event
-}
-
-// GetWRPBootTime grabs the boot-time from a wrp.Message's metadata.
-func GetWRPBootTime(msg wrp.Message) (int64, error) {
-	var bootTime int64
-	var err error
-	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
-		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return bootTime, nil
-}
-
-// GetEventBootTime grabs the boot-time from a Event's metadata.
-func GetEventBootTime(msg Event) (int64, error) {
-	var bootTime int64
-	var err error
-	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
-		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return bootTime, nil
 }
 
 // query codex for events related to a device
@@ -267,4 +230,18 @@ func checkOfflineEvent(e Event, previousBootTime int64, latestBirthDate int64) (
 	}
 
 	return latestBirthDate, nil
+}
+
+func getMessageInfo(destinationRegex *regexp.Regexp, msg wrp.Message) (bootTime int64, deviceID string, err error) {
+	bootTime, err = GetWRPBootTime(msg)
+	if err != nil {
+		return
+	}
+
+	deviceID, err = GetDeviceID(destinationRegex, msg.Destination)
+	if err != nil {
+		return
+	}
+
+	return
 }
