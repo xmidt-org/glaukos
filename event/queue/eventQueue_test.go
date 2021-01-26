@@ -8,7 +8,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/xmetrics"
@@ -17,15 +16,15 @@ import (
 )
 
 func TestNewEventParser(t *testing.T) {
-	mockMetadataParser := new(parsing.MockParser)
-	mockBootTimeCalc := new(parsing.MockParser)
-	emptyMetrics := QueueMetricsIn{}
+	mockMetadataParser := new(MockParser)
+	mockBootTimeCalc := new(MockParser)
+	emptyMetrics := Measures{}
 	tests := []struct {
 		description        string
 		config             Config
 		logger             log.Logger
-		parsers            parsing.ParsersIn
-		metrics            QueueMetricsIn
+		parsers            []Parser
+		metrics            Measures
 		expectedEventQueue *EventQueue
 		expectedErr        error
 	}{
@@ -36,10 +35,7 @@ func TestNewEventParser(t *testing.T) {
 				QueueSize:  100,
 				MaxWorkers: 10,
 			},
-			parsers: parsing.ParsersIn{
-				BootTimeParser: mockBootTimeCalc,
-				MetadataParser: mockMetadataParser,
-			},
+			parsers: []Parser{mockBootTimeCalc, mockMetadataParser},
 			metrics: emptyMetrics,
 			expectedEventQueue: &EventQueue{
 				logger: log.NewJSONLogger(os.Stdout),
@@ -47,51 +43,38 @@ func TestNewEventParser(t *testing.T) {
 					QueueSize:  100,
 					MaxWorkers: 10,
 				},
-				parsers: parsing.ParsersIn{
-					BootTimeParser: mockBootTimeCalc,
-					MetadataParser: mockMetadataParser,
-				},
+				parsers: []Parser{mockBootTimeCalc, mockMetadataParser},
 				metrics: emptyMetrics,
 			},
 		},
 		{
 			description: "Success with defaults",
-			parsers: parsing.ParsersIn{
-				BootTimeParser: mockBootTimeCalc,
-				MetadataParser: mockMetadataParser,
-			},
+			parsers:     []Parser{mockBootTimeCalc, mockMetadataParser},
 			expectedEventQueue: &EventQueue{
 				logger: log.NewNopLogger(),
 				config: Config{
 					QueueSize:  defaultMinQueueSize,
 					MaxWorkers: defaultMinMaxWorkers,
 				},
-				parsers: parsing.ParsersIn{
-					BootTimeParser: mockBootTimeCalc,
-					MetadataParser: mockMetadataParser,
-				},
+				parsers: []Parser{mockBootTimeCalc, mockMetadataParser},
 			},
 		},
 		{
-			description: "No boot time parser",
-			parsers: parsing.ParsersIn{
-				MetadataParser: mockMetadataParser,
-			},
-			expectedErr: errors.New("No boot time parser"),
+			description: "No parsers",
+			parsers:     []Parser{},
+			expectedErr: errors.New("No parsers"),
 		},
 		{
-			description: "No metadata parser",
-			parsers: parsing.ParsersIn{
-				BootTimeParser: mockBootTimeCalc,
-			},
-			expectedErr: errors.New("No metadata parser"),
+			description: "Nil parser",
+			parsers:     nil,
+			expectedErr: errors.New("No parsers"),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			queue, err := newEventQueue(tc.config, tc.parsers, QueueMetricsIn{}, tc.logger)
+			queue, err := newEventQueue(tc.config, tc.parsers, Measures{}, tc.logger)
 
 			assert.Equal(tc.expectedErr, err)
 
@@ -124,17 +107,17 @@ func TestParseEvent(t *testing.T) {
 	tests := []struct {
 		description         string
 		expectedEventsCount float64
-		metrics             QueueMetricsIn
+		metrics             Measures
 	}{
 		{
 			description:         "Without metrics",
 			expectedEventsCount: 0,
-			metrics:             QueueMetricsIn{},
+			metrics:             Measures{},
 		},
 		{
 			description:         "With metrics",
 			expectedEventsCount: 1,
-			metrics: QueueMetricsIn{
+			metrics: Measures{
 				EventsCount: p.NewCounter("depth"),
 			},
 		},
@@ -142,16 +125,13 @@ func TestParseEvent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			mockMetadataParser := new(parsing.MockParser)
-			mockBootTimeCalc := new(parsing.MockParser)
+			mockMetadataParser := new(MockParser)
+			mockBootTimeCalc := new(MockParser)
 
 			mockMetadataParser.On("Parse", mock.Anything).Return(nil).Once()
 			mockBootTimeCalc.On("Parse", mock.Anything).Return(nil).Once()
 
-			parsers := parsing.ParsersIn{
-				MetadataParser: mockMetadataParser,
-				BootTimeParser: mockBootTimeCalc,
-			}
+			parsers := []Parser{mockBootTimeCalc, mockMetadataParser}
 
 			queue := EventQueue{
 				config: Config{
@@ -203,7 +183,7 @@ func TestQueue(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			p := xmetricstest.NewProvider(&xmetrics.Options{})
-			metrics := QueueMetricsIn{
+			metrics := Measures{
 				EventsQueueDepth:   p.NewGauge("depth"),
 				DroppedEventsCount: p.NewCounter("dropped"),
 			}

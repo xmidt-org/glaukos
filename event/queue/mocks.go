@@ -1,4 +1,4 @@
-package parsing
+package queue
 
 import (
 	"github.com/stretchr/testify/mock"
