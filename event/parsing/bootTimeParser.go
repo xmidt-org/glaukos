@@ -62,7 +62,7 @@ func (b BootTimeParser) Parse(msg wrp.Message) error {
 	}
 
 	// get boot time and device id from message
-	bootTimeInt, deviceID, err := getMessageInfo(destinationRegex, msg)
+	bootTimeInt, deviceID, err := getWRPInfo(destinationRegex, msg)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func checkOfflineEvent(e Event, previousBootTime int64, latestBirthDate int64) (
 	return latestBirthDate, nil
 }
 
-func getMessageInfo(destinationRegex *regexp.Regexp, msg wrp.Message) (bootTime int64, deviceID string, err error) {
+func getWRPInfo(destinationRegex *regexp.Regexp, msg wrp.Message) (bootTime int64, deviceID string, err error) {
 	bootTime, err = GetWRPBootTime(msg)
 	if err != nil {
 		return
