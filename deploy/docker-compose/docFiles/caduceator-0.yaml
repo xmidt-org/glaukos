@@ -19,14 +19,14 @@ log:
   maxbackups: 10
   json: true
 vegetaConfig:
-  frequency: 10
+  frequency: 500
   period: "5s"
   connections: 500
   duration: 0
   maxRoutines: 0
   postURL: "http://caduceus:6000/api/v3/notify"
-  sleepTime: "5s"
-  clientTimeout: "5s"
+  sleepTime: "0s"
+  clientTimeout: "15s"
   wrpMessageDest: "event:device-status/mac:112233445566/offline"
 
   # simulates talaria rehash
@@ -66,12 +66,12 @@ secret:
 webhook:
   registrationInterval: "24h"
   timeout: "5s"
-  registrationURL: "http://caduceus:6000/hook"
+  registrationURL: ""
   webhookCount: 1
   request:
     webhookConfig:
-      url: "http://caduceator:5000/events"
-      failureURL: "http://caduceator:5000/cutoff"
+      url: ""
+      failureURL: ""
       secret: "secret1234"
       maxRetryCount: 3
       #AlternativeURLs: []

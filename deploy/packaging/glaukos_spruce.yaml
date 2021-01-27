@@ -82,7 +82,7 @@ log:
 
   # level is the logging level to use - INFO, DEBUG, WARN, ERROR
   # (Optional) defaults to ERROR
-  level: (( grab $LOG_LEVEL || "INFO" ))
+  level: (( grab $LOG_LEVEL || "ERROR" ))
 
   # maxsize is the maximum file size in MB
   # (Optional) defaults to max 100MB
@@ -111,6 +111,20 @@ secret:
   # delimiter provides the string that is expected between "Sha1" and the hash.
   # (Optional)
   delimiter: (( grab $SECRET_DELIMITER || "=" ))
+
+########################################
+#   Queue Related Configuration
+########################################
+queue:
+  # queueSize provides the maximum number of events that can be added to the
+  # queue.  Once events are taken off the queue, they are parsed for metrics.
+  # If a value below 5 is chosen, it defaults to 5.
+  # (Optional) defaults to 5
+  queueSize: (( grab $QUEUE_SIZE || 5 ))
+  # maxWorkers provides the maximum number of workers parsing events at a
+  # time.  If a value below 5 is chosen, it defaults to 5.
+  # (Optional) defaults to 5
+  maxWorkers: (( grab $QUEUE_MAX_WORKERS || 5 ))
 
 ########################################
 #   Webhook Registration Related Configuration
@@ -143,7 +157,7 @@ webhook:
       secret: "super secret"
       # maxRetryCount is the number of times to retry on a failure.
       # (Optional)
-      maxRetryCount: 3
+      maxRetryCount: (( grab $WEBHOOK_MAX_RETRY || 0 ))
     # events provides a list of regular expressions that tells the webhook
     # which endpoints to send to Glaukos.  If the destination of an event
     # matches a regular expression in this list, it is sent to Glaukos

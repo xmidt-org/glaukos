@@ -105,7 +105,7 @@ webhook:
 
       # maxRetryCount is the number of times to retry on a failure.
       # (Optional)
-      maxRetryCount: 3
+      maxRetryCount: 1
 
       # alternativeURLs provides endpoints to round robin through on a failure
       # to send an event.  This is only used if the maxRetryCount is greater
@@ -194,3 +194,14 @@ codex:
       # buffer is the length of time before a token expires to get a new token.
       # (Optional)
       buffer: "5s"
+
+queue:
+  # queueSize provides the maximum number of events that can be added to the
+  # queue.  Once events are taken off the queue, they are parsed for metrics.
+  # If a value below 5 is chosen, it defaults to 5.
+  # (Optional) defaults to 5
+  queueSize: 5
+  # maxWorkers provides the maximum number of workers parsing events at a
+  # time.  If a value below 5 is chosen, it defaults to 5.
+  # (Optional) defaults to 5
+  maxWorkers: 5

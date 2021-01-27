@@ -44,7 +44,7 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 		logger := getLogger(ctx)
 		if logger != nil {
 			logger = log.With(logger, details...)
-			logger.Log(level.Key(), level.ErrorValue(), xlog.MessageKey(), "failed to subscribe device",
+			logger.Log(level.Key(), level.ErrorValue(), xlog.MessageKey(), "failed to process event",
 				xlog.ErrorKey(), err, "resp status code", statusCode)
 		}
 
@@ -52,6 +52,7 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 	}
 }
 
+// DecodeEvent decodes the request body into a wrp.Message type.
 func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 	var message wrp.Message
 	msgBytes, err := ioutil.ReadAll(r.Body)

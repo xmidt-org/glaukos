@@ -15,7 +15,7 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-sleep 10
+sleep 5
 AWS_ACCESS_KEY_ID=accessKey AWS_SECRET_ACCESS_KEY=secretKey aws dynamodb  --endpoint-url http://localhost:8000 describe-table --table-name gifnoc --region us-east-2 --output text > /dev/null 2> /dev/null
 if [[ $? -ne 0 ]]; then
   AWS_ACCESS_KEY_ID=accessKey AWS_SECRET_ACCESS_KEY=secretKey aws dynamodb  --endpoint-url http://localhost:8000 create-table \

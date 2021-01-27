@@ -6,7 +6,10 @@ services:
     environment:
       - "CODEX_BASIC_AUTH=YXV0aEhlYWRlcjp0ZXN0"
       - "WEBHOOK_BASIC_AUTH=dXNlcjpwYXNz"
-      - "WEBHOOK_REGISTRATION_INTERVAL=2m"
+      - "WEBHOOK_REGISTRATION_INTERVAL=1m"
+      - WEBHOOK_MAX_RETRY=0
+      - QUEUE_SIZE=10
+      - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
     ports:
       - 4200-4203:4200-4203
