@@ -34,6 +34,7 @@ func GetEventBootTime(msg Event) (int64, error) {
 	return bootTime, nil
 }
 
+// GetDeviceID grabs the device id from a given destination string
 func GetDeviceID(destinationRegex *regexp.Regexp, destination string) (string, error) {
 	match := destinationRegex.FindStringSubmatch(destination)
 	if len(match) < 3 {
