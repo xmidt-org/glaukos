@@ -49,10 +49,10 @@ var offlineRegex = regexp.MustCompile(".*/offline$")
 /* Parse calculates boot time of devices by querying codex for the latest offline events and performing
 calculations. An analysis of codex events is only triggered by a device online event from caduceus.
 Steps to calculate boot time:
-	1) Determine if message is online event
+	1) Determine if message is online event.
 	2) Get lastest Offline event from Codex where metadata field of /boot-time differs of online event.
-	3) Subtract Online birthdate from steps 2 event Birthdate
-	4) Record Metric
+	3) Subtract Online birthdate from steps 2 event Birthdate.
+	4) Record Metric.
 */
 func (b BootTimeParser) Parse(msg wrp.Message) error {
 	// if event is not an online event, do not continue with calculations

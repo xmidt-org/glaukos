@@ -33,6 +33,7 @@ func Provide() fx.Option {
 		ProvideEventMetrics(),
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
+			determineCodexTokenAcquirer,
 			fx.Annotated{
 				Group: "parsers",
 				Target: func(in MetricsIn) queue.Parser {
@@ -44,12 +45,7 @@ func Provide() fx.Option {
 			},
 			fx.Annotated{
 				Group: "parsers",
-				Target: func(logger log.Logger, in MetricsIn, codexConfig CodexConfig) queue.Parser {
-					codexAuth, err := determineCodexTokenAcquirer(logger, codexConfig)
-					if err != nil {
-						logging.Error(logger).Log(logging.MessageKey(), "failed to create acquirer", "error", err)
-					}
-
+				Target: func(logger log.Logger, in MetricsIn, codexConfig CodexConfig, codexAuth acquire.Acquirer) queue.Parser {
 					return BootTimeParser{
 						BootTimeHistogram:     in.BootTimeHistogram,
 						UnparsableEventsCount: in.UnparsableEventsCount,
