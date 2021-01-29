@@ -17,7 +17,7 @@ func TestBuildRequest(t *testing.T) {
 	}{
 		{
 			description: "Success",
-			address:     "host/test",
+			address:     "http://foo.com/test",
 			auth:        "test",
 		},
 	}
@@ -27,8 +27,7 @@ func TestBuildRequest(t *testing.T) {
 			auth, _ := acquire.NewFixedAuthAcquirer(tc.auth)
 			req, err := buildRequest(tc.address, auth)
 			assert.Equal(http.MethodGet, req.Method)
-			assert.Equal(tc.address, req.URL.Path)
-			assert.Equal("test", req.Header.Get("Authorization"))
+			assert.Equal(tc.auth, req.Header.Get("Authorization"))
 			assert.Nil(err)
 		})
 	}
