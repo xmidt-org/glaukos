@@ -13,10 +13,6 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
-type EventsQuerier interface {
-	GetEvents(device string) []Event
-}
-
 type CodexClient struct {
 	Address string
 	Auth    acquire.Acquirer
