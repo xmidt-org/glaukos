@@ -1,13 +1,13 @@
 ---
 primary:
-  address: ":5010"
+  address: ":5020"
 health:
-  port: ":5011"
+  port: ":5021"
   endpoint: "/health"
 pprof:
-  address: ":5012"
+  address: ":5022"
 metric:
-  address: ":5013"
+  address: ":5023"
   metricsOptions:
     namespace: xmidt
     subsystem: caduceator
@@ -27,7 +27,7 @@ vegetaConfig:
   postURL: "http://caduceus:6000/api/v3/notify"
   sleepTime: "0s"
   clientTimeout: "15s"
-  wrpMessageDest: "event:device-status/mac:112233445566/online"
+  wrpMessageDest: "event:device-status/mac:112233445566/offline"
   TransactionId: "123"
   BootTime: "1612222459"
 
@@ -38,7 +38,7 @@ vegetaConfig:
     frequency: 500
     connections: 500
     duration: 0
-    wrpMessageDest: "event:device-status/mac:112233445566/online"
+    wrpMessageDest: "event:device-status/mac:112233445566/offline"
 
 # The following is an example Caduceator vegeta configuration to load test Caduceus
 # of a slow consumer by sending 1000 events per second and only wanting Caduceator

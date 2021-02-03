@@ -85,6 +85,11 @@ func TestGetEventBootTime(t *testing.T) {
 			expectedBootTime: 0,
 		},
 		{
+			description:      "No Metadata",
+			msg:              Event{},
+			expectedBootTime: 0,
+		},
+		{
 			description: "Int conversion error",
 			msg: Event{
 				Metadata: map[string]string{

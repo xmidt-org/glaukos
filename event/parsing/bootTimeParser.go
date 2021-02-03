@@ -89,6 +89,7 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 				return -1, err
 			}
 		}
+
 	}
 
 	// look through offline events and find the latest offline event
@@ -100,8 +101,8 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 	}
 
 	// boot time calculation
-	restartTime := math.Abs(latestBootTime.Sub(time.Unix(latestOfflineEvent, 0)).Seconds())
-
+	// event birthdate is saved in unix nanoseconds, so we must first convert it to a unix time using nanoseconds
+	restartTime := math.Abs(latestBootTime.Sub(time.Unix(0, latestOfflineEvent)).Seconds())
 	// add to metrics or log the error
 	if latestOfflineEvent != 0 && previousBootTime != 0 {
 		return restartTime, nil

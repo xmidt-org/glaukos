@@ -33,10 +33,6 @@ type Event struct {
 	PartnerIDs      []string          `json:"partner_ids,omitempty"`
 }
 
-type ResponseEvent struct {
-	Data []Event
-}
-
 // query codex for events related to a device
 func (c *CodexClient) GetEvents(device string) []Event {
 	eventList := make([]Event, 0)
@@ -73,12 +69,9 @@ func buildRequest(address string, auth acquire.Acquirer) (*http.Request, error) 
 		return nil, err
 	}
 
-	authVal, err := auth.Acquire()
-	if err != nil {
+	if err := acquire.AddAuth(request, auth); err != nil {
 		return nil, err
 	}
-
-	request.Header.Add("Authorization", authVal)
 
 	return request, nil
 }

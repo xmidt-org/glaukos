@@ -34,7 +34,7 @@ func Provide() fx.Option {
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
-			func(config CodexConfig, codexAuth acquire.Acquirer, logger log.Logger) *CodexClient {
+			func(config CodexConfig, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
 				return &CodexClient{
 					Address: config.Address,
 					Auth:    codexAuth,
@@ -52,7 +52,7 @@ func Provide() fx.Option {
 			},
 			fx.Annotated{
 				Group: "parsers",
-				Target: func(logger log.Logger, in MetricsIn, client *CodexClient) queue.Parser {
+				Target: func(logger log.Logger, in MetricsIn, client EventClient) queue.Parser {
 					return BootTimeParser{
 						BootTimeHistogram:     in.BootTimeHistogram,
 						UnparsableEventsCount: in.UnparsableEventsCount,
