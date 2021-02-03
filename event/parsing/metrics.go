@@ -14,8 +14,8 @@ const (
 	ReasonLabel   = "reason"
 )
 
-// MetricsIn tracks the various event-related metrics.
-type MetricsIn struct {
+// Measures tracks the various event-related metrics.
+type Measures struct {
 	fx.In
 	MetadataFields        metrics.Counter   `name:"metadata_fields"`
 	BootTimeHistogram     metrics.Histogram `name:"boot_time_duration"`

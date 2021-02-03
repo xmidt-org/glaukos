@@ -43,21 +43,19 @@ func Provide() fx.Option {
 			},
 			fx.Annotated{
 				Group: "parsers",
-				Target: func(in MetricsIn) queue.Parser {
+				Target: func(measures Measures) queue.Parser {
 					return MetadataParser{
-						MetadataFields:        in.MetadataFields,
-						UnparsableEventsCount: in.UnparsableEventsCount,
+						Measures: measures,
 					}
 				},
 			},
 			fx.Annotated{
 				Group: "parsers",
-				Target: func(logger log.Logger, in MetricsIn, client EventClient) queue.Parser {
+				Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
 					return BootTimeParser{
-						BootTimeHistogram:     in.BootTimeHistogram,
-						UnparsableEventsCount: in.UnparsableEventsCount,
-						Logger:                logger,
-						Client:                client,
+						Measures: measures,
+						Logger:   logger,
+						Client:   client,
 					}
 				},
 			},

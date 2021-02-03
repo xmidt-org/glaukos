@@ -52,9 +52,12 @@ func TestParse(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			mp := MetadataParser{
+			m := Measures{
 				MetadataFields:        p.NewCounter("metadata_keys"),
 				UnparsableEventsCount: p.NewCounter("unparsable_events"),
+			}
+			mp := MetadataParser{
+				Measures: m,
 			}
 
 			mp.Parse(tc.message)
@@ -104,9 +107,12 @@ func TestMultipleParse(t *testing.T) {
 		},
 	}
 
-	mp := MetadataParser{
+	m := Measures{
 		MetadataFields:        p.NewCounter("metadata_keys"),
 		UnparsableEventsCount: p.NewCounter("unparsable_events"),
+	}
+	mp := MetadataParser{
+		Measures: m,
 	}
 
 	for _, msg := range messages {

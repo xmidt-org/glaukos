@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -32,10 +31,11 @@ type EventClient interface {
 // BootTimeParser takes online events and calculates the reboot time of a device by getting the last
 // offline event from codex.
 type BootTimeParser struct {
-	BootTimeHistogram     metrics.Histogram `name:"boot_time_duration"`
-	UnparsableEventsCount metrics.Counter   `name:"unparsable_events_count"`
-	Logger                log.Logger
-	Client                EventClient
+	Measures Measures
+	// BootTimeHistogram     metrics.Histogram `name:"boot_time_duration"`
+	// UnparsableEventsCount metrics.Counter   `name:"unparsable_events_count"`
+	Logger log.Logger
+	Client EventClient
 }
 
 var destinationRegex = regexp.MustCompile(`^(?P<event>[^/]+)/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+))/(?P<type>[^/\s]+)`)
@@ -53,7 +53,7 @@ Steps to calculate boot time:
 func (b BootTimeParser) Parse(msg wrp.Message) error {
 	// add to metrics if no error calculating restart time
 	if restartTime, err := b.calculateRestartTime(msg); err == nil && restartTime > 0 {
-		b.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
+		b.Measures.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
 	}
 
 	return nil
@@ -85,7 +85,7 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 			logging.Error(b.Logger).Log(logging.MessageKey(), err)
 			if previousBootTime < 0 {
 				// something is wrong with this event's boot time, we shouldn't continue
-				b.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr).Add(1.0)
+				b.Measures.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr).Add(1.0)
 				return -1, err
 			}
 		}

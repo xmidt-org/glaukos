@@ -341,10 +341,13 @@ func TestCalculateRestartTimeError(t *testing.T) {
 			client := new(mockEventClient)
 			client.On("GetEvents", mock.Anything).Return(tc.events)
 			p := xmetricstest.NewProvider(&xmetrics.Options{})
-			b := BootTimeParser{
+			m := Measures{
 				UnparsableEventsCount: p.NewCounter("unparsable_events"),
-				Client:                client,
-				Logger:                log.NewNopLogger(),
+			}
+			b := BootTimeParser{
+				Measures: m,
+				Client:   client,
+				Logger:   log.NewNopLogger(),
 			}
 
 			tc.msg.Metadata = map[string]string{
@@ -370,10 +373,13 @@ func TestCalculateRestartSuccess(t *testing.T) {
 		client = new(mockEventClient)
 		p      = xmetricstest.NewProvider(&xmetrics.Options{})
 		now    = time.Now()
-		b      = BootTimeParser{
+		m      = Measures{
 			UnparsableEventsCount: p.NewCounter("unparsable_events"),
-			Client:                client,
-			Logger:                log.NewNopLogger(),
+		}
+		b = BootTimeParser{
+			Measures: m,
+			Client:   client,
+			Logger:   log.NewNopLogger(),
 		}
 	)
 
