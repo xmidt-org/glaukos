@@ -230,7 +230,6 @@ func TestCheckOfflineEvent(t *testing.T) {
 type test struct {
 	description            string
 	latestBootTime         int64 // should be unix timestamp
-	previousBootTime       int64 // should be unix timestamp
 	latestOfflineBirthDate int64 // should be unix timestamp in nanoseconds
 	msg                    wrp.Message
 	events                 []Event
@@ -382,7 +381,6 @@ func TestCalculateRestartSuccess(t *testing.T) {
 		{
 			description:            "success",
 			latestBootTime:         now.Unix(),
-			previousBootTime:       now.Add(-1 * time.Minute).Unix(),
 			latestOfflineBirthDate: now.Add(-1 * time.Minute).UnixNano(),
 			msg: wrp.Message{
 				Type:            wrp.SimpleEventMessageType,
