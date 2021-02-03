@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -62,14 +63,14 @@ func (b BootTimeParser) Parse(msg wrp.Message) error {
 func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) {
 	// if event is not an online event, do not continue with calculations
 	if !destinationRegex.MatchString(msg.Destination) || !onlineRegex.MatchString(msg.Destination) {
-		logging.Debug(b.Logger).Log(logging.MessageKey(), "event is not an online event")
+		level.Debug(b.Logger).Log(xlog.MessageKey(), "event is not an online event")
 		return -1, nil
 	}
 
 	// get boot time and device id from message
 	bootTimeInt, deviceID, err := getWRPInfo(destinationRegex, msg)
 	if err != nil {
-		logging.Error(b.Logger).Log(logging.MessageKey(), err)
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err)
 		return -1, err
 	}
 
@@ -82,7 +83,7 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 	// find the previous boot-time and make sure that the boot time we have is the latest one
 	for _, event := range events {
 		if previousBootTime, err = checkOnlineEvent(event, msg.TransactionUUID, previousBootTime, bootTimeInt); err != nil {
-			logging.Error(b.Logger).Log(logging.MessageKey(), err)
+			level.Error(b.Logger).Log(xlog.ErrorKey(), err)
 			if previousBootTime < 0 {
 				// something is wrong with this event's boot time, we shouldn't continue
 				b.Measures.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr).Add(1.0)
@@ -96,7 +97,7 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 	latestOfflineEvent := int64(0)
 	for _, event := range events {
 		if latestOfflineEvent, err = checkOfflineEvent(event, previousBootTime, latestOfflineEvent); err != nil {
-			logging.Error(b.Logger).Log(logging.MessageKey(), err)
+			level.Error(b.Logger).Log(xlog.ErrorKey(), err)
 		}
 	}
 
@@ -109,7 +110,7 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 	}
 
 	err = errors.New("failed to get restart time")
-	logging.Error(b.Logger).Log(logging.MessageKey(), err)
+	level.Error(b.Logger).Log(xlog.ErrorKey(), err)
 	return -1, err
 
 }

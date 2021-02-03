@@ -8,7 +8,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/themis/xlog/xlogtest"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
@@ -139,7 +139,7 @@ func TestParseEvent(t *testing.T) {
 					QueueSize:  10,
 				},
 				parsers: parsers,
-				logger:  logging.NewTestLogger(nil, t),
+				logger:  xlogtest.New(t),
 				workers: semaphore.New(2),
 				metrics: tc.metrics,
 			}
@@ -153,7 +153,6 @@ func TestParseEvent(t *testing.T) {
 
 		})
 	}
-
 }
 
 func TestQueue(t *testing.T) {
@@ -189,7 +188,7 @@ func TestQueue(t *testing.T) {
 			}
 
 			q := EventQueue{
-				logger:  logging.NewTestLogger(nil, t),
+				logger:  xlogtest.New(t),
 				workers: semaphore.New(2),
 				metrics: metrics,
 				queue:   make(chan wrp.Message, tc.queueSize),
