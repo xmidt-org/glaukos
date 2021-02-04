@@ -134,7 +134,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			bootTime, err := checkOnlineEvent(tc.event, tc.currentUUID, tc.previousBootTime, tc.latestBootTime)
 			assert.Equal(tc.expectedBootTime, bootTime)
-			assert.Equal(true, errors.Is(err, tc.expectedErr))
+			assert.True(errors.Is(err, tc.expectedErr))
 		})
 	}
 }
