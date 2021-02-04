@@ -131,12 +131,12 @@ func TestGetDeviceID(t *testing.T) {
 		{
 			description: "Invalid ID-missing event",
 			destination: "mac:123",
-			expectedErr: errors.New("error getting device ID from event"),
+			expectedErr: errParseDeviceID,
 		},
 		{
 			description: "Invalid ID-missing event type",
 			destination: "event:device-status/mac:123",
-			expectedErr: errors.New("error getting device ID from event"),
+			expectedErr: errParseDeviceID,
 		},
 		{
 			description: "Non device-status event",
@@ -149,7 +149,10 @@ func TestGetDeviceID(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			deviceID, err := GetDeviceID(destinationRegex, tc.destination)
 			assert.Equal(tc.expectedID, deviceID)
-			assert.Equal(tc.expectedErr, err)
+			if err != nil || tc.expectedErr != nil {
+				assert.True(errors.Is(err, tc.expectedErr))
+			}
+
 		})
 	}
 }

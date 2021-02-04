@@ -62,12 +62,12 @@ func TestNewEventParser(t *testing.T) {
 		{
 			description: "No parsers",
 			parsers:     []Parser{},
-			expectedErr: errors.New("No parsers"),
+			expectedErr: errNoParsers,
 		},
 		{
 			description: "Nil parser",
 			parsers:     nil,
-			expectedErr: errors.New("No parsers"),
+			expectedErr: errNoParsers,
 		},
 	}
 
@@ -76,7 +76,9 @@ func TestNewEventParser(t *testing.T) {
 			assert := assert.New(t)
 			queue, err := newEventQueue(tc.config, tc.parsers, Measures{}, tc.logger)
 
-			assert.Equal(tc.expectedErr, err)
+			if tc.expectedErr != nil || err != nil {
+				assert.True(errors.Is(err, tc.expectedErr))
+			}
 
 			if tc.expectedErr == nil || err == nil {
 				assert.NotNil(queue.queue)

@@ -69,7 +69,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 			previousBootTime: now.Add(-1 * time.Minute).Unix(),
 			latestBootTime:   now.Add(-3 * time.Second).Unix(),
 			expectedBootTime: -1,
-			expectedErr:      errors.New("found newer boot-time"),
+			expectedErr:      errNewerBootTime,
 		},
 		{
 			description: "Error-Same boot time found",
@@ -84,7 +84,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 			previousBootTime: now.Add(-3 * time.Second).Unix(),
 			latestBootTime:   now.Unix(),
 			expectedBootTime: -1,
-			expectedErr:      errors.New("found same boot-time"),
+			expectedErr:      errSameBootTime,
 		},
 		{
 			description: "Same boot time & same transactionUUID",
@@ -134,7 +134,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			bootTime, err := checkOnlineEvent(tc.event, tc.currentUUID, tc.previousBootTime, tc.latestBootTime)
 			assert.Equal(tc.expectedBootTime, bootTime)
-			assert.Equal(tc.expectedErr, err)
+			assert.True(errors.Is(err, tc.expectedErr))
 		})
 	}
 }
