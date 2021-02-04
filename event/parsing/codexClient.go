@@ -33,7 +33,7 @@ type Event struct {
 	PartnerIDs      []string          `json:"partner_ids,omitempty"`
 }
 
-// query codex for events related to a device
+// GetEvents queries codex for events related to a device.
 func (c *CodexClient) GetEvents(device string) []Event {
 	eventList := make([]Event, 0)
 

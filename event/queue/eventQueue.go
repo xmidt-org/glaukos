@@ -16,6 +16,9 @@ import (
 
 var (
 	defaultLogger = log.NewNopLogger()
+
+	errNoParsers = errors.New("No parsers")
+	errQueueFull = errors.New("Queue Full")
 )
 
 const (
@@ -46,7 +49,7 @@ type Parser interface {
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
 	if len(parsers) == 0 {
-		return nil, errors.New("No parsers")
+		return nil, errNoParsers
 	}
 
 	if config.MaxWorkers < defaultMinMaxWorkers {
@@ -123,7 +126,7 @@ func (e *EventQueue) Queue(message wrp.Message) (err error) {
 		if e.metrics.DroppedEventsCount != nil {
 			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
 		}
-		err = NewErrorCode(http.StatusTooManyRequests, errors.New("queue full"))
+		err = NewErrorCode(http.StatusTooManyRequests, errQueueFull)
 	}
 
 	return
