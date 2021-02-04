@@ -11,6 +11,7 @@ services:
       - QUEUE_SIZE=10
       - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
+      - "LOG_LEVEL=DEBUG"
     ports:
       - 4200-4203:4200-4203
     depends_on:
@@ -40,6 +41,18 @@ services:
       - caduceus
     volumes:
       - ./docFiles/caduceator-1.yaml:/etc/caduceator/caduceator.yaml
+    networks:
+      - xmidt
+
+  caduceator2:
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
+    container_name: caduceator-2
+    ports:
+      - 5020-5023:5020-5023
+    depends_on:
+      - caduceus
+    volumes:
+      - ./docFiles/caduceator-2.yaml:/etc/caduceator/caduceator.yaml
     networks:
       - xmidt
 

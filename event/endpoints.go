@@ -18,6 +18,10 @@ import (
 	"go.uber.org/fx"
 )
 
+var (
+	defaultLogger = log.NewNopLogger()
+)
+
 // GetLoggerFunc is the function used to get a request-specific logger from
 // its context.
 type GetLoggerFunc func(context.Context) log.Logger
@@ -54,6 +58,6 @@ func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 
 // GetLogger pulls the logger from the context and adds a timestamp to it.
 func GetLogger(ctx context.Context) log.Logger {
-	logger := log.With(xlog.GetDefault(ctx, nil), xlog.TimestampKey(), log.DefaultTimestampUTC)
+	logger := log.With(xlog.GetDefault(ctx, defaultLogger), xlog.TimestampKey(), log.DefaultTimestampUTC)
 	return logger
 }
