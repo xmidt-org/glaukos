@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/bascule/acquire"
@@ -17,7 +16,9 @@ type CodexClient struct {
 	Address string
 	Auth    acquire.Acquirer
 
-	logger log.Logger
+	retryOptions xhttp.RetryOptions
+	client       *http.Client
+	logger       log.Logger
 }
 
 // Event is the struct that codex query results will be unmarshalled into.
@@ -37,13 +38,13 @@ type Event struct {
 func (c *CodexClient) GetEvents(device string) []Event {
 	eventList := make([]Event, 0)
 
-	request, err := buildRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
+	request, err := buildGetRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
 	if err != nil {
 		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to build request")
 		return eventList
 	}
 
-	status, data, err := doRequest(request, c.logger)
+	status, data, err := c.doRequest(request)
 	if err != nil {
 		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to complete request")
 		return eventList
@@ -54,8 +55,7 @@ func (c *CodexClient) GetEvents(device string) []Event {
 		return eventList
 	}
 
-	err = json.Unmarshal(data, &eventList)
-	if err != nil {
+	if err = json.Unmarshal(data, &eventList); err != nil {
 		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to read body")
 		return eventList
 	}
@@ -63,7 +63,24 @@ func (c *CodexClient) GetEvents(device string) []Event {
 	return eventList
 }
 
-func buildRequest(address string, auth acquire.Acquirer) (*http.Request, error) {
+func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
+	response, err := xhttp.RetryTransactor(c.retryOptions, c.client.Do)(request)
+	if err != nil {
+		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "RetryTransactor failed")
+		return 0, []byte{}, err
+	}
+
+	data, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to read body")
+		return 0, []byte{}, err
+	}
+
+	return response.StatusCode, data, nil
+}
+
+func buildGetRequest(address string, auth acquire.Acquirer) (*http.Request, error) {
 	request, err := http.NewRequest(http.MethodGet, address, nil)
 	if err != nil {
 		return nil, err
@@ -74,31 +91,4 @@ func buildRequest(address string, auth acquire.Acquirer) (*http.Request, error) 
 	}
 
 	return request, nil
-}
-
-func doRequest(request *http.Request, logger log.Logger) (int, []byte, error) {
-	retryOptions := xhttp.RetryOptions{
-		Logger:   logger,
-		Retries:  3,
-		Interval: time.Second * 30,
-
-		// Always retry on failures up to the max count.
-		ShouldRetry:       func(error) bool { return true },
-		ShouldRetryStatus: func(code int) bool { return false },
-	}
-
-	response, err := xhttp.RetryTransactor(retryOptions, http.DefaultClient.Do)(request)
-	if err != nil {
-		logging.Error(logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "RetryTransactor failed")
-		return 0, []byte{}, err
-	}
-
-	data, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil {
-		logging.Error(logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to read body")
-		return 0, []byte{}, err
-	}
-
-	return response.StatusCode, data, nil
 }

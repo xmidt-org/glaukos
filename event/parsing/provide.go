@@ -1,11 +1,15 @@
 package parsing
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"go.uber.org/fx"
 )
 
@@ -35,10 +39,22 @@ func Provide() fx.Option {
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
 			func(config CodexConfig, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
+				retryOptions := xhttp.RetryOptions{
+					Logger:   logger,
+					Retries:  3,
+					Interval: time.Second * 30,
+
+					// Always retry on failures up to the max count.
+					ShouldRetry:       func(error) bool { return true },
+					ShouldRetryStatus: func(code int) bool { return false },
+				}
+
 				return &CodexClient{
-					Address: config.Address,
-					Auth:    codexAuth,
-					logger:  logger,
+					Address:      config.Address,
+					Auth:         codexAuth,
+					retryOptions: retryOptions,
+					client:       http.DefaultClient,
+					logger:       logger,
 				}
 			},
 			fx.Annotated{
