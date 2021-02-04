@@ -160,6 +160,8 @@ webhook:
 
 codex:
   address: localhost:7000
+  # maxRetryCount is the max number of retries when making the request to codex.
+  maxRetryCount: 0
   auth:
     # basic provides a way to use Basic Authorization when registering to a
     # webhook.  If this value is provided and sat isn't, the following header is
