@@ -69,7 +69,7 @@ func (c *CodexClient) GetEvents(device string) []Event {
 
 func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
 	f := func(req *http.Request) (*http.Response, error) {
-		body, err := c.cb.Execute(func() (interface{}, error) {
+		resp, err := c.cb.Execute(func() (interface{}, error) {
 			return c.client.Do(req)
 		})
 
@@ -77,13 +77,11 @@ func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
 			return nil, err
 		}
 
-		b, ok := body.(*http.Response)
-
-		if !ok {
-			return nil, errors.New("failed to convert body to http response")
+		if b, ok := resp.(*http.Response); !ok {
+			return nil, errors.New("failed to convert response to a http response")
+		} else {
+			return b, nil
 		}
-
-		return b, nil
 
 	}
 	response, err := xhttp.RetryTransactor(c.retryOptions, f)(request)

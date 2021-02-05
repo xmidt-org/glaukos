@@ -49,28 +49,7 @@ func Provide() fx.Option {
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
-			func(config CodexConfig) *gobreaker.CircuitBreaker {
-				c := config.CircuitBreaker
-
-				if c.ConsecutiveFailuresAllowed == 0 {
-					c.ConsecutiveFailuresAllowed = 1
-				}
-
-				settings := gobreaker.Settings{
-					Name:        "Codex Circuit Breaker",
-					MaxRequests: c.MaxRequests,
-					Interval:    c.Interval,
-					Timeout:     c.Timeout,
-					ReadyToTrip: func(count gobreaker.Counts) bool {
-						if count.ConsecutiveFailures > c.ConsecutiveFailuresAllowed {
-							return true
-						}
-						return false
-					},
-				}
-
-				return gobreaker.NewCircuitBreaker(settings)
-			},
+			createCircuitBreaker,
 			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
 				if config.MaxRetryCount < 0 {
 					config.MaxRetryCount = 3
@@ -135,4 +114,24 @@ func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire
 	level.Error(logger).Log(xlog.ErrorKey(), "failed to create acquirer")
 	return defaultAcquirer, nil
 
+}
+
+func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
+	c := config.CircuitBreaker
+
+	if c.ConsecutiveFailuresAllowed == 0 {
+		c.ConsecutiveFailuresAllowed = 1
+	}
+
+	settings := gobreaker.Settings{
+		Name:        "Codex Circuit Breaker",
+		MaxRequests: c.MaxRequests,
+		Interval:    c.Interval,
+		Timeout:     c.Timeout,
+		ReadyToTrip: func(count gobreaker.Counts) bool {
+			return count.ConsecutiveFailures > c.ConsecutiveFailuresAllowed
+		},
+	}
+
+	return gobreaker.NewCircuitBreaker(settings)
 }
