@@ -2,11 +2,13 @@ package parsing
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/go-kit/kit/log"
+	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xhttp"
@@ -18,6 +20,7 @@ type CodexClient struct {
 
 	retryOptions xhttp.RetryOptions
 	client       *http.Client
+	cb           *gobreaker.CircuitBreaker
 	logger       log.Logger
 }
 
@@ -64,7 +67,26 @@ func (c *CodexClient) GetEvents(device string) []Event {
 }
 
 func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
-	response, err := xhttp.RetryTransactor(c.retryOptions, c.client.Do)(request)
+	f := func(req *http.Request) (*http.Response, error) {
+		body, err := c.cb.Execute(func() (interface{}, error) {
+			fmt.Println("inside woot")
+			return c.client.Do(req)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		b, ok := body.(*http.Response)
+
+		if !ok {
+			return nil, errors.New("failed to convert body to http response")
+		}
+
+		return b, nil
+
+	}
+	response, err := xhttp.RetryTransactor(c.retryOptions, f)(request)
 	if err != nil {
 		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "RetryTransactor failed")
 		return 0, []byte{}, err

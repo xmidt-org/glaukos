@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/queue"
@@ -40,7 +41,24 @@ func Provide() fx.Option {
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
-			func(config CodexConfig, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
+			func() *gobreaker.CircuitBreaker {
+				s := gobreaker.Settings{
+					Name:        "Codex Circuit Breaker",
+					MaxRequests: 0,
+					Interval:    1 * time.Minute,
+					Timeout:     2 * time.Minute,
+					ReadyToTrip: func(count gobreaker.Counts) bool {
+						if count.ConsecutiveFailures > 10 {
+							return true
+						}
+
+						return false
+					},
+				}
+
+				return gobreaker.NewCircuitBreaker(s)
+			},
+			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
 				if config.MaxRetryCount < 0 {
 					config.MaxRetryCount = 3
 				}
@@ -62,6 +80,7 @@ func Provide() fx.Option {
 					retryOptions: retryOptions,
 					client:       http.DefaultClient,
 					logger:       logger,
+					cb:           cb,
 				}
 			},
 			fx.Annotated{
