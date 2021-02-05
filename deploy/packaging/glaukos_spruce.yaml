@@ -194,6 +194,7 @@ webhook:
     buffer: "5s"
 codex:
   address: (( grab $CODEX_ADDRESS || "localhost:6000" ))
+  maxRetryCount: (( grab $CODEX_MAX_RETRY_COUNT || 0 ))
   auth:
     # basic provides a way to use Basic Authorization when registering to a
     # webhook.  If this value is provided and sat isn't, the following header is

@@ -1,19 +1,24 @@
 package parsing
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"go.uber.org/fx"
 )
 
 // CodexConfig determines the auth and address for connecting to the codex cluster.
 type CodexConfig struct {
-	Address string
-	Auth    AuthAcquirerConfig
+	Address       string
+	Auth          AuthAcquirerConfig
+	MaxRetryCount int
 }
 
 type AuthAcquirerConfig struct {
@@ -36,10 +41,25 @@ func Provide() fx.Option {
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
 			func(config CodexConfig, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
+				if config.MaxRetryCount < 0 {
+					config.MaxRetryCount = 3
+				}
+				retryOptions := xhttp.RetryOptions{
+					Logger:   logger,
+					Retries:  config.MaxRetryCount,
+					Interval: time.Second * 30,
+
+					// Always retry on failures up to the max count.
+					ShouldRetry:       func(error) bool { return true },
+					ShouldRetryStatus: func(code int) bool { return false },
+				}
+
 				return &CodexClient{
-					Address: config.Address,
-					Auth:    codexAuth,
-					logger:  logger,
+					Address:      config.Address,
+					Auth:         codexAuth,
+					retryOptions: retryOptions,
+					client:       http.DefaultClient,
+					logger:       logger,
 				}
 			},
 			fx.Annotated{
