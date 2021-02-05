@@ -7,8 +7,9 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/basculechecks"
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/fx"
@@ -154,7 +155,7 @@ func (e *EventQueue) ParseEvent(message wrp.Message) {
 
 	for _, p := range e.parsers {
 		if err := p.Parse(message); err != nil {
-			logging.Error(e.logger).Log(logging.MessageKey(), "failed to parse", logging.ErrorKey(), err)
+			level.Error(e.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to parse")
 		}
 	}
 }
