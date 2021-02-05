@@ -427,6 +427,7 @@ github.com/xmidt-org/bascule v0.8.1 h1:8EWPhNf2GzLS70ttjUiJOPK0sw1NX8NFeOd/ckQKb
 github.com/xmidt-org/bascule v0.8.1/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
 github.com/xmidt-org/themis v0.4.4 h1:KewitRxStW1xOehDBi0YyGZyRv3PjFdYUEDvQFf1Nmk=
 github.com/xmidt-org/themis v0.4.4/go.mod h1:0qRYFvKdrQhwjxH/1nAiTgBGT4cegJR76gfEYF5P7so=
+github.com/xmidt-org/themis v0.4.6 h1:vJOFjlb7nbZc1aQUDLBXRYb59nmfDm/yXvObkdGCcro=
 github.com/xmidt-org/webpa-common v1.1.0/go.mod h1:oCpKzOC+9h2vYHVzAU/06tDTQuBN4RZz+rhgIXptpOI=
 github.com/xmidt-org/webpa-common v1.3.2/go.mod h1:oCpKzOC+9h2vYHVzAU/06tDTQuBN4RZz+rhgIXptpOI=
 github.com/xmidt-org/webpa-common v1.11.0 h1:t2evc5ymSFWXH0L0NGxVzk44hypqJ90sm8Eg09sCnfU=

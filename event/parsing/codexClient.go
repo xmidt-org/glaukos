@@ -7,8 +7,9 @@ import (
 	"net/http"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/bascule/acquire"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
@@ -40,23 +41,23 @@ func (c *CodexClient) GetEvents(device string) []Event {
 
 	request, err := buildGetRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
 	if err != nil {
-		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to build request")
+		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to build request")
 		return eventList
 	}
 
 	status, data, err := c.doRequest(request)
 	if err != nil {
-		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to complete request")
+		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to complete request")
 		return eventList
 	}
 
 	if status != 200 {
-		logging.Error(c.logger).Log("status", status, logging.MessageKey(), "non 200", "url", request.URL)
+		level.Error(c.logger).Log("status", status, xlog.MessageKey(), "non 200", "url", request.URL)
 		return eventList
 	}
 
 	if err = json.Unmarshal(data, &eventList); err != nil {
-		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to read body")
+		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
 		return eventList
 	}
 
@@ -66,14 +67,14 @@ func (c *CodexClient) GetEvents(device string) []Event {
 func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
 	response, err := xhttp.RetryTransactor(c.retryOptions, c.client.Do)(request)
 	if err != nil {
-		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "RetryTransactor failed")
+		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "RetryTransactor failed")
 		return 0, []byte{}, err
 	}
 
 	data, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 	if err != nil {
-		logging.Error(c.logger).Log(logging.ErrorKey(), err, logging.MessageKey(), "failed to read body")
+		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
 		return 0, []byte{}, err
 	}
 
