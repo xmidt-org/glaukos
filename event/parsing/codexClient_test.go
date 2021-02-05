@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-kit/kit/log"
+	"github.com/sony/gobreaker"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/bascule/acquire"
 )
@@ -54,6 +55,7 @@ func TestDoRequest(t *testing.T) {
 		c      = CodexClient{
 			logger: log.NewNopLogger(),
 			client: http.DefaultClient,
+			cb:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 		}
 	)
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
@@ -93,6 +95,7 @@ func TestGetEvents(t *testing.T) {
 				client:  http.DefaultClient,
 				Address: tc.address,
 				Auth:    auth,
+				cb:      gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 			}
 
 			events := c.GetEvents("test-device")

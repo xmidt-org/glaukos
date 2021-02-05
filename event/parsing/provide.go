@@ -1,25 +1,33 @@
 package parsing
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/queue"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/xhttp"
 	"go.uber.org/fx"
 )
 
 // CodexConfig determines the auth and address for connecting to the codex cluster.
 type CodexConfig struct {
-	Address       string
-	Auth          AuthAcquirerConfig
-	MaxRetryCount int
+	Address        string
+	Auth           AuthAcquirerConfig
+	MaxRetryCount  int
+	CircuitBreaker CircuitBreakerConfig
+}
+
+type CircuitBreakerConfig struct {
+	MaxRequests                uint32
+	Interval                   time.Duration
+	Timeout                    time.Duration
+	ConsecutiveFailuresAllowed uint32
 }
 
 type AuthAcquirerConfig struct {
@@ -41,22 +49,27 @@ func Provide() fx.Option {
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
-			func() *gobreaker.CircuitBreaker {
-				s := gobreaker.Settings{
+			func(config CodexConfig) *gobreaker.CircuitBreaker {
+				c := config.CircuitBreaker
+
+				if c.ConsecutiveFailuresAllowed == 0 {
+					c.ConsecutiveFailuresAllowed = 1
+				}
+
+				settings := gobreaker.Settings{
 					Name:        "Codex Circuit Breaker",
-					MaxRequests: 0,
-					Interval:    1 * time.Minute,
-					Timeout:     2 * time.Minute,
+					MaxRequests: c.MaxRequests,
+					Interval:    c.Interval,
+					Timeout:     c.Timeout,
 					ReadyToTrip: func(count gobreaker.Counts) bool {
-						if count.ConsecutiveFailures > 10 {
+						if count.ConsecutiveFailures > c.ConsecutiveFailuresAllowed {
 							return true
 						}
-
 						return false
 					},
 				}
 
-				return gobreaker.NewCircuitBreaker(s)
+				return gobreaker.NewCircuitBreaker(settings)
 			},
 			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
 				if config.MaxRetryCount < 0 {
@@ -71,8 +84,6 @@ func Provide() fx.Option {
 					ShouldRetry:       func(error) bool { return true },
 					ShouldRetryStatus: func(code int) bool { return false },
 				}
-
-				fmt.Println(retryOptions.Retries)
 
 				return &CodexClient{
 					Address:      config.Address,
@@ -112,16 +123,16 @@ func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire
 	defaultAcquirer := &acquire.DefaultAcquirer{}
 	jwt := config.Auth.JWT
 	if jwt.AuthURL != "" && jwt.Buffer > 0 && jwt.Timeout > 0 {
-		logging.Debug(logger).Log(logging.MessageKey(), "using jwt")
+		level.Debug(logger).Log(xlog.MessageKey(), "using jwt")
 		return acquire.NewRemoteBearerTokenAcquirer(jwt)
 	}
 
 	if config.Auth.Basic != "" {
-		logging.Debug(logger).Log(logging.MessageKey(), "using basic")
+		level.Debug(logger).Log(xlog.MessageKey(), "using basic auth")
 		return acquire.NewFixedAuthAcquirer(config.Auth.Basic)
 	}
 
-	logging.Error(logger).Log(logging.MessageKey(), "failed to create acquirer")
+	level.Error(logger).Log(xlog.ErrorKey(), "failed to create acquirer")
 	return defaultAcquirer, nil
 
 }

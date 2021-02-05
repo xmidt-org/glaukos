@@ -10,10 +10,10 @@ import (
 
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/logging"
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/fx"
 )
@@ -48,7 +48,7 @@ func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 			}
 
 			if err := eventQueue.Queue(v); err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "failed to queue message", logging.ErrorKey(), err)
+				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to queue message")
 				return nil, err
 			}
 			return nil, nil
