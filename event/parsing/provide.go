@@ -1,7 +1,6 @@
 package parsing
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -53,8 +52,6 @@ func Provide() fx.Option {
 					ShouldRetry:       func(error) bool { return true },
 					ShouldRetryStatus: func(code int) bool { return false },
 				}
-
-				fmt.Println(retryOptions.Retries)
 
 				return &CodexClient{
 					Address:      config.Address,
