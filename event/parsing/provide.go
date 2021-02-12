@@ -128,10 +128,14 @@ func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
 		MaxRequests: c.MaxRequests,
 		Interval:    c.Interval,
 		Timeout:     c.Timeout,
-		ReadyToTrip: func(count gobreaker.Counts) bool {
-			return count.ConsecutiveFailures > c.ConsecutiveFailuresAllowed
-		},
+		ReadyToTrip: createReadyToTripFunc(c),
 	}
 
 	return gobreaker.NewCircuitBreaker(settings)
+}
+
+func createReadyToTripFunc(c CircuitBreakerConfig) func(count gobreaker.Counts) bool {
+	return func(count gobreaker.Counts) bool {
+		return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
+	}
 }
