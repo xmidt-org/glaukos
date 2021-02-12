@@ -160,6 +160,26 @@ webhook:
 
 codex:
   address: localhost:7000
+  # maxRetryCount is the max number of retries when making the request to codex.
+  maxRetryCount: 0
+
+  # circuit breaker settings
+  circuitBreaker:
+    # The maximum number of requests allowed to pass through when the CircuitBreaker is half-open.
+    # If MaxRequests is 0, CircuitBreaker allows only 1 request.
+    maxRequests: 0
+    # the cyclic period of the closed state for CircuitBreaker to clear the internal Counts.
+    # If Interval is 0, CircuitBreaker doesn't clear the internal Counts during the closed state.
+    interval: "2m"
+
+    # Timeout is the period of the open state, after which the state of CircuitBreaker becomes half-open.
+    # If Timeout is 0, the timeout value of CircuitBreaker is set to 60 seconds.
+    timeout: "1m"
+
+    # Number of consecutive failures allowed per interval before circuit breaker switches to open state.
+    # Must be at least 1
+    consecutiveFailuresAllowed: 0
+
   auth:
     # basic provides a way to use Basic Authorization when registering to a
     # webhook.  If this value is provided and sat isn't, the following header is

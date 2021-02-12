@@ -8,14 +8,18 @@ import (
 	"context"
 	"errors"
 
-	eventqueue "github.com/xmidt-org/glaukos/event/eventQueue"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/logging"
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/fx"
+)
+
+var (
+	defaultLogger = log.NewNopLogger()
 )
 
 // GetLoggerFunc is the function used to get a request-specific logger from
@@ -35,7 +39,7 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(eventQueue *eventqueue.EventQueue, logger log.Logger) Endpoints {
+func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(wrp.Message)
@@ -44,7 +48,7 @@ func NewEndpoints(eventQueue *eventqueue.EventQueue, logger log.Logger) Endpoint
 			}
 
 			if err := eventQueue.Queue(v); err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "failed to queue message", logging.ErrorKey(), err)
+				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to queue message")
 				return nil, err
 			}
 			return nil, nil
@@ -54,6 +58,6 @@ func NewEndpoints(eventQueue *eventqueue.EventQueue, logger log.Logger) Endpoint
 
 // GetLogger pulls the logger from the context and adds a timestamp to it.
 func GetLogger(ctx context.Context) log.Logger {
-	logger := log.With(xlog.GetDefault(ctx, nil), xlog.TimestampKey(), log.DefaultTimestampUTC)
+	logger := log.With(xlog.GetDefault(ctx, defaultLogger), xlog.TimestampKey(), log.DefaultTimestampUTC)
 	return logger
 }

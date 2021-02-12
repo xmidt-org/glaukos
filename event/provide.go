@@ -8,8 +8,8 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
-	eventqueue "github.com/xmidt-org/glaukos/event/eventQueue"
 	"github.com/xmidt-org/glaukos/event/parsing"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"go.uber.org/fx"
 )
 
@@ -18,7 +18,8 @@ import (
 func Provide() fx.Option {
 	return fx.Options(
 		parsing.Provide(),
-		eventqueue.ProvideMetrics(),
+		queue.ProvideEventQueue(),
+		queue.ProvideMetrics(),
 		fx.Provide(
 			func(f func(context.Context) log.Logger) GetLoggerFunc {
 				return f

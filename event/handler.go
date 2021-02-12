@@ -45,7 +45,7 @@ type RoutesIn struct {
 	APIBase   string      `name:"api_base"`
 }
 
-// ConfigureRoutes sets up the router provided to handle traffic for the events parsing endpoint
+// ConfigureRoutes sets up the router provided to handle traffic for the events parsing endpoint.
 func ConfigureRoutes(in RoutesIn) {
 	path := fmt.Sprintf("/%s/events", in.APIBase)
 	in.Router.Use(in.AuthChain.Then)

@@ -8,16 +8,18 @@ import (
 )
 
 const (
-	KeyLabel      = "metadata_key"
 	FirmwareLabel = "firmware"
 	HardwareLabel = "hardware"
+	ParserLabel   = "parser_type"
+	ReasonLabel   = "reason"
 )
 
-// MetricsIn tracks the various event-related metrics
-type MetricsIn struct {
+// Measures tracks the various event-related metrics.
+type Measures struct {
 	fx.In
-	MetadataFields    metrics.Counter   `name:"metadata_fields"`
-	BootTimeHistogram metrics.Histogram `name:"boot_time_duration"`
+	MetadataFields        metrics.Counter   `name:"metadata_fields"`
+	BootTimeHistogram     metrics.Histogram `name:"boot_time_duration"`
+	UnparsableEventsCount metrics.Counter   `name:"unparsable_events_count"`
 }
 
 // ProvideEventMetrics builds the event-related metrics and makes them available to the container.
@@ -28,7 +30,15 @@ func ProvideEventMetrics() fx.Option {
 				Name: "metadata_fields",
 				Help: "the metadata fields coming from each event received",
 			},
-			KeyLabel,
+			MetadataKeyLabel,
+		),
+		xmetrics.ProvideCounter(
+			prometheus.CounterOpts{
+				Name: "unparsable_events_count",
+				Help: "events that are unparsable, labelled by type of parser and the reason why they failed",
+			},
+			ParserLabel,
+			ReasonLabel,
 		),
 		xmetrics.ProvideHistogram(
 			prometheus.HistogramOpts{
