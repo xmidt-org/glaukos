@@ -68,22 +68,7 @@ func (c *CodexClient) GetEvents(device string) []Event {
 }
 
 func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
-	f := func(req *http.Request) (*http.Response, error) {
-		resp, err := c.cb.Execute(func() (interface{}, error) {
-			return c.client.Do(req)
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		if b, ok := resp.(*http.Response); !ok {
-			return nil, errors.New("failed to convert response to a http response")
-		} else {
-			return b, nil
-		}
-
-	}
+	f := circuitBreakerRequestFunc(c)
 	response, err := xhttp.RetryTransactor(c.retryOptions, f)(request)
 	if err != nil {
 		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "RetryTransactor failed")
@@ -111,4 +96,23 @@ func buildGetRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 	}
 
 	return request, nil
+}
+
+func circuitBreakerRequestFunc(c *CodexClient) func(req *http.Request) (*http.Response, error) {
+	return func(req *http.Request) (*http.Response, error) {
+		resp, err := c.cb.Execute(func() (interface{}, error) {
+			return c.client.Do(req)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if b, ok := resp.(*http.Response); !ok {
+			return nil, errors.New("failed to convert response to a http response")
+		} else {
+			return b, nil
+		}
+
+	}
 }
