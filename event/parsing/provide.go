@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/queue"
@@ -16,9 +17,17 @@ import (
 
 // CodexConfig determines the auth and address for connecting to the codex cluster.
 type CodexConfig struct {
-	Address       string
-	Auth          AuthAcquirerConfig
-	MaxRetryCount int
+	Address        string
+	Auth           AuthAcquirerConfig
+	MaxRetryCount  int
+	CircuitBreaker CircuitBreakerConfig
+}
+
+type CircuitBreakerConfig struct {
+	MaxRequests                uint32
+	Interval                   time.Duration
+	Timeout                    time.Duration
+	ConsecutiveFailuresAllowed uint32
 }
 
 type AuthAcquirerConfig struct {
@@ -40,7 +49,8 @@ func Provide() fx.Option {
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
-			func(config CodexConfig, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
+			createCircuitBreaker,
+			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
 				if config.MaxRetryCount < 0 {
 					config.MaxRetryCount = 3
 				}
@@ -60,6 +70,7 @@ func Provide() fx.Option {
 					retryOptions: retryOptions,
 					client:       http.DefaultClient,
 					logger:       logger,
+					cb:           cb,
 				}
 			},
 			fx.Annotated{
@@ -103,4 +114,28 @@ func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire
 	level.Error(logger).Log(xlog.ErrorKey(), "failed to create acquirer")
 	return defaultAcquirer, nil
 
+}
+
+func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
+	c := config.CircuitBreaker
+
+	if c.ConsecutiveFailuresAllowed == 0 {
+		c.ConsecutiveFailuresAllowed = 1
+	}
+
+	settings := gobreaker.Settings{
+		Name:        "Codex Circuit Breaker",
+		MaxRequests: c.MaxRequests,
+		Interval:    c.Interval,
+		Timeout:     c.Timeout,
+		ReadyToTrip: createReadyToTripFunc(c),
+	}
+
+	return gobreaker.NewCircuitBreaker(settings)
+}
+
+func createReadyToTripFunc(c CircuitBreakerConfig) func(count gobreaker.Counts) bool {
+	return func(count gobreaker.Counts) bool {
+		return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
+	}
 }

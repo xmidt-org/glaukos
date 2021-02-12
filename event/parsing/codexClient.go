@@ -2,12 +2,14 @@ package parsing
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/xhttp"
@@ -19,6 +21,7 @@ type CodexClient struct {
 
 	retryOptions xhttp.RetryOptions
 	client       *http.Client
+	cb           *gobreaker.CircuitBreaker
 	logger       log.Logger
 }
 
@@ -65,7 +68,8 @@ func (c *CodexClient) GetEvents(device string) []Event {
 }
 
 func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
-	response, err := xhttp.RetryTransactor(c.retryOptions, c.client.Do)(request)
+	f := circuitBreakerRequestFunc(c)
+	response, err := xhttp.RetryTransactor(c.retryOptions, f)(request)
 	if err != nil {
 		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "RetryTransactor failed")
 		return 0, []byte{}, err
@@ -92,4 +96,23 @@ func buildGetRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 	}
 
 	return request, nil
+}
+
+func circuitBreakerRequestFunc(c *CodexClient) func(req *http.Request) (*http.Response, error) {
+	return func(req *http.Request) (*http.Response, error) {
+		resp, err := c.cb.Execute(func() (interface{}, error) {
+			return c.client.Do(req)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if b, ok := resp.(*http.Response); !ok {
+			return nil, errors.New("failed to convert response to a http response")
+		} else {
+			return b, nil
+		}
+
+	}
 }
