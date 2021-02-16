@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Change histogram buckets to account for long boot-times. [#19](https://github.com/xmidt-org/glaukos/pull/19)
 - Use hash token factory to verify secret when configured. [#18](https://github.com/xmidt-org/glaukos/pull/18)
 - Add circuit breaker to prevent overloading codex when codex is already under stress. [#17](https://github.com/xmidt-org/glaukos/pull/17)
 - Allow for the http client used by the CodexClient to be configurable. [#16](https://github.com/xmidt-org/glaukos/pull/16)
