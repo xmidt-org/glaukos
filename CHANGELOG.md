@@ -5,8 +5,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Add initial app files and working docker-compose cluster [#7](https://github.com/xmidt-org/glaukos/pull/7)
-- Add queue to process incoming events [#11](https://github.com/xmidt-org/glaukos/pull/11)
+- Use hash token factory to verify secret when configured. [#18](https://github.com/xmidt-org/glaukos/pull/18)
+- Add circuit breaker to prevent overloading codex when codex is already under stress. [#17](https://github.com/xmidt-org/glaukos/pull/17)
+- Allow for the http client used by the CodexClient to be configurable. [#16](https://github.com/xmidt-org/glaukos/pull/16)
+- Use `xlog` instead of `webpa-common/logging`. [#15](https://github.com/xmidt-org/glaukos/pull/15)
+- Add unit tests [#12](https://github.com/xmidt-org/glaukos/pull/12)
+- Add queue to process incoming caduceus events. [#11](https://github.com/xmidt-org/glaukos/pull/11)
+- Add initial app files and working docker-compose cluster. [#7](https://github.com/xmidt-org/glaukos/pull/7)
+- Add queue to process incoming events. [#11](https://github.com/xmidt-org/glaukos/pull/11)
 
 ## [v0.0.1]
 - Initial creation
