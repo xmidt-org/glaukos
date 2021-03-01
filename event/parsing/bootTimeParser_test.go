@@ -349,11 +349,19 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
-					TransactionUUID: "testOnline",
+					TransactionUUID: "testOnline2",
 					Metadata: map[string]string{
 						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
 					},
-					BirthDate: now.Add(-5 * time.Second).UnixNano(),
+				},
+				Event{
+					MsgType:         4,
+					Dest:            "event:device-status/mac:112233445566/offline",
+					TransactionUUID: "testOffline2",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
+					},
+					BirthDate: now.Add(-1 * time.Second).UnixNano(),
 				},
 			},
 		},
@@ -371,11 +379,19 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
-					TransactionUUID: "testOnline",
+					TransactionUUID: "testOnline2",
 					Metadata: map[string]string{
 						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
 					},
-					BirthDate: now.Add(-5 * time.Second).UnixNano(),
+				},
+				Event{
+					MsgType:         4,
+					Dest:            "event:device-status/mac:112233445566/offline",
+					TransactionUUID: "testOffline2",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
+					},
+					BirthDate: now.UnixNano(),
 				},
 			},
 		},
