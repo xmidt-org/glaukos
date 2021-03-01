@@ -5,12 +5,12 @@
 package parsing
 
 import (
-	"math"
 	"regexp"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -35,16 +35,17 @@ var rebootRegex = regexp.MustCompile(".*/reboot-pending/")
 	 3) Subtract fully-manageable's birthdate from step 2's event birthdate.
 	 4) Record Metric.
 */
-func (b TotalBootTimeParser) Parse(msg wrp.Message) error {
+func (b TotalBootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
-	if restartTime, err := b.calculateRestartTime(msg); err == nil && restartTime > 0 {
-		b.Measures.TotalBootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
+	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
+		b.Measures.TotalBootTimeHistogram.With(HardwareLabel, wrpWithTime.Message.Metadata[hardwareKey], FirmwareLabel, wrpWithTime.Message.Metadata[firmwareKey]).Observe(restartTime)
 	}
 
 	return nil
 }
 
-func (b *TotalBootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) {
+func (b *TotalBootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (float64, error) {
+	msg := wrpWithTime.Message
 	// If event is not an fully-manageable event, do not continue with calculations.
 	if !destinationRegex.MatchString(msg.Destination) || !manageableRegex.MatchString(msg.Destination) {
 		level.Debug(b.Logger).Log(xlog.MessageKey(), "event is not an fully-manageable event")
@@ -60,8 +61,6 @@ func (b *TotalBootTimeParser) calculateRestartTime(msg wrp.Message) (float64, er
 
 	previousBootTime := int64(0)
 	latestRebootEvent := int64(0)
-	// TODO: this should be the time that the request is received
-	currentBirthDate := time.Now()
 
 	// Get events from codex pertaining to this device id.
 	events := b.Client.GetEvents(deviceID)
@@ -82,8 +81,14 @@ func (b *TotalBootTimeParser) calculateRestartTime(msg wrp.Message) (float64, er
 
 	// boot time calculation
 	// Event birthdate is saved in unix nanoseconds, so we must first convert it to a unix time using nanoseconds.
-	restartTime := math.Abs(currentBirthDate.Sub(time.Unix(0, latestRebootEvent)).Seconds())
-	// Return the restart time or log the error.
+	restartTime := wrpWithTime.Beginning.Sub(time.Unix(0, latestRebootEvent)).Seconds()
+
+	if restartTime <= 0 {
+		err = errInvalidRestartTime
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "Restart time", restartTime)
+		return -1, err
+	}
+
 	if latestRebootEvent != 0 {
 		return restartTime, nil
 	}

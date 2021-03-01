@@ -2,7 +2,9 @@ package parsing
 
 import (
 	"testing"
+	"time"
 
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -60,7 +62,7 @@ func TestParse(t *testing.T) {
 				Measures: m,
 			}
 
-			mp.Parse(tc.message)
+			mp.Parse(queue.WrpWithTime{Message: tc.message, Beginning: time.Now()})
 			for key, val := range tc.expectedCount {
 				p.Assert(t, "metadata_keys", MetadataKeyLabel, key)(xmetricstest.Value(val))
 			}
@@ -116,7 +118,7 @@ func TestMultipleParse(t *testing.T) {
 	}
 
 	for _, msg := range messages {
-		mp.Parse(msg)
+		mp.Parse(queue.WrpWithTime{Message: msg, Beginning: time.Now()})
 	}
 
 	p.Assert(t, "metadata_keys", MetadataKeyLabel, trustKey)(xmetricstest.Value(3.0))

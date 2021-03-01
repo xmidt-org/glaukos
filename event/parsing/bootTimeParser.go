@@ -6,12 +6,12 @@ package parsing
 
 import (
 	"errors"
-	"math"
 	"regexp"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -26,9 +26,10 @@ const (
 )
 
 var (
-	errNewerBootTime = errors.New("found newer boot-time")
-	errSameBootTime  = errors.New("found same boot-time")
-	errRestartTime   = errors.New("failed to get restart time")
+	errNewerBootTime      = errors.New("found newer boot-time")
+	errSameBootTime       = errors.New("found same boot-time")
+	errRestartTime        = errors.New("failed to get restart time")
+	errInvalidRestartTime = errors.New("invalid restart time")
 )
 
 type EventClient interface {
@@ -55,16 +56,17 @@ Steps to calculate boot time:
 	3) Subtract Online birthdate from steps 2 event Birthdate.
 	4) Record Metric.
 */
-func (b BootTimeParser) Parse(msg wrp.Message) error {
+func (b BootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
-	if restartTime, err := b.calculateRestartTime(msg); err == nil && restartTime > 0 {
-		b.Measures.BootTimeHistogram.With(HardwareLabel, msg.Metadata[hardwareKey], FirmwareLabel, msg.Metadata[firmwareKey]).Observe(restartTime)
+	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
+		b.Measures.BootTimeHistogram.With(HardwareLabel, wrpWithTime.Message.Metadata[hardwareKey], FirmwareLabel, wrpWithTime.Message.Metadata[firmwareKey]).Observe(restartTime)
 	}
 
 	return nil
 }
 
-func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) {
+func (b *BootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (float64, error) {
+	msg := wrpWithTime.Message
 	// If event is not an online event, do not continue with calculations.
 	if !destinationRegex.MatchString(msg.Destination) || !onlineRegex.MatchString(msg.Destination) {
 		level.Debug(b.Logger).Log(xlog.MessageKey(), "event is not an online event")
@@ -78,7 +80,6 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 		return -1, err
 	}
 
-	latestBootTime := time.Unix(bootTimeInt, 0)
 	previousBootTime := int64(0)
 
 	// Get events from codex pertaining to this device id.
@@ -107,7 +108,13 @@ func (b *BootTimeParser) calculateRestartTime(msg wrp.Message) (float64, error) 
 
 	// boot time calculation
 	// Event birthdate is saved in unix nanoseconds, so we must first convert it to a unix time using nanoseconds.
-	restartTime := math.Abs(latestBootTime.Sub(time.Unix(0, latestOfflineEvent)).Seconds())
+	restartTime := wrpWithTime.Beginning.Sub(time.Unix(0, latestOfflineEvent)).Seconds()
+
+	if restartTime <= 0 {
+		err = errInvalidRestartTime
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "Restart time", restartTime)
+		return -1, err
+	}
 	// Add to metrics or log the error.
 	if latestOfflineEvent != 0 && previousBootTime != 0 {
 		return restartTime, nil
@@ -138,7 +145,8 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 		return -1, errNewerBootTime
 	}
 
-	// if this is an event resulting from a disconnect/reconnect without the device actually restarting
+	// if another online event is found with the same boot time but different transaction uuid, it means the event
+	// received is not the result of a true restart
 	if eventBootTimeInt == latestBootTime && e.TransactionUUID != currentUUID {
 		return -1, errSameBootTime
 	}
