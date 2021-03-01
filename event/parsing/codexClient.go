@@ -36,6 +36,7 @@ type Event struct {
 	Payload         string            `json:"payload,omitempty"`
 	BirthDate       int64             `json:"birth_date"`
 	PartnerIDs      []string          `json:"partner_ids,omitempty"`
+	SessionID       string            `json:"session_id,omitempty"`
 }
 
 // GetEvents queries codex for events related to a device.

@@ -17,9 +17,10 @@ const (
 // Measures tracks the various event-related metrics.
 type Measures struct {
 	fx.In
-	MetadataFields        metrics.Counter   `name:"metadata_fields"`
-	BootTimeHistogram     metrics.Histogram `name:"boot_time_duration"`
-	UnparsableEventsCount metrics.Counter   `name:"unparsable_events_count"`
+	MetadataFields         metrics.Counter   `name:"metadata_fields"`
+	BootTimeHistogram      metrics.Histogram `name:"boot_time_duration"`
+	TotalBootTimeHistogram metrics.Histogram `name:"total_boot_time_duration"`
+	UnparsableEventsCount  metrics.Counter   `name:"unparsable_events_count"`
 }
 
 // ProvideEventMetrics builds the event-related metrics and makes them available to the container.
@@ -44,6 +45,15 @@ func ProvideEventMetrics() fx.Option {
 			prometheus.HistogramOpts{
 				Name:    "boot_time_duration",
 				Help:    "tracks boot time durations in s",
+				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600},
+			},
+			FirmwareLabel,
+			HardwareLabel,
+		),
+		xmetrics.ProvideHistogram(
+			prometheus.HistogramOpts{
+				Name:    "total_boot_time_duration",
+				Help:    "tracks total boot time (reboot-pending to online) durations in s",
 				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600},
 			},
 			FirmwareLabel,

@@ -137,6 +137,8 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 	if eventBootTimeInt > latestBootTime {
 		return -1, errNewerBootTime
 	}
+
+	// if this is an event resulting from a disconnect/reconnect without the device actually restarting
 	if eventBootTimeInt == latestBootTime && e.TransactionUUID != currentUUID {
 		return -1, errSameBootTime
 	}

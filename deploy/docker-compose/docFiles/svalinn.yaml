@@ -29,6 +29,14 @@ requestParser:
       storePayload: true
       ruleTTL: 5m
       eventType: "State"
+    - regex: "device-status/.*/reboot-pending/.*"
+      storePayload: true
+      ruleTTL: "3h"
+      eventType: "Default"
+    - regex: "device-status/.*/fully-manageable/.*"
+      storePayload: true
+      ruleTTL: "3h"
+      eventType: "Default"
     - regex: "device-status/.*/offline$"
       storePayload: true
       ruleTTL: 5m

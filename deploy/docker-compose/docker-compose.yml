@@ -20,17 +20,17 @@ services:
     networks:
       - xmidt
 
-  caduceator0:
-    image: xmidt/caduceator:${CADUCEATOR_VERSION}
-    container_name: caduceator-0
-    ports:
-      - 5000-5003:5000-5003
-    depends_on:
-      - caduceus
-    volumes:
-      - ./docFiles/caduceator-0.yaml:/etc/caduceator/caduceator.yaml
-    networks:
-      - xmidt
+  # caduceator0:
+  #   image: xmidt/caduceator:${CADUCEATOR_VERSION}
+  #   container_name: caduceator-0
+  #   ports:
+  #     - 5000-5003:5000-5003
+  #   depends_on:
+  #     - caduceus
+  #   volumes:
+  #     - ./docFiles/caduceator-0.yaml:/etc/caduceator/caduceator.yaml
+  #   networks:
+  #     - xmidt
 
   caduceator1:
     image: xmidt/caduceator:${CADUCEATOR_VERSION}

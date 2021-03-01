@@ -19,17 +19,17 @@ log:
   maxbackups: 10
   json: true
 vegetaConfig:
-  frequency: 1
-  period: "1m"
+  frequency: 10
+  period: "10s"
   connections: 500
   duration: 0
   maxRoutines: 0
   postURL: "http://caduceus:6000/api/v3/notify"
   sleepTime: "0s"
   clientTimeout: "15s"
-  wrpMessageDest: "event:device-status/mac:112233445566/offline"
-  TransactionId: "123"
-  BootTime: "1612222459"
+  wrpMessageDest: "event:device-status/mac:112233445566/reboot-pending/1612424775/2s"
+  TransactionId: "abc"
+  BootTime: "161222200"
 
   # simulates talaria rehash
   vegetaRehash:

@@ -91,6 +91,17 @@ func Provide() fx.Option {
 					}
 				},
 			},
+			fx.Annotated{
+				Group: "parsers",
+				Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
+					return TotalBootTimeParser{
+						Measures: measures,
+						Logger:   logger,
+						Client:   client,
+						Label:    "total_boot_time_parser",
+					}
+				},
+			},
 			func(parsers ParsersIn) []queue.Parser {
 				return parsers.Parsers
 			},
