@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
@@ -146,11 +147,13 @@ func TestParseEvent(t *testing.T) {
 				metrics: tc.metrics,
 			}
 
-			queue.workers.Acquire()
-			queue.ParseEvent(msg)
+			wrpWithTime := WrpWithTime{Message: msg, Beginning: time.Now()}
 
-			mockMetadataParser.AssertCalled(t, "Parse", msg)
-			mockBootTimeCalc.AssertCalled(t, "Parse", msg)
+			queue.workers.Acquire()
+			queue.ParseEvent(wrpWithTime)
+
+			mockMetadataParser.AssertCalled(t, "Parse", wrpWithTime)
+			mockBootTimeCalc.AssertCalled(t, "Parse", wrpWithTime)
 			p.Assert(t, "depth", partnerIDLabel, "test1")(xmetricstest.Value(tc.expectedEventsCount))
 
 		})
@@ -193,11 +196,11 @@ func TestQueue(t *testing.T) {
 				logger:  xlogtest.New(t),
 				workers: semaphore.New(2),
 				metrics: metrics,
-				queue:   make(chan wrp.Message, tc.queueSize),
+				queue:   make(chan WrpWithTime, tc.queueSize),
 			}
 
 			for i := 0; i < tc.numEvents; i++ {
-				q.Queue(wrp.Message{})
+				q.Queue(WrpWithTime{Message: wrp.Message{}, Beginning: time.Now()})
 			}
 
 			p.Assert(t, "depth")(xmetricstest.Value(tc.eventsMetricCount))

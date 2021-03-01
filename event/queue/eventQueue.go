@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -34,7 +35,7 @@ type Config struct {
 }
 
 type EventQueue struct {
-	queue   chan wrp.Message
+	queue   chan WrpWithTime
 	workers semaphore.Interface
 	wg      sync.WaitGroup
 	logger  log.Logger
@@ -43,9 +44,14 @@ type EventQueue struct {
 	metrics Measures
 }
 
+type WrpWithTime struct {
+	Message   wrp.Message
+	Beginning time.Time
+}
+
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
-	Parse(wrp.Message) error
+	Parse(WrpWithTime) error
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
@@ -65,7 +71,7 @@ func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log
 		logger = defaultLogger
 	}
 
-	queue := make(chan wrp.Message, config.QueueSize)
+	queue := make(chan WrpWithTime, config.QueueSize)
 	workers := semaphore.New(config.MaxWorkers)
 
 	e := EventQueue{
@@ -117,7 +123,7 @@ func (e *EventQueue) Stop() {
 }
 
 // Queue attempts to add a message to the queue and returns an error if the queue is full.
-func (e *EventQueue) Queue(message wrp.Message) (err error) {
+func (e *EventQueue) Queue(message WrpWithTime) (err error) {
 	select {
 	case e.queue <- message:
 		if e.metrics.EventsQueueDepth != nil {
@@ -146,15 +152,15 @@ func (e *EventQueue) ParseEvents() {
 }
 
 // ParseEvent parses the metadata and boot-time of each event and generates metrics.
-func (e *EventQueue) ParseEvent(message wrp.Message) {
+func (e *EventQueue) ParseEvent(wrpWithTime WrpWithTime) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
-		partnerID := basculechecks.DeterminePartnerMetric(message.PartnerIDs)
+		partnerID := basculechecks.DeterminePartnerMetric(wrpWithTime.Message.PartnerIDs)
 		e.metrics.EventsCount.With(partnerIDLabel, partnerID).Add(1.0)
 	}
 
 	for _, p := range e.parsers {
-		if err := p.Parse(message); err != nil {
+		if err := p.Parse(wrpWithTime); err != nil {
 			level.Error(e.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to parse")
 		}
 	}

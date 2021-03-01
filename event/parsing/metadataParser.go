@@ -3,7 +3,7 @@ package parsing
 import (
 	"errors"
 
-	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/glaukos/event/queue"
 )
 
 const (
@@ -19,12 +19,12 @@ type MetadataParser struct {
 }
 
 // Parse gathers metrics for each metadata key.
-func (m MetadataParser) Parse(msg wrp.Message) error {
-	if len(msg.Metadata) < 1 {
+func (m MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
+	if len(wrpWithTime.Message.Metadata) < 1 {
 		m.Measures.UnparsableEventsCount.With(ParserLabel, metadataParserLabel, ReasonLabel, noMetadataFoundErr).Add(1.0)
 		return errors.New("no metadata found")
 	}
-	for key := range msg.Metadata {
+	for key := range wrpWithTime.Message.Metadata {
 		m.Measures.MetadataFields.With(MetadataKeyLabel, key).Add(1.0)
 	}
 	return nil

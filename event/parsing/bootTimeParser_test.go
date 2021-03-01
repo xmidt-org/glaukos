@@ -9,6 +9,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -232,6 +233,7 @@ type test struct {
 	latestBootTime         int64 // should be unix timestamp
 	latestOfflineBirthDate int64 // should be unix timestamp in nanoseconds
 	msg                    wrp.Message
+	beginTime              time.Time
 	events                 []Event
 	expectedErr            bool
 	expectedBadParse       float64
@@ -315,7 +317,6 @@ func TestCalculateRestartTimeError(t *testing.T) {
 			description:    "Error with Event Boottime",
 			latestBootTime: now.Add(-3 * time.Minute).Unix(),
 			expectedErr:    true,
-
 			msg: wrp.Message{
 				Type:            wrp.SimpleEventMessageType,
 				Destination:     "event:device-status/mac:112233445566/online",
@@ -333,6 +334,50 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				},
 			},
 			expectedBadParse: 1.0,
+		},
+		{
+			description:    "Negative Restart Time",
+			latestBootTime: now.Add(-3 * time.Minute).Unix(),
+			expectedErr:    true,
+			msg: wrp.Message{
+				Type:            wrp.SimpleEventMessageType,
+				Destination:     "event:device-status/mac:112233445566/online",
+				TransactionUUID: "123abc",
+			},
+			beginTime: now.Add(-5 * time.Hour),
+			events: []Event{
+				Event{
+					MsgType:         4,
+					Dest:            "event:device-status/mac:112233445566/online",
+					TransactionUUID: "testOnline",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
+					},
+					BirthDate: now.Add(-5 * time.Second).UnixNano(),
+				},
+			},
+		},
+		{
+			description:    "Zero Restart Time",
+			latestBootTime: now.Add(-3 * time.Minute).Unix(),
+			expectedErr:    true,
+			msg: wrp.Message{
+				Type:            wrp.SimpleEventMessageType,
+				Destination:     "event:device-status/mac:112233445566/online",
+				TransactionUUID: "123abc",
+			},
+			beginTime: now,
+			events: []Event{
+				Event{
+					MsgType:         4,
+					Dest:            "event:device-status/mac:112233445566/online",
+					TransactionUUID: "testOnline",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
+					},
+					BirthDate: now.Add(-5 * time.Second).UnixNano(),
+				},
+			},
 		},
 	}
 
@@ -354,7 +399,14 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				bootTimeKey: fmt.Sprint(tc.latestBootTime),
 			}
 
-			time, err := b.calculateRestartTime(tc.msg)
+			var begin time.Time
+
+			if tc.beginTime.IsZero() {
+				begin = now
+			} else {
+				begin = tc.beginTime
+			}
+			time, err := b.calculateRestartTime(queue.WrpWithTime{Message: tc.msg, Beginning: begin})
 			if tc.expectedErr {
 				assert.NotNil(err)
 			} else {
@@ -470,9 +522,9 @@ func TestCalculateRestartSuccess(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			client.On("GetEvents", mock.Anything).Return(tc.events)
 
-			res, err := b.calculateRestartTime(tc.msg)
+			res, err := b.calculateRestartTime(queue.WrpWithTime{Message: tc.msg, Beginning: now})
 			assert.Nil(err)
-			assert.Equal(time.Unix(tc.latestBootTime, 0).Sub(time.Unix(0, tc.latestOfflineBirthDate)).Seconds(), res)
+			assert.Equal(now.Sub(time.Unix(0, tc.latestOfflineBirthDate)).Seconds(), res)
 			p.Assert(t, "unparsable_events", ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr)(xmetricstest.Value(0.0))
 		})
 	}
