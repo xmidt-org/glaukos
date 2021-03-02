@@ -2,14 +2,13 @@ package queue
 
 import (
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/wrp-go/v3"
 )
 
 type MockParser struct {
 	mock.Mock
 }
 
-func (mp *MockParser) Parse(msg wrp.Message) error {
-	args := mp.Called(msg)
+func (mp *MockParser) Parse(wrpWithTime WrpWithTime) error {
+	args := mp.Called(wrpWithTime)
 	return args.Error(0)
 }

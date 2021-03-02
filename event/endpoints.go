@@ -7,7 +7,9 @@ package event
 import (
 	"context"
 	"errors"
+	"time"
 
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 
@@ -47,7 +49,13 @@ func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 				return nil, errors.New("invalid request info")
 			}
 
-			if err := eventQueue.Queue(v); err != nil {
+			begin, err := parsing.GetValidBirthDate(time.Now, v.Payload)
+			if err != nil {
+				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to get valid birthdate from payload")
+				begin = time.Now()
+			}
+
+			if err := eventQueue.Queue(queue.WrpWithTime{Message: v, Beginning: begin}); err != nil {
 				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to queue message")
 				return nil, err
 			}

@@ -3,6 +3,7 @@ package parsing
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -153,6 +154,106 @@ func TestGetDeviceID(t *testing.T) {
 				assert.True(errors.Is(err, tc.expectedErr))
 			}
 
+		})
+	}
+}
+
+func TestGetValidBirthDate(t *testing.T) {
+	payload := []byte(`{"ts":"2019-02-13T21:19:02.614191735Z"}`)
+	testassert := assert.New(t)
+	goodTime, err := time.Parse(time.RFC3339Nano, "2019-02-13T21:19:02.614191735Z")
+	testassert.Nil(err)
+	currTime, err := time.Parse(time.RFC3339Nano, "2019-02-13T21:21:21.614191735Z")
+	testassert.Nil(err)
+
+	tests := []struct {
+		description       string
+		fakeNow           time.Time
+		payload           []byte
+		expectedBirthDate time.Time
+		expectedErr       error
+	}{
+		{
+			description:       "Success",
+			fakeNow:           currTime,
+			payload:           payload,
+			expectedBirthDate: goodTime,
+		},
+		{
+			description:       "Success No Birthdate in Payload",
+			fakeNow:           currTime,
+			payload:           nil,
+			expectedBirthDate: currTime,
+		},
+		{
+			description: "Future Birthdate Error",
+			fakeNow:     currTime.Add(-5 * time.Hour),
+			payload:     payload,
+			expectedErr: errFutureBirthDate,
+		},
+		{
+			description: "Past Birthdate Error",
+			fakeNow:     currTime.Add(200 * time.Hour),
+			payload:     payload,
+			expectedErr: errPastBirthDate,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			currTime := func() time.Time {
+				return tc.fakeNow
+			}
+			b, err := GetValidBirthDate(currTime, tc.payload)
+			assert.Equal(tc.expectedBirthDate, b)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
+			} else {
+				assert.Contains(err.Error(), tc.expectedErr.Error())
+			}
+		})
+	}
+}
+
+func TestGetBirthDate(t *testing.T) {
+	goodTime, err := time.Parse(time.RFC3339Nano, "2019-02-13T21:19:02.614191735Z")
+	assert.Nil(t, err)
+	tests := []struct {
+		description   string
+		payload       []byte
+		expectedTime  time.Time
+		expectedFound bool
+	}{
+		{
+			description:   "Success",
+			payload:       []byte(`{"ts":"2019-02-13T21:19:02.614191735Z"}`),
+			expectedTime:  goodTime,
+			expectedFound: true,
+		},
+		{
+			description: "Unmarshal Payload Error",
+			payload:     []byte("test"),
+		},
+		{
+			description: "Empty Payload String Error",
+			payload:     []byte(``),
+		},
+		{
+			description: "Non-String Timestamp Error",
+			payload:     []byte(`{"ts":5}`),
+		},
+		{
+			description: "Parse Timestamp Error",
+			payload:     []byte(`{"ts":"2345"}`),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			time, found := getBirthDate(tc.payload)
+			assert.Equal(time, tc.expectedTime)
+			assert.Equal(found, tc.expectedFound)
 		})
 	}
 }
