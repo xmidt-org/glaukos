@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 
@@ -43,10 +44,15 @@ type EndpointsDecodeIn struct {
 func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
-			begin := time.Now()
 			v, ok := request.(wrp.Message)
 			if !ok {
 				return nil, errors.New("invalid request info")
+			}
+
+			begin, err := parsing.GetValidBirthDate(time.Now, v.Payload)
+			if err != nil {
+				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to get valid birthdate from payload")
+				begin = time.Now()
 			}
 
 			if err := eventQueue.Queue(queue.WrpWithTime{Message: v, Beginning: begin}); err != nil {
