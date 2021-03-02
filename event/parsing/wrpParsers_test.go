@@ -192,7 +192,7 @@ func TestGetValidBirthDate(t *testing.T) {
 			expectedErr: errFutureBirthDate,
 		},
 		{
-			description: "Future Birthdate Error",
+			description: "Past Birthdate Error",
 			fakeNow:     currTime.Add(200 * time.Hour),
 			payload:     payload,
 			expectedErr: errPastBirthDate,
@@ -206,7 +206,7 @@ func TestGetValidBirthDate(t *testing.T) {
 				return tc.fakeNow
 			}
 			b, err := GetValidBirthDate(currTime, tc.payload)
-			assert.Equal(tc.expectedBirthDate, b, "birth date mismatch")
+			assert.Equal(tc.expectedBirthDate, b)
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
 			} else {
