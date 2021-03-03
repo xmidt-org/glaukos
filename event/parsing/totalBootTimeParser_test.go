@@ -406,8 +406,9 @@ func TestCalculateRebootTimeError(t *testing.T) {
 			},
 		},
 		{
-			description: "Reboot-pending boot-time greater than latest boot-time ",
-			expectedErr: errNewerBootTime,
+			description:      "Newer boot-time found",
+			expectedErr:      errNewerBootTime,
+			expectedBadParse: 1.0,
 			msg: wrp.Message{
 				Type:            wrp.SimpleEventMessageType,
 				Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
@@ -419,7 +420,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 			events: []Event{
 				Event{
 					MsgType:         4,
-					Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
+					Dest:            "event:device-status/mac:112233445566/some-event",
 					TransactionUUID: "testReboot",
 					Metadata: map[string]string{
 						bootTimeKey: fmt.Sprint(now.Add(1 * time.Minute).Unix()),
@@ -475,6 +476,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 				Measures: m,
 				Client:   client,
 				Logger:   log.NewNopLogger(),
+				Label:    "total_boot_time_duration",
 			}
 
 			var begin time.Time
@@ -489,7 +491,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 				assert.Contains(err.Error(), tc.expectedErr.Error())
 			}
 			assert.Equal(-1.0, time)
-			p.Assert(t, "unparsable_events", ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr)(xmetricstest.Value(tc.expectedBadParse))
+			p.Assert(t, "unparsable_events", ParserLabel, "total_boot_time_duration", ReasonLabel, eventBootTimeErr)(xmetricstest.Value(tc.expectedBadParse))
 		})
 	}
 }
@@ -507,78 +509,74 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 			Measures: m,
 			Client:   client,
 			Logger:   log.NewNopLogger(),
+			Label:    "total_boot_time_duration",
 		}
 	)
 
-	tests := []testReboot{
-		{
-			description: "Success",
-			expectedErr: errRestartTime,
-			msg: wrp.Message{
-				Type:            wrp.SimpleEventMessageType,
-				Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
-				TransactionUUID: "123abc",
-				Metadata: map[string]string{
-					bootTimeKey: fmt.Sprint(now.Unix()),
-				},
+	test := testReboot{
+		description: "Success",
+		expectedErr: errRestartTime,
+		msg: wrp.Message{
+			Type:            wrp.SimpleEventMessageType,
+			Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
+			TransactionUUID: "123abc",
+			Metadata: map[string]string{
+				bootTimeKey: fmt.Sprint(now.Unix()),
 			},
-			latestRebootPending: now.Add(-1 * time.Minute).UnixNano(),
-			events: []Event{
-				Event{
-					MsgType:         4,
-					Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
-					TransactionUUID: "testReboot",
-					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Add(-2 * time.Minute).Unix()),
-					},
-					BirthDate: now.Add(-6 * time.Minute).UnixNano(),
+		},
+		latestRebootPending: now.Add(-1 * time.Minute).UnixNano(),
+		events: []Event{
+			Event{
+				MsgType:         4,
+				Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
+				TransactionUUID: "testReboot",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Add(-2 * time.Minute).Unix()),
 				},
-				Event{
-					MsgType:         4,
-					Dest:            "event:device-status/mac:112233445566/online",
-					TransactionUUID: "testOnline",
-					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
-					},
-					BirthDate: now.Add(-2 * time.Minute).UnixNano(),
+				BirthDate: now.Add(-6 * time.Minute).UnixNano(),
+			},
+			Event{
+				MsgType:         4,
+				Dest:            "event:device-status/mac:112233445566/online",
+				TransactionUUID: "testOnline",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
 				},
-				Event{
-					MsgType:         4,
-					Dest:            "event:device-status/mac:112233445566/reboot-pending/1122556/2s",
-					TransactionUUID: "rebootEventFound",
-					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
-					},
-					BirthDate: now.Add(-1 * time.Minute).UnixNano(),
+				BirthDate: now.Add(-2 * time.Minute).UnixNano(),
+			},
+			Event{
+				MsgType:         4,
+				Dest:            "event:device-status/mac:112233445566/reboot-pending/1122556/2s",
+				TransactionUUID: "rebootEventFound",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
 				},
-				Event{
-					MsgType:         4,
-					Dest:            "event:device-status/mac:112233445566/online",
-					TransactionUUID: "testOnline",
-					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
-					},
-					BirthDate: now.Add(-4 * time.Minute).UnixNano(),
+				BirthDate: now.Add(-1 * time.Minute).UnixNano(),
+			},
+			Event{
+				MsgType:         4,
+				Dest:            "event:device-status/mac:112233445566/online",
+				TransactionUUID: "testOnline",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
 				},
-				Event{
-					MsgType:         4,
-					Dest:            "event:device-status/mac:112233445566/online",
-					TransactionUUID: "emptyMetadata",
-					Metadata:        map[string]string{},
-					BirthDate:       now.Add(-5 * time.Minute).UnixNano(),
-				},
+				BirthDate: now.Add(-4 * time.Minute).UnixNano(),
+			},
+			Event{
+				MsgType:         4,
+				Dest:            "event:device-status/mac:112233445566/online",
+				TransactionUUID: "emptyMetadata",
+				Metadata:        map[string]string{},
+				BirthDate:       now.Add(-5 * time.Minute).UnixNano(),
 			},
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			client.On("GetEvents", mock.Anything).Return(tc.events)
+	client.On("GetEvents", mock.Anything).Return(test.events)
 
-			res, err := b.calculateRestartTime(queue.WrpWithTime{Message: tc.msg, Beginning: now})
-			assert.Nil(err)
-			assert.Equal(now.Sub(time.Unix(0, tc.latestRebootPending)).Seconds(), res)
-			p.Assert(t, "unparsable_events", ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr)(xmetricstest.Value(0.0))
-		})
-	}
+	res, err := b.calculateRestartTime(queue.WrpWithTime{Message: test.msg, Beginning: now})
+	assert.Nil(err)
+	assert.Equal(now.Sub(time.Unix(0, test.latestRebootPending)).Seconds(), res)
+	p.Assert(t, "unparsable_events", ParserLabel, "total_boot_time_duration", ReasonLabel, eventBootTimeErr)(xmetricstest.Value(0.0))
+
 }

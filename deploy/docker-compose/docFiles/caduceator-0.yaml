@@ -20,7 +20,7 @@ log:
   json: true
 vegetaConfig:
   frequency: 1
-  period: "3m"
+  period: "10s"
   connections: 500
   duration: 0
   maxRoutines: 0
@@ -29,7 +29,8 @@ vegetaConfig:
   clientTimeout: "15s"
   wrpMessageDest: "event:device-status/mac:112233445566/online"
   TransactionId: "abc"
-  BootTime: "161222200"
+  BootTime: "161222200" # needs to be within 12 hours prior and one hour in the future to now, unix timestamp in seconds
+  Birthdate: "2021-03-03T17:09:25.0000000Z" # needs to be within 12 hours prior and one hour in the future to now
 
   # simulates talaria rehash
   vegetaRehash:

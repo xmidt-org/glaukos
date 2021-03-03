@@ -29,8 +29,8 @@ vegetaConfig:
   clientTimeout: "15s"
   wrpMessageDest: "event:device-status/mac:112233445566/reboot-pending/1612424775/2s"
   TransactionId: "abc"
-  BootTime: "1614727705"
-  Payload: "ewoJCSJpZCI6ICJtYWM6MTEyMjMzNDQ1NTY2IiwKCQkidHMiOiAiMjAyMS0wMy0wMVQwMToyMDowMC4wMDAwMDAwWiIKfQ=="
+  BootTime: "1614791245" # needs to be within 12 hours prior and one hour in the future to now, unix timestamp in seconds
+  Birthdate: "2021-03-03T17:00:25.0000000Z" # needs to be within 12 hours prior and one hour in the future to now
 
   # simulates talaria rehash
   vegetaRehash:
