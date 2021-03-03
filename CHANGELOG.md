@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Change boot-time calculation to use the birthdate of the request, remove absolute value in boot-time calculation. [#31](https://github.com/xmidt-org/glaukos/pull/31)
+- Add a parser to calculate the time between reboot-pending and fully-manageable events. [#35](https://github.com/xmidt-org/glaukos/pull/35)
 
 ## [v0.1.1]
 - Nothing has changed.
