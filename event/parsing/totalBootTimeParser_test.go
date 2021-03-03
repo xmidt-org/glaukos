@@ -430,6 +430,29 @@ func TestCalculateRebootTimeError(t *testing.T) {
 			},
 		},
 		{
+			description: "Invalid Restart Time",
+			expectedErr: errInvalidRestartTime,
+			msg: wrp.Message{
+				Type:            wrp.SimpleEventMessageType,
+				Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
+				TransactionUUID: "123abc",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Unix()),
+				},
+			},
+			events: []Event{
+				Event{
+					MsgType:         4,
+					Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
+					TransactionUUID: "testReboot",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
+					},
+					BirthDate: now.Add(1 * time.Minute).UnixNano(),
+				},
+			},
+		},
+		{
 			description: "Missed reboot-pending event",
 			expectedErr: errRestartTime,
 			msg: wrp.Message{

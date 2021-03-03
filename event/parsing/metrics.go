@@ -45,7 +45,7 @@ func ProvideEventMetrics() fx.Option {
 			prometheus.HistogramOpts{
 				Name:    "boot_time_duration",
 				Help:    "tracks boot time durations in s",
-				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 1440, 201600},
 			},
 			FirmwareLabel,
 			HardwareLabel,
@@ -53,7 +53,7 @@ func ProvideEventMetrics() fx.Option {
 		xmetrics.ProvideHistogram(
 			prometheus.HistogramOpts{
 				Name:    "total_boot_time_duration",
-				Help:    "tracks total boot time (reboot-pending to online) durations in s",
+				Help:    "tracks total boot time (reboot-pending to fully-manageable) durations in s",
 				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600},
 			},
 			FirmwareLabel,
