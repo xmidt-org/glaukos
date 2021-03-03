@@ -23,23 +23,23 @@ requestParser:
   maxWorkers: 10000
   metadataMaxSize: 1000
   payloadMaxSize: 1000
-  defaultTTL: 1h
+  defaultTTL: "720h"
   regexRules:
     - regex: "device-status/.*/online$"
       storePayload: true
-      ruleTTL: 5m
+      ruleTTL: "720h"
       eventType: "State"
     - regex: "device-status/.*/reboot-pending/.*"
       storePayload: true
-      ruleTTL: "3h"
+      ruleTTL: "720h"
       eventType: "Default"
     - regex: "device-status/.*/fully-manageable/.*"
       storePayload: true
-      ruleTTL: "3h"
+      ruleTTL: "720h"
       eventType: "Default"
     - regex: "device-status/.*/offline$"
       storePayload: true
-      ruleTTL: 5m
+      ruleTTL: "720h"
       eventType: "State"
 batchInserter:
   queueSize: 3000

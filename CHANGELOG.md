@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Change boot-time calculation to use the time that the request is received, remove absolute value in boot-time calculation. [#31](https://github.com/xmidt-org/glaukos/pull/31)
+- Change boot-time calculation to use the birthdate of the request, remove absolute value in boot-time calculation. [#31](https://github.com/xmidt-org/glaukos/pull/31)
 
 ## [v0.1.1]
 - Nothing has changed.
