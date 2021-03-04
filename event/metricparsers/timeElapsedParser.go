@@ -1,11 +1,15 @@
 package metricparsers
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/themis/xlog"
 )
 
 type Config struct {
@@ -50,7 +54,7 @@ func (t *TimeElapsedParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) 
 	msg := wrpWithTime.Message
 	// If event is not an fully-manageable event, do not continue with calculations.
 	if !eventRegex.MatchString(msg.Destination) || !t.endingEvent.regex.MatchString(msg.Destination) {
-		level.Debug(b.Logger).Log(xlog.MessageKey(), "event does not match event type", 
+		level.Debug(b.Logger).Log(xlog.MessageKey(), "event does not match event type",
 			"desired type", t.endingEvent.regex.String(), "message destination", msg.Destination)
 		return -1, nil
 	}
@@ -85,8 +89,12 @@ func (t *TimeElapsedParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) 
 
 	var endingTime time.Time
 	var startingTime time.Time
-
-	if (t.startingEvent.calculateUsing == )
+	// TODO: rework
+	if t.startingEvent.CalculateUsing == parsing.BirthDate {
+		startingTime = wrpWithTime.Beginning
+	} else {
+		startingTime = wrpWithTime.Message
+	}
 
 	// boot time calculation
 	// Event birthdate is saved in unix nanoseconds, so we must first convert it to a unix time using nanoseconds.
