@@ -189,13 +189,13 @@ func TestGetValidBirthDate(t *testing.T) {
 			description: "Future Birthdate Error",
 			fakeNow:     currTime.Add(-5 * time.Hour),
 			payload:     payload,
-			expectedErr: errFutureBirthDate,
+			expectedErr: errFutureDate,
 		},
 		{
 			description: "Past Birthdate Error",
 			fakeNow:     currTime.Add(200 * time.Hour),
 			payload:     payload,
-			expectedErr: errPastBirthDate,
+			expectedErr: errPastDate,
 		},
 	}
 
@@ -254,6 +254,83 @@ func TestGetBirthDate(t *testing.T) {
 			time, found := getBirthDate(tc.payload)
 			assert.Equal(time, tc.expectedTime)
 			assert.Equal(found, tc.expectedFound)
+		})
+	}
+}
+
+func TestIsDateValid(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+
+	currFunc := func() time.Time {
+		return now
+	}
+
+	tests := []struct {
+		description  string
+		pastBuffer   time.Duration
+		futureBuffer time.Duration
+		testTime     time.Time
+		expectedRes  bool
+		expectedErr  error
+	}{
+		{
+			description:  "Valid Time",
+			pastBuffer:   time.Hour,
+			futureBuffer: 30 * time.Minute,
+			testTime:     now.Add(2 * time.Minute),
+			expectedRes:  true,
+		},
+		{
+			description:  "Unix Time 0",
+			pastBuffer:   time.Hour,
+			futureBuffer: 30 * time.Minute,
+			testTime:     time.Unix(0, 0),
+			expectedRes:  false,
+			expectedErr:  errPastDate,
+		},
+		{
+			description:  "Before unix Time 0",
+			pastBuffer:   time.Hour,
+			futureBuffer: 30 * time.Minute,
+			testTime:     time.Unix(-10, 0),
+			expectedRes:  false,
+			expectedErr:  errPastDate,
+		},
+		{
+			description:  "Negative past buffer",
+			pastBuffer:   -1 * time.Hour,
+			futureBuffer: 30 * time.Minute,
+			testTime:     now.Add(2 * time.Minute),
+			expectedRes:  true,
+		},
+		{
+			description:  "0 buffers",
+			pastBuffer:   0,
+			futureBuffer: 0,
+			testTime:     now.Add(2 * time.Minute),
+			expectedRes:  false,
+			expectedErr:  errFutureDate,
+		},
+		{
+			description:  "Equal time",
+			pastBuffer:   0,
+			futureBuffer: 0,
+			testTime:     now,
+			expectedRes:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			valid, err := isDateValid(currFunc, tc.pastBuffer, tc.futureBuffer, tc.testTime)
+			assert.Equal(tc.expectedRes, valid)
+			if !tc.expectedRes {
+				assert.Contains(err.Error(), tc.expectedErr.Error())
+			} else {
+				assert.Nil(err)
+			}
 		})
 	}
 }

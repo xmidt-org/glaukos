@@ -3,20 +3,20 @@ package parsing
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/goph/emperror"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
 var (
-	errParseDeviceID   = errors.New("error getting device ID from event")
-	errFutureBirthDate = errors.New("birthdate is too far in the future")
-	errPastBirthDate   = errors.New("birthdate is too far in the past")
+	errParseDeviceID = errors.New("error getting device ID from event")
+	errFutureDate    = errors.New("date is too far in the future")
+	errPastDate      = errors.New("date is too far in the past")
 
-	errBootTimeParse = errors.New("unable to get boot-time")
+	errBootTimeParse = errors.New("unable to parse boot-time")
 )
 
 // GetWRPBootTime grabs the boot-time from a wrp.Message's metadata.
@@ -26,7 +26,7 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
-			return 0, emperror.WrapWith(errBootTimeParse, "error parsing boot-time", err)
+			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
 		}
 	}
 	return bootTime, nil
@@ -39,7 +39,7 @@ func GetEventBootTime(msg Event) (int64, error) {
 	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
-			return 0, emperror.WrapWith(errBootTimeParse, "error parsing boot-time", err)
+			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
 		}
 	}
 	return bootTime, nil
@@ -65,15 +65,9 @@ func GetValidBirthDate(currTime func() time.Time, payload []byte) (time.Time, er
 		birthDate = now
 	}
 
-	// for time skew reasons
-	if birthDate.After(now.Add(time.Hour)) {
-		return time.Time{}, emperror.WrapWith(errFutureBirthDate, "invalid birthdate", "birthdate", birthDate.String())
-	}
-
-	// check if birth date is too old (past a week)
-	// TODO: should this be configurable?
-	if birthDate.Before(now.Add(-168 * time.Hour)) {
-		return time.Time{}, emperror.WrapWith(errPastBirthDate, "invalid birthdate", "birthdate", birthDate.String())
+	// check if birthdate is within the last 12 hours and the next hour
+	if valid, err := isDateValid(currTime, 12*time.Hour, time.Hour, birthDate); !valid {
+		return time.Time{}, err
 	}
 
 	return birthDate, nil
@@ -99,4 +93,30 @@ func getBirthDate(payload []byte) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return birthDate, true
+}
+
+// Sees if a date is within a certain time frame.
+// PastBuffer should be a positive duration.
+func isDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
+	if date.Before(time.Unix(0, 0)) || date.Equal(time.Unix(0, 0)) {
+		return false, errPastDate
+	}
+
+	if pastBuffer.Seconds() < 0 {
+		pastBuffer = -1 * pastBuffer
+	}
+
+	now := currTime()
+	pastTime := now.Add(-1 * pastBuffer)
+	futureTime := now.Add(futureBuffer)
+
+	if !(pastTime.Before(date) || pastTime.Equal(date)) {
+		return false, errPastDate
+	}
+
+	if !(futureTime.Equal(date) || futureTime.After(date)) {
+		return false, errFutureDate
+	}
+
+	return true, nil
 }

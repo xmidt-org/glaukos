@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"testing"
@@ -110,7 +111,7 @@ func TestCheckLatestPreviousEvent(t *testing.T) {
 			expectedEvent: Event{
 				Dest:      "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata:  map[string]string{bootTimeKey: "60"},
-				BirthDate: 30,
+				BirthDate: 20,
 			},
 		},
 		{
@@ -173,76 +174,11 @@ func TestCheckLatestPreviousEvent(t *testing.T) {
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
 			} else {
-				assert.Contains(err.Error(), tc.expectedErr.Error())
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
 			}
-		})
-	}
-}
-
-func TestIsDateValid(t *testing.T) {
-	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
-	assert.Nil(t, err)
-
-	currFunc := func() time.Time {
-		return now
-	}
-
-	tests := []struct {
-		description  string
-		pastBuffer   time.Duration
-		futureBuffer time.Duration
-		testTime     time.Time
-		expectedRes  bool
-	}{
-		{
-			description:  "Valid Time",
-			pastBuffer:   time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     now.Add(2 * time.Minute),
-			expectedRes:  true,
-		},
-		{
-			description:  "Unix Time 0",
-			pastBuffer:   time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     time.Unix(0, 0),
-			expectedRes:  false,
-		},
-		{
-			description:  "Before unix Time 0",
-			pastBuffer:   time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     time.Unix(-10, 0),
-			expectedRes:  false,
-		},
-		{
-			description:  "Negative past buffer",
-			pastBuffer:   -1 * time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     now.Add(2 * time.Minute),
-			expectedRes:  true,
-		},
-		{
-			description:  "0 buffers",
-			pastBuffer:   0,
-			futureBuffer: 0,
-			testTime:     now.Add(2 * time.Minute),
-			expectedRes:  false,
-		},
-		{
-			description:  "Equal time",
-			pastBuffer:   0,
-			futureBuffer: 0,
-			testTime:     now,
-			expectedRes:  true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			valid := isDateValid(currFunc, tc.pastBuffer, tc.futureBuffer, tc.testTime)
-			assert.Equal(tc.expectedRes, valid)
 		})
 	}
 }
@@ -282,7 +218,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: errRestartTime,
+			expectedErr: errEventNotFound,
 		},
 		{
 			description: "No boot time",
@@ -292,7 +228,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: errRestartTime,
+			expectedErr: errPastDate,
 		},
 		{
 			description: "Invalid boot time",
@@ -305,7 +241,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: errRestartTime,
+			expectedErr: errPastDate,
 		},
 		{
 			description: "Invalid birthdate",
@@ -319,7 +255,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: errRestartTime,
+			expectedErr: errPastDate,
 		},
 	}
 
@@ -330,7 +266,10 @@ func TestIsEventValid(t *testing.T) {
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
 			} else {
-				assert.Contains(err.Error(), tc.expectedErr.Error())
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
 			}
 
 			assert.Equal(tc.expectedRes, res)
@@ -371,7 +310,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 		},
 		{
 			description: "No previous events",
-			expectedErr: errRestartTime,
+			expectedErr: errEventNotFound,
 			msg: wrp.Message{
 				Type:            wrp.SimpleEventMessageType,
 				Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
@@ -384,7 +323,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 		},
 		{
 			description: "No previous reboot-pending event",
-			expectedErr: errRestartTime,
+			expectedErr: errEventNotFound,
 			msg: wrp.Message{
 				Type:            wrp.SimpleEventMessageType,
 				Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
@@ -454,7 +393,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 		},
 		{
 			description: "Missed reboot-pending event",
-			expectedErr: errRestartTime,
+			expectedErr: errEventNotFound,
 			msg: wrp.Message{
 				Type:            wrp.SimpleEventMessageType,
 				Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
@@ -495,11 +434,11 @@ func TestCalculateRebootTimeError(t *testing.T) {
 			m := Measures{
 				UnparsableEventsCount: p.NewCounter("unparsable_events"),
 			}
-			b := TotalBootTimeParser{
+			b := RebootTimeParser{
 				Measures: m,
 				Client:   client,
 				Logger:   log.NewNopLogger(),
-				Label:    "total_boot_time_duration",
+				Label:    "reboot_to_manageable_duration",
 			}
 
 			var begin time.Time
@@ -511,10 +450,13 @@ func TestCalculateRebootTimeError(t *testing.T) {
 			}
 			time, err := b.calculateRestartTime(queue.WrpWithTime{Message: tc.msg, Beginning: begin})
 			if tc.expectedErr != nil {
-				assert.Contains(err.Error(), tc.expectedErr.Error())
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
 			}
 			assert.Equal(-1.0, time)
-			p.Assert(t, "unparsable_events", ParserLabel, "total_boot_time_duration", ReasonLabel, eventBootTimeErr)(xmetricstest.Value(tc.expectedBadParse))
+			p.Assert(t, "unparsable_events", ParserLabel, "reboot_to_manageable_duration", ReasonLabel, eventBootTimeErr)(xmetricstest.Value(tc.expectedBadParse))
 		})
 	}
 }
@@ -528,17 +470,16 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 		m      = Measures{
 			UnparsableEventsCount: p.NewCounter("unparsable_events"),
 		}
-		b = TotalBootTimeParser{
+		b = RebootTimeParser{
 			Measures: m,
 			Client:   client,
 			Logger:   log.NewNopLogger(),
-			Label:    "total_boot_time_duration",
+			Label:    "reboot_to_manageable_duration",
 		}
 	)
 
 	test := testReboot{
 		description: "Success",
-		expectedErr: errRestartTime,
 		msg: wrp.Message{
 			Type:            wrp.SimpleEventMessageType,
 			Destination:     "event:device-status/mac:112233445566/fully-manageable/1613039294",
@@ -600,6 +541,6 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 	res, err := b.calculateRestartTime(queue.WrpWithTime{Message: test.msg, Beginning: now})
 	assert.Nil(err)
 	assert.Equal(now.Sub(time.Unix(0, test.latestRebootPending)).Seconds(), res)
-	p.Assert(t, "unparsable_events", ParserLabel, "total_boot_time_duration", ReasonLabel, eventBootTimeErr)(xmetricstest.Value(0.0))
+	p.Assert(t, "unparsable_events", ParserLabel, "reboot_to_manageable_duration", ReasonLabel, eventBootTimeErr)(xmetricstest.Value(0.0))
 
 }

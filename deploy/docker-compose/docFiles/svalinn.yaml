@@ -27,19 +27,13 @@ requestParser:
   regexRules:
     - regex: "device-status/.*/online$"
       storePayload: true
-      ruleTTL: "720h"
       eventType: "State"
     - regex: "device-status/.*/reboot-pending/.*"
-      storePayload: true
-      ruleTTL: "720h"
       eventType: "Default"
     - regex: "device-status/.*/fully-manageable/.*"
-      storePayload: true
-      ruleTTL: "720h"
       eventType: "Default"
     - regex: "device-status/.*/offline$"
       storePayload: true
-      ruleTTL: "720h"
       eventType: "State"
 batchInserter:
   queueSize: 3000

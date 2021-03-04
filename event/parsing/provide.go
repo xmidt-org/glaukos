@@ -134,7 +134,7 @@ func provideParsers() fx.Option {
 		fx.Annotated{
 			Group: "parsers",
 			Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
-				return BootTimeParser{
+				return &BootTimeParser{
 					Measures: measures,
 					Logger:   logger,
 					Client:   client,
@@ -144,11 +144,11 @@ func provideParsers() fx.Option {
 		fx.Annotated{
 			Group: "parsers",
 			Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
-				return TotalBootTimeParser{
+				return &RebootTimeParser{
 					Measures: measures,
 					Logger:   logger,
 					Client:   client,
-					Label:    "total_boot_time_parser",
+					Label:    "reboot_to_manageable_parser",
 				}
 			},
 		},
