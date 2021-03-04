@@ -28,10 +28,6 @@ requestParser:
     - regex: "device-status/.*/online$"
       storePayload: true
       eventType: "State"
-    - regex: "device-status/.*/reboot-pending/.*"
-      eventType: "Default"
-    - regex: "device-status/.*/fully-manageable/.*"
-      eventType: "Default"
     - regex: "device-status/.*/offline$"
       storePayload: true
       eventType: "State"
