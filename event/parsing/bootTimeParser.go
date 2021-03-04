@@ -56,7 +56,7 @@ Steps to calculate boot time:
 	3) Subtract Online birthdate from steps 2 event Birthdate.
 	4) Record Metric.
 */
-func (b BootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
+func (b *BootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
 	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
 		b.Measures.BootTimeHistogram.With(HardwareLabel, wrpWithTime.Message.Metadata[hardwareKey], FirmwareLabel, wrpWithTime.Message.Metadata[firmwareKey]).Observe(restartTime)

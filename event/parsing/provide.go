@@ -46,6 +46,7 @@ type ParsersIn struct {
 func Provide() fx.Option {
 	return fx.Options(
 		ProvideEventMetrics(),
+		provideParsers(),
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
 			determineCodexTokenAcquirer,
@@ -58,12 +59,10 @@ func Provide() fx.Option {
 					Logger:   logger,
 					Retries:  config.MaxRetryCount,
 					Interval: time.Second * 30,
-
 					// Always retry on failures up to the max count.
 					ShouldRetry:       func(error) bool { return true },
 					ShouldRetryStatus: func(code int) bool { return false },
 				}
-
 				return &CodexClient{
 					Address:      config.Address,
 					Auth:         codexAuth,
@@ -72,24 +71,6 @@ func Provide() fx.Option {
 					logger:       logger,
 					cb:           cb,
 				}
-			},
-			fx.Annotated{
-				Group: "parsers",
-				Target: func(measures Measures) queue.Parser {
-					return MetadataParser{
-						Measures: measures,
-					}
-				},
-			},
-			fx.Annotated{
-				Group: "parsers",
-				Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
-					return BootTimeParser{
-						Measures: measures,
-						Logger:   logger,
-						Client:   client,
-					}
-				},
 			},
 			func(parsers ParsersIn) []queue.Parser {
 				return parsers.Parsers
@@ -138,4 +119,38 @@ func createReadyToTripFunc(c CircuitBreakerConfig) func(count gobreaker.Counts) 
 	return func(count gobreaker.Counts) bool {
 		return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
 	}
+}
+
+func provideParsers() fx.Option {
+	return fx.Provide(
+		fx.Annotated{
+			Group: "parsers",
+			Target: func(measures Measures) queue.Parser {
+				return MetadataParser{
+					Measures: measures,
+				}
+			},
+		},
+		fx.Annotated{
+			Group: "parsers",
+			Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
+				return &BootTimeParser{
+					Measures: measures,
+					Logger:   logger,
+					Client:   client,
+				}
+			},
+		},
+		fx.Annotated{
+			Group: "parsers",
+			Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
+				return &RebootTimeParser{
+					Measures: measures,
+					Logger:   logger,
+					Client:   client,
+					Label:    "reboot_to_manageable_parser",
+				}
+			},
+		},
+	)
 }

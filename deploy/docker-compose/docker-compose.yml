@@ -7,7 +7,7 @@ services:
       - "CODEX_BASIC_AUTH=YXV0aEhlYWRlcjp0ZXN0"
       - "WEBHOOK_BASIC_AUTH=dXNlcjpwYXNz"
       - "WEBHOOK_REGISTRATION_INTERVAL=1m"
-      - WEBHOOK_MAX_RETRY=0
+      - WEBHOOK_MAX_RETRY=3
       - QUEUE_SIZE=10
       - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
@@ -17,18 +17,6 @@ services:
     depends_on:
       - caduceus
       - gungnir
-    networks:
-      - xmidt
-
-  caduceator0:
-    image: xmidt/caduceator:${CADUCEATOR_VERSION}
-    container_name: caduceator-0
-    ports:
-      - 5000-5003:5000-5003
-    depends_on:
-      - caduceus
-    volumes:
-      - ./docFiles/caduceator-0.yaml:/etc/caduceator/caduceator.yaml
     networks:
       - xmidt
 
