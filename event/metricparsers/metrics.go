@@ -1,4 +1,4 @@
-package parsing
+package metricparsers
 
 import (
 	"github.com/go-kit/kit/metrics"
@@ -21,6 +21,7 @@ type Measures struct {
 	BootTimeHistogram     metrics.Histogram `name:"boot_time_duration"`
 	RebootTimeHistogram   metrics.Histogram `name:"reboot_to_manageable_duration"`
 	UnparsableEventsCount metrics.Counter   `name:"unparsable_events_count"`
+	BootTimeHistograms    map[string]metrics.Histogram
 }
 
 // ProvideEventMetrics builds the event-related metrics and makes them available to the container.

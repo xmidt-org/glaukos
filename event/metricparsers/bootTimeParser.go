@@ -1,8 +1,8 @@
 /**
- *  Copyright (c) 2020  Comcast Cable Communications Management, LLC
+ *  Copyright (c) 2021  Comcast Cable Communications Management, LLC
  */
 
-package parsing
+package metricparsers
 
 import (
 	"errors"

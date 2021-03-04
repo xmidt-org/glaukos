@@ -11,6 +11,10 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
+const (
+	bootTimeKey = "/boot-time"
+)
+
 var (
 	errParseDeviceID = errors.New("error getting device ID from event")
 	errFutureDate    = errors.New("date is too far in the future")
@@ -64,7 +68,6 @@ func GetValidBirthDate(currTime func() time.Time, payload []byte) (time.Time, er
 	if !ok {
 		birthDate = now
 	}
-
 	// check if birthdate is within the last 12 hours and the next hour
 	if valid, err := isDateValid(currTime, 12*time.Hour, time.Hour, birthDate); !valid {
 		return time.Time{}, err
@@ -93,30 +96,4 @@ func getBirthDate(payload []byte) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return birthDate, true
-}
-
-// Sees if a date is within a certain time frame.
-// PastBuffer should be a positive duration.
-func isDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
-	if date.Before(time.Unix(0, 0)) || date.Equal(time.Unix(0, 0)) {
-		return false, errPastDate
-	}
-
-	if pastBuffer.Seconds() < 0 {
-		pastBuffer = -1 * pastBuffer
-	}
-
-	now := currTime()
-	pastTime := now.Add(-1 * pastBuffer)
-	futureTime := now.Add(futureBuffer)
-
-	if !(pastTime.Before(date) || pastTime.Equal(date)) {
-		return false, errPastDate
-	}
-
-	if !(futureTime.Equal(date) || futureTime.After(date)) {
-		return false, errFutureDate
-	}
-
-	return true, nil
 }
