@@ -2,6 +2,7 @@ package parsing
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ func TestGetWRPBootTime(t *testing.T) {
 		description      string
 		msg              wrp.Message
 		expectedBootTime int64
-		expectedErr      bool
+		expectedErr      error
 	}{
 		{
 			description: "Success",
@@ -34,6 +35,31 @@ func TestGetWRPBootTime(t *testing.T) {
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
+			expectedErr:      errBootTimeNotFound,
+		},
+		{
+			description:      "No Metadata",
+			msg:              wrp.Message{},
+			expectedBootTime: 0,
+			expectedErr:      errBootTimeNotFound,
+		},
+		{
+			description: "Key with slash",
+			msg: wrp.Message{
+				Metadata: map[string]string{
+					"/boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
+		},
+		{
+			description: "Key without slash",
+			msg: wrp.Message{
+				Metadata: map[string]string{
+					"boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
 		},
 		{
 			description: "Int conversion error",
@@ -43,7 +69,7 @@ func TestGetWRPBootTime(t *testing.T) {
 				},
 			},
 			expectedBootTime: 0,
-			expectedErr:      true,
+			expectedErr:      errBootTimeParse,
 		},
 	}
 
@@ -52,10 +78,13 @@ func TestGetWRPBootTime(t *testing.T) {
 			time, err := GetWRPBootTime(tc.msg)
 			assert.Equal(tc.expectedBootTime, time)
 
-			if tc.expectedErr {
-				assert.NotNil(err)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
 			} else {
-				assert.Nil(err)
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
 			}
 		})
 	}
@@ -68,7 +97,7 @@ func TestGetEventBootTime(t *testing.T) {
 		description      string
 		msg              Event
 		expectedBootTime int64
-		expectedErr      bool
+		expectedErr      error
 	}{
 		{
 			description: "Success",
@@ -85,11 +114,31 @@ func TestGetEventBootTime(t *testing.T) {
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
+			expectedErr:      errBootTimeNotFound,
 		},
 		{
 			description:      "No Metadata",
 			msg:              Event{},
 			expectedBootTime: 0,
+			expectedErr:      errBootTimeNotFound,
+		},
+		{
+			description: "Key with slash",
+			msg: Event{
+				Metadata: map[string]string{
+					"/boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
+		},
+		{
+			description: "Key without slash",
+			msg: Event{
+				Metadata: map[string]string{
+					"boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
 		},
 		{
 			description: "Int conversion error",
@@ -99,7 +148,7 @@ func TestGetEventBootTime(t *testing.T) {
 				},
 			},
 			expectedBootTime: 0,
-			expectedErr:      true,
+			expectedErr:      errBootTimeParse,
 		},
 	}
 
@@ -108,10 +157,13 @@ func TestGetEventBootTime(t *testing.T) {
 			time, err := GetEventBootTime(tc.msg)
 			assert.Equal(tc.expectedBootTime, time)
 
-			if tc.expectedErr {
-				assert.NotNil(err)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
 			} else {
-				assert.Nil(err)
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
 			}
 		})
 	}

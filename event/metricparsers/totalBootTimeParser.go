@@ -68,7 +68,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 	// Go through events to find reboot-pending event with the boot-time of the previous session
 	for _, event := range events {
 		if latestPreviousEvent, err = checkLatestPreviousEvent(event, latestPreviousEvent, bootTimeInt, rebootRegex); err != nil {
-			level.Error(b.Logger).Log(xlog.ErrorKey(), err)
+			level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", b.Label, "deviceID", deviceID, "current event id", msg.TransactionUUID)
 			if errors.Is(err, errNewerBootTime) {
 				// Something is wrong with this event's boot time, we shouldn't continue.
 				b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, eventBootTimeErr).Add(1.0)
@@ -78,7 +78,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 	}
 
 	if valid, err := isEventValid(latestPreviousEvent, rebootRegex, time.Now); !valid {
-		level.Error(b.Logger).Log(xlog.ErrorKey(), err)
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", b.Label, "deviceID", deviceID, "codex event destination", latestPreviousEvent.Dest)
 		return -1, fmt.Errorf("%s: %w", "Invalid previous event found", err)
 	}
 
@@ -88,17 +88,50 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 
 	if restartTime <= 0 {
 		err = errInvalidRestartTime
-		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "restart time", restartTime)
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "restart time", restartTime, "current event birthdate", wrpWithTime.Beginning.UnixNano(), "codex event birthdate", latestPreviousEvent.BirthDate)
 		return -1, err
 	}
 
 	return restartTime, nil
 }
 
+// sees if this event is part of the most recent previous session
+func checkLatestPreviousEvent(e parsing.Event, previousEventTracked parsing.Event, latestBootTime int64, eventType *regexp.Regexp) (parsing.Event, error) {
+	eventBootTimeInt, err := GetEventBootTime(e)
+	previousEventBootTime, _ := GetEventBootTime(previousEventTracked)
+
+	if err != nil {
+		return previousEventTracked, err
+	}
+
+	if eventBootTimeInt > latestBootTime {
+		return Event{}, fmt.Errorf("%w. Codex Event: %s", errNewerBootTime, e.TransactionUUID)
+	}
+
+	// If this event has a boot time greater than what we've seen so far
+	// but still less than the current boot-time, it means that this event
+	// is part of a more recent previous cycle.
+	if eventBootTimeInt > previousEventBootTime && eventBootTimeInt < latestBootTime {
+		return e, nil
+	}
+
+	// If the event is of the type we are looking for and has the same boot-time as the
+	// newest previous boot time, return this event.
+	if eventBootTimeInt == previousEventBootTime && eventType.MatchString(e.Dest) {
+		// If the previously tracked event doesn't match the event we're looking for,
+		// return the current event. If both events match the type of event we are looking for,
+		// compare the birthdates and return the one with the older birthdate.
+		if !eventType.MatchString(previousEventTracked.Dest) || e.BirthDate < previousEventTracked.BirthDate {
+			return e, nil
+		}
+	}
+	return previousEventTracked, nil
+}
+
 func isEventValid(event parsing.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
 	// see if event found matches expected event type
 	if !expectedType.MatchString(event.Dest) {
-		return false, fmt.Errorf("%w. Type: %s", errEventNotFound, expectedType.String())
+		return false, fmt.Errorf("%w. Type Expected: %s. Type Found: %s", errEventNotFound, expectedType.String(), event.Dest)
 	}
 
 	// check if boot-time is valid
