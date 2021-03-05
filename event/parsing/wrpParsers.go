@@ -17,7 +17,8 @@ var (
 	errFutureDate    = errors.New("date is too far in the future")
 	errPastDate      = errors.New("date is too far in the past")
 
-	errBootTimeParse = errors.New("unable to parse boot-time")
+	errBootTimeParse    = errors.New("unable to parse boot-time")
+	errBootTimeNotFound = errors.New("boot-time not found")
 )
 
 // GetWRPBootTime grabs the boot-time from a wrp.Message's metadata.
@@ -34,9 +35,11 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
 		}
+	} else {
+		err = errBootTimeNotFound
 	}
 
-	return bootTime, nil
+	return bootTime, err
 }
 
 // GetEventBootTime grabs the boot-time from a Event's metadata.
@@ -52,8 +55,11 @@ func GetEventBootTime(msg Event) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
 		}
+	} else {
+		err = errBootTimeNotFound
 	}
-	return bootTime, nil
+
+	return bootTime, err
 }
 
 // GetDeviceID grabs the device id from a given destination string.
