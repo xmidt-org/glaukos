@@ -89,11 +89,10 @@ func (b *BootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (fl
 	// Find the previous boot-time and make sure that the boot time we have is the latest one.
 	for _, event := range events {
 		if previousBootTime, err = checkOnlineEvent(event, msg.TransactionUUID, previousBootTime, bootTimeInt); err != nil {
-			level.Error(b.Logger).Log(xlog.ErrorKey(), err)
 			if previousBootTime < 0 {
 				// Something is wrong with this event's boot time, we shouldn't continue.
 				b.Measures.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr).Add(1.0)
-				level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", bootTimeParserLabel, "deviceID", deviceID, "current event destination", msg.Destination, "codex event destination", event.Dest)
+				level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", bootTimeParserLabel, "deviceID", deviceID, "current event id", msg.TransactionUUID)
 				return -1, err
 			}
 		}
@@ -144,13 +143,13 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 	}
 
 	if eventBootTimeInt > latestBootTime {
-		return -1, fmt.Errorf("%w. Codex Event: (Boot-time: %d, Destination: %s), Current Event: (Boot-time: %d)", errNewerBootTime, eventBootTimeInt, e.Dest, latestBootTime)
+		return -1, fmt.Errorf("%w. Codex Event: %s", errNewerBootTime, e.TransactionUUID)
 	}
 
 	// if another online event is found with the same boot time but different transaction uuid, it means the event
 	// received is not the result of a true restart
 	if eventBootTimeInt == latestBootTime && e.TransactionUUID != currentUUID {
-		return -1, fmt.Errorf("%w. Codex Event: (Boot-time: %d, Destination: %s), Current Event: (Boot-time: %d)", errSameBootTime, eventBootTimeInt, e.Dest, latestBootTime)
+		return -1, fmt.Errorf("%w. Codex Event: %s", errSameBootTime, e.TransactionUUID)
 	}
 
 	// If we find a more recent boot time that is not the boot time we are currently comparing, return the boot time.
