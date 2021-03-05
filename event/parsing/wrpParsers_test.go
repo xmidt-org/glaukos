@@ -210,6 +210,47 @@ func TestGetDeviceID(t *testing.T) {
 	}
 }
 
+func TestGetMetadataValue(t *testing.T) {
+	tests := []struct {
+		description string
+		metadata    map[string]string
+		key         string
+		expectedVal string
+		expectedOk  bool
+	}{
+		{
+			description: "Key exists",
+			metadata:    map[string]string{"/key": "val"},
+			key:         "/key",
+			expectedVal: "val",
+			expectedOk:  true,
+		},
+		{
+			description: "Key exists, without slash",
+			metadata:    map[string]string{"key": "val"},
+			key:         "/key",
+			expectedVal: "val",
+			expectedOk:  true,
+		},
+		{
+			description: "Key doesn't exist",
+			metadata:    map[string]string{"test": "val"},
+			key:         "/key",
+			expectedVal: "",
+			expectedOk:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			val, ok := GetMetadataValue(tc.key, tc.metadata)
+			assert.Equal(tc.expectedVal, val)
+			assert.Equal(tc.expectedOk, ok)
+		})
+	}
+}
+
 func TestGetValidBirthDate(t *testing.T) {
 	payload := []byte(`{"ts":"2019-02-13T21:19:02.614191735Z"}`)
 	testassert := assert.New(t)

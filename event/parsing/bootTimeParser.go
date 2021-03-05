@@ -22,8 +22,9 @@ const (
 	firmwareKey = "/fw-name"
 	bootTimeKey = "/boot-time"
 
-	bootTimeParserLabel = "boot_time_parser"
-	eventBootTimeErr    = "event_boot_time_err"
+	bootTimeParserLabel     = "boot_time_parser"
+	eventBootTimeErr        = "event_boot_time_err"
+	noFirmwareorHardwareErr = "no_firmware_or_hardware_err"
 )
 
 var (
@@ -60,7 +61,13 @@ Steps to calculate boot time:
 func (b *BootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
 	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
-		b.Measures.BootTimeHistogram.With(HardwareLabel, wrpWithTime.Message.Metadata[hardwareKey], FirmwareLabel, wrpWithTime.Message.Metadata[firmwareKey]).Observe(restartTime)
+		hardwareVal, hardwareFound := GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
+		firmwareVal, firmwareFound := GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
+		if hardwareFound && firmwareFound {
+			b.Measures.BootTimeHistogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
+		} else {
+			b.Measures.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, noFirmwareorHardwareErr).Add(1.0)
+		}
 	}
 
 	return nil
