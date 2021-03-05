@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.2.1]
+- Add more detailed logging. [#40](https://github.com/xmidt-org/glaukos/pull/40)
+  
 ## [v0.2.0]
 - Change boot-time calculation to use the birthdate of the request, remove absolute value in boot-time calculation. [#31](https://github.com/xmidt-org/glaukos/pull/31)
 - Add a parser to calculate the time between reboot-pending and fully-manageable events. [#35](https://github.com/xmidt-org/glaukos/pull/35)
@@ -27,7 +30,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.0.1]
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.1.1..HEAD
+[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.2.1..HEAD
+[v0.2.1]: https://github.com/xmidt-org/glaukos/compare/v0.2.0..v0.2.1
 [v0.2.0]: https://github.com/xmidt-org/glaukos/compare/v0.1.1..v0.2.0
 [v0.1.1]: https://github.com/xmidt-org/glaukos/compare/v0.1.0..v0.1.1
 [v0.1.0]: https://github.com/xmidt-org/glaukos/compare/v0.0.1..v0.1.0
