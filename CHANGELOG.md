@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.2.0]
 - Change boot-time calculation to use the birthdate of the request, remove absolute value in boot-time calculation. [#31](https://github.com/xmidt-org/glaukos/pull/31)
 - Add a parser to calculate the time between reboot-pending and fully-manageable events. [#35](https://github.com/xmidt-org/glaukos/pull/35)
 
@@ -26,6 +28,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Initial creation
 
 [Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.1.1..HEAD
+[v0.2.0]: https://github.com/xmidt-org/glaukos/compare/v0.1.1..v0.2.0
 [v0.1.1]: https://github.com/xmidt-org/glaukos/compare/v0.1.0..v0.1.1
 [v0.1.0]: https://github.com/xmidt-org/glaukos/compare/v0.0.1..v0.1.0
 [v0.0.1]: https://github.com/xmidt-org/glaukos/compare/0.0.1...v0.0.1
