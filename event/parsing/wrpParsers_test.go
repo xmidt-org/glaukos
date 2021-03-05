@@ -35,6 +35,24 @@ func TestGetWRPBootTime(t *testing.T) {
 			expectedBootTime: 0,
 		},
 		{
+			description: "Key with slash",
+			msg: wrp.Message{
+				Metadata: map[string]string{
+					"/boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
+		},
+		{
+			description: "Key without slash",
+			msg: wrp.Message{
+				Metadata: map[string]string{
+					"boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
+		},
+		{
 			description: "Int conversion error",
 			msg: wrp.Message{
 				Metadata: map[string]string{
@@ -89,6 +107,24 @@ func TestGetEventBootTime(t *testing.T) {
 			description:      "No Metadata",
 			msg:              Event{},
 			expectedBootTime: 0,
+		},
+		{
+			description: "Key with slash",
+			msg: Event{
+				Metadata: map[string]string{
+					"/boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
+		},
+		{
+			description: "Key without slash",
+			msg: Event{
+				Metadata: map[string]string{
+					"boot-time": "1000",
+				},
+			},
+			expectedBootTime: 1000,
 		},
 		{
 			description: "Int conversion error",

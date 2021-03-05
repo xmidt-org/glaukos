@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/xmidt-org/wrp-go/v3"
@@ -23,12 +24,18 @@ var (
 func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	var bootTime int64
 	var err error
-	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
+
+	bootTimeStr, ok := msg.Metadata[bootTimeKey]
+	if !ok {
+		bootTimeStr, ok = msg.Metadata[strings.Trim(bootTimeKey, "/\\")]
+	}
+	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
 		}
 	}
+
 	return bootTime, nil
 }
 
@@ -36,7 +43,11 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 func GetEventBootTime(msg Event) (int64, error) {
 	var bootTime int64
 	var err error
-	if bootTimeStr, ok := msg.Metadata[bootTimeKey]; ok {
+	bootTimeStr, ok := msg.Metadata[bootTimeKey]
+	if !ok {
+		bootTimeStr, ok = msg.Metadata[strings.Trim(bootTimeKey, "/")]
+	}
+	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
