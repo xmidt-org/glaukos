@@ -27,7 +27,7 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 
 	bootTimeStr, ok := msg.Metadata[bootTimeKey]
 	if !ok {
-		bootTimeStr, ok = msg.Metadata[strings.Trim(bootTimeKey, "/\\")]
+		bootTimeStr, ok = msg.Metadata[strings.Trim(bootTimeKey, "/")]
 	}
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
