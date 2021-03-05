@@ -6,6 +6,7 @@ package parsing
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -92,6 +93,7 @@ func (b *BootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (fl
 			if previousBootTime < 0 {
 				// Something is wrong with this event's boot time, we shouldn't continue.
 				b.Measures.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, eventBootTimeErr).Add(1.0)
+				level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", bootTimeParserLabel, "deviceID", deviceID, "current event destination", msg.Destination, "codex event destination", event.Dest)
 				return -1, err
 			}
 		}
@@ -142,7 +144,7 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 	}
 
 	if eventBootTimeInt > latestBootTime {
-		return -1, errNewerBootTime
+		return -1, fmt.Errorf("%w. Codex Event: (Boot-time: %d, Destination: %s), Current Event: (Boot-time: %d)", errNewerBootTime, eventBootTimeInt, e.Dest, latestBootTime)
 	}
 
 	// if another online event is found with the same boot time but different transaction uuid, it means the event

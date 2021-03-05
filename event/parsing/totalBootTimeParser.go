@@ -75,13 +75,14 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 			if errors.Is(err, errNewerBootTime) {
 				// Something is wrong with this event's boot time, we shouldn't continue.
 				b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, eventBootTimeErr).Add(1.0)
+				level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", b.Label, "deviceID", deviceID, "current event destination", msg.Destination, "codex event destination", event.Dest)
 				return -1, err
 			}
 		}
 	}
 
 	if valid, err := isEventValid(latestPreviousEvent, rebootRegex, time.Now); !valid {
-		level.Error(b.Logger).Log(xlog.ErrorKey(), err)
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", b.Label, "deviceID", deviceID, "codex event destination", latestPreviousEvent.Dest)
 		return -1, fmt.Errorf("%s: %w", "Invalid previous event found", err)
 	}
 
@@ -91,7 +92,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 
 	if restartTime <= 0 {
 		err = errInvalidRestartTime
-		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "restart time", restartTime)
+		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "restart time", restartTime, "current event birthdate", wrpWithTime.Beginning.UnixNano(), "codex event birthdate", latestPreviousEvent.BirthDate)
 		return -1, err
 	}
 
@@ -108,7 +109,7 @@ func checkLatestPreviousEvent(e Event, previousEventTracked Event, latestBootTim
 	}
 
 	if eventBootTimeInt > latestBootTime {
-		return Event{}, errNewerBootTime
+		return Event{}, fmt.Errorf("%w. Codex Event: (Boot-time: %d, Destination: %s), Current Event: (Boot-time: %d)", errNewerBootTime, eventBootTimeInt, e.Dest, latestBootTime)
 	}
 
 	// If this event has a boot time greater than what we've seen so far
@@ -134,7 +135,7 @@ func checkLatestPreviousEvent(e Event, previousEventTracked Event, latestBootTim
 func isEventValid(event Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
 	// see if event found matches expected event type
 	if !expectedType.MatchString(event.Dest) {
-		return false, fmt.Errorf("%w. Type: %s", errEventNotFound, expectedType.String())
+		return false, fmt.Errorf("%w. Type Expected: %s. Type Found: %s", errEventNotFound, expectedType.String(), event.Dest)
 	}
 
 	// check if boot-time is valid
