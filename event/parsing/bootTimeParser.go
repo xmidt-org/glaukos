@@ -150,7 +150,7 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 	// if another online event is found with the same boot time but different transaction uuid, it means the event
 	// received is not the result of a true restart
 	if eventBootTimeInt == latestBootTime && e.TransactionUUID != currentUUID {
-		return -1, errSameBootTime
+		return -1, fmt.Errorf("%w. Codex Event: (Boot-time: %d, Destination: %s), Current Event: (Boot-time: %d)", errSameBootTime, eventBootTimeInt, e.Dest, latestBootTime)
 	}
 
 	// If we find a more recent boot time that is not the boot time we are currently comparing, return the boot time.
