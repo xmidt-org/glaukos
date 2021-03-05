@@ -71,10 +71,10 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 	// Go through events to find reboot-pending event with the boot-time of the previous session
 	for _, event := range events {
 		if latestPreviousEvent, err = checkLatestPreviousEvent(event, latestPreviousEvent, bootTimeInt, rebootRegex); err != nil {
+			level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", b.Label, "deviceID", deviceID, "current event id", msg.TransactionUUID)
 			if errors.Is(err, errNewerBootTime) {
 				// Something is wrong with this event's boot time, we shouldn't continue.
 				b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, eventBootTimeErr).Add(1.0)
-				level.Error(b.Logger).Log(xlog.ErrorKey(), err, "parser name", b.Label, "deviceID", deviceID, "current event id", msg.TransactionUUID)
 				return -1, err
 			}
 		}
