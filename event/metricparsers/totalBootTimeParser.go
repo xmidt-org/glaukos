@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 )
@@ -24,10 +25,6 @@ type RebootTimeParser struct {
 	Client   EventClient
 	Label    string
 }
-
-var (
-	errEventNotFound = errors.New("event not found")
-)
 
 var manageableRegex = regexp.MustCompile(".*/fully-manageable/")
 var rebootRegex = regexp.MustCompile(".*/reboot-pending/")
@@ -66,7 +63,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 
 	// Get events from codex pertaining to this device id.
 	events := b.Client.GetEvents(deviceID)
-	latestPreviousEvent := Event{}
+	latestPreviousEvent := parsing.Event{}
 
 	// Go through events to find reboot-pending event with the boot-time of the previous session
 	for _, event := range events {
@@ -98,40 +95,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 	return restartTime, nil
 }
 
-// sees if this event is part of the most recent previous session
-func checkLatestPreviousEvent(e Event, previousEventTracked Event, latestBootTime int64, eventType *regexp.Regexp) (Event, error) {
-	eventBootTimeInt, err := GetEventBootTime(e)
-	previousEventBootTime, _ := GetEventBootTime(previousEventTracked)
-
-	if err != nil {
-		return previousEventTracked, err
-	}
-
-	if eventBootTimeInt > latestBootTime {
-		return Event{}, errNewerBootTime
-	}
-
-	// If this event has a boot time greater than what we've seen so far
-	// but still less than the current boot-time, it means that this event
-	// is part of a more recent previous cycle.
-	if eventBootTimeInt > previousEventBootTime && eventBootTimeInt < latestBootTime {
-		return e, nil
-	}
-
-	// If the event is of the type we are looking for and has the same boot-time as the
-	// newest previous boot time, return this event.
-	if eventBootTimeInt == previousEventBootTime && eventType.MatchString(e.Dest) {
-		// If the previously tracked event doesn't match the event we're looking for,
-		// return the current event. If both events match the type of event we are looking for,
-		// compare the birthdates and return the one with the older birthdate.
-		if !eventType.MatchString(previousEventTracked.Dest) || e.BirthDate < previousEventTracked.BirthDate {
-			return e, nil
-		}
-	}
-	return previousEventTracked, nil
-}
-
-func isEventValid(event Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
+func isEventValid(event parsing.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
 	// see if event found matches expected event type
 	if !expectedType.MatchString(event.Dest) {
 		return false, fmt.Errorf("%w. Type: %s", errEventNotFound, expectedType.String())

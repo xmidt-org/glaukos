@@ -2,6 +2,7 @@ package parsing
 
 import (
 	"errors"
+	"regexp"
 	"testing"
 	"time"
 
@@ -118,6 +119,7 @@ func TestGetEventBootTime(t *testing.T) {
 
 func TestGetDeviceID(t *testing.T) {
 	assert := assert.New(t)
+	destinationRegex := regexp.MustCompile(`^(?P<event>[^/]+)/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+))/(?P<type>[^/\s]+)`)
 	tests := []struct {
 		description string
 		destination string

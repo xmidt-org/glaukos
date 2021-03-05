@@ -115,7 +115,7 @@ func TestCircuitBreakerRequestFunc(t *testing.T) {
 		Name:        "Codex Circuit Breaker",
 		MaxRequests: 0,
 		Interval:    0,
-		ReadyToTrip: createReadyToTripFunc(CircuitBreakerConfig{ConsecutiveFailuresAllowed: failuresAllowed}),
+		ReadyToTrip: CreateReadyToTripFunc(CircuitBreakerConfig{ConsecutiveFailuresAllowed: failuresAllowed}),
 	}
 	testCodexClient := &CodexClient{
 		cb:     gobreaker.NewCircuitBreaker(settings),

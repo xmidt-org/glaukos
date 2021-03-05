@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -14,6 +15,13 @@ import (
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
+
+type CircuitBreakerConfig struct {
+	MaxRequests                uint32
+	Interval                   time.Duration
+	Timeout                    time.Duration
+	ConsecutiveFailuresAllowed uint32
+}
 
 type CodexClient struct {
 	Address string
@@ -114,5 +122,11 @@ func circuitBreakerRequestFunc(c *CodexClient) func(req *http.Request) (*http.Re
 			return b, nil
 		}
 
+	}
+}
+
+func CreateReadyToTripFunc(c CircuitBreakerConfig) func(count gobreaker.Counts) bool {
+	return func(count gobreaker.Counts) bool {
+		return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
 	}
 }

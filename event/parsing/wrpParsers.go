@@ -69,7 +69,7 @@ func GetValidBirthDate(currTime func() time.Time, payload []byte) (time.Time, er
 		birthDate = now
 	}
 	// check if birthdate is within the last 12 hours and the next hour
-	if valid, err := isDateValid(currTime, 12*time.Hour, time.Hour, birthDate); !valid {
+	if valid, err := isDateValid(currTime, -12*time.Hour, time.Hour, birthDate); !valid {
 		return time.Time{}, err
 	}
 

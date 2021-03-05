@@ -19,7 +19,7 @@ type MetadataParser struct {
 }
 
 // Parse gathers metrics for each metadata key.
-func (m MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
+func (m *MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	if len(wrpWithTime.Message.Metadata) < 1 {
 		m.Measures.UnparsableEventsCount.With(ParserLabel, metadataParserLabel, ReasonLabel, noMetadataFoundErr).Add(1.0)
 		return errors.New("no metadata found")
@@ -28,4 +28,8 @@ func (m MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		m.Measures.MetadataFields.With(MetadataKeyLabel, key).Add(1.0)
 	}
 	return nil
+}
+
+func (m *MetadataParser) Name() string {
+	return metadataParserLabel
 }

@@ -52,6 +52,7 @@ type WrpWithTime struct {
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
 	Parse(WrpWithTime) error
+	Name() string
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {

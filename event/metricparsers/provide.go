@@ -9,6 +9,7 @@ import (
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/xhttp"
@@ -21,13 +22,6 @@ type CodexConfig struct {
 	Auth           AuthAcquirerConfig
 	MaxRetryCount  int
 	CircuitBreaker CircuitBreakerConfig
-}
-
-type CircuitBreakerConfig struct {
-	MaxRequests                uint32
-	Interval                   time.Duration
-	Timeout                    time.Duration
-	ConsecutiveFailuresAllowed uint32
 }
 
 type AuthAcquirerConfig struct {
@@ -63,7 +57,7 @@ func Provide() fx.Option {
 					ShouldRetry:       func(error) bool { return true },
 					ShouldRetryStatus: func(code int) bool { return false },
 				}
-				return &CodexClient{
+				return &parsing.CodexClient{
 					Address:      config.Address,
 					Auth:         codexAuth,
 					retryOptions: retryOptions,
@@ -115,18 +109,12 @@ func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
 	return gobreaker.NewCircuitBreaker(settings)
 }
 
-func createReadyToTripFunc(c CircuitBreakerConfig) func(count gobreaker.Counts) bool {
-	return func(count gobreaker.Counts) bool {
-		return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
-	}
-}
-
 func provideParsers() fx.Option {
 	return fx.Provide(
 		fx.Annotated{
 			Group: "parsers",
 			Target: func(measures Measures) queue.Parser {
-				return MetadataParser{
+				return &MetadataParser{
 					Measures: measures,
 				}
 			},
