@@ -22,8 +22,9 @@ const (
 	firmwareKey = "/fw-name"
 	bootTimeKey = "/boot-time"
 
-	bootTimeParserLabel = "boot_time_parser"
-	eventBootTimeErr    = "event_boot_time_err"
+	bootTimeParserLabel     = "boot_time_parser"
+	eventBootTimeErr        = "event_boot_time_err"
+	noFirmwareorHardwareErr = "no_firmware_or_hardware_err"
 )
 
 var (
@@ -64,6 +65,8 @@ func (b *BootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		firmwareVal, firmwareFound := GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
 		if hardwareFound && firmwareFound {
 			b.Measures.BootTimeHistogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
+		} else {
+			b.Measures.UnparsableEventsCount.With(ParserLabel, bootTimeParserLabel, ReasonLabel, noFirmwareorHardwareErr).Add(1.0)
 		}
 	}
 

@@ -47,7 +47,8 @@ func (b *RebootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		firmwareVal, firmwareFound := GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
 		if hardwareFound && firmwareFound {
 			b.Measures.RebootTimeHistogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
-
+		} else {
+			b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, noFirmwareorHardwareErr).Add(1.0)
 		}
 	}
 
