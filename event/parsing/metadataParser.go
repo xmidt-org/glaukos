@@ -2,6 +2,7 @@ package parsing
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/xmidt-org/glaukos/event/queue"
 )
@@ -25,7 +26,8 @@ func (m MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		return errors.New("no metadata found")
 	}
 	for key := range wrpWithTime.Message.Metadata {
-		m.Measures.MetadataFields.With(MetadataKeyLabel, key).Add(1.0)
+		trimmedKey := strings.Trim(key, "/")
+		m.Measures.MetadataFields.With(MetadataKeyLabel, trimmedKey).Add(1.0)
 	}
 	return nil
 }
