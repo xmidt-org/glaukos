@@ -50,6 +50,10 @@ func (b *RebootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		} else {
 			b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, noFirmwareorHardwareErr).Add(1.0)
 		}
+
+		if restartTime/3600.0 >= 3.0 {
+			level.Info(b.Logger).Log(xlog.MessageKey(), "restart time too long", "hardware", hardwareVal, "firmware", firmwareVal)
+		}
 	}
 
 	return nil
@@ -99,6 +103,10 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 		err = errInvalidRestartTime
 		level.Error(b.Logger).Log(xlog.ErrorKey(), err, "restart time", restartTime, "current event birthdate", wrpWithTime.Beginning.UnixNano(), "codex event birthdate", latestPreviousEvent.BirthDate)
 		return -1, err
+	}
+
+	if restartTime/3600.0 >= 3.0 {
+		level.Info(b.Logger).Log(xlog.MessageKey(), "restart time too long", "duration", restartTime/3600.0, "current event", wrpWithTime.Message.TransactionUUID, "codex event", latestPreviousEvent.TransactionUUID)
 	}
 
 	return restartTime, nil
