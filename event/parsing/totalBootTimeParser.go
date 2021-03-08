@@ -109,7 +109,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 	}
 
 	if restartTime/3600.0 >= 3.0 {
-		level.Warn(b.Logger).Log(xlog.MessageKey(), "restart time too long", "duration", restartTime/3600.0, "device ID", deviceID, "current event", wrpWithTime.Message.TransactionUUID, "codex event", latestPreviousEvent.TransactionUUID)
+		level.Warn(b.Logger).Log(xlog.MessageKey(), "restart time too long", "duration", restartTime/3600.0, "parser name", b.Label, "device ID", deviceID, "current event", wrpWithTime.Message.TransactionUUID, "codex event", latestPreviousEvent.TransactionUUID)
 	}
 
 	return restartTime, nil

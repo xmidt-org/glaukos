@@ -131,7 +131,7 @@ func (b *BootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (fl
 	// Add to metrics or log the error.
 	if latestOfflineEvent != 0 && previousBootTime != 0 {
 		if restartTime/3600.0 >= 3.0 {
-			level.Warn(b.Logger).Log(xlog.MessageKey(), "restart time too long", "duration", restartTime/3600.0, "device ID", deviceID)
+			level.Warn(b.Logger).Log(xlog.MessageKey(), "restart time too long", "duration", restartTime/3600.0, "parser name", bootTimeParserLabel, "device ID", deviceID)
 		}
 		return restartTime, nil
 	}
