@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.2.4]
+- Add more detailed logging for long durations. [#43](https://github.com/xmidt-org/glaukos/pull/43)
+
 ## [v0.2.3]
 - Fix for metadata keys that don't contain a `/`. [#42](https://github.com/xmidt-org/glaukos/pull/42)
 
@@ -36,7 +39,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.0.1]
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.2.3..HEAD
+[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.2.4..HEAD
+[v0.2.3]: https://github.com/xmidt-org/glaukos/compare/v0.2.3..v0.2.4
 [v0.2.3]: https://github.com/xmidt-org/glaukos/compare/v0.2.2..v0.2.3
 [v0.2.2]: https://github.com/xmidt-org/glaukos/compare/v0.2.1..v0.2.2
 [v0.2.1]: https://github.com/xmidt-org/glaukos/compare/v0.2.0..v0.2.1
