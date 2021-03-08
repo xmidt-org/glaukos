@@ -27,6 +27,8 @@ type RebootTimeParser struct {
 
 var (
 	errEventNotFound = errors.New("event not found")
+
+	errDurationTooLong = "err_duration_too_long"
 )
 
 var manageableRegex = regexp.MustCompile(".*/fully-manageable/")
@@ -52,7 +54,8 @@ func (b *RebootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		}
 
 		if restartTime/3600.0 >= 3.0 {
-			level.Info(b.Logger).Log(xlog.MessageKey(), "restart time too long", "hardware", hardwareVal, "firmware", firmwareVal)
+			level.Error(b.Logger).Log(xlog.ErrorKey(), "restart time too long", "hardware", hardwareVal, "firmware", firmwareVal)
+			b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, errDurationTooLong).Add(1.0)
 		}
 	}
 
@@ -106,7 +109,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 	}
 
 	if restartTime/3600.0 >= 3.0 {
-		level.Info(b.Logger).Log(xlog.MessageKey(), "restart time too long", "duration", restartTime/3600.0, "current event", wrpWithTime.Message.TransactionUUID, "codex event", latestPreviousEvent.TransactionUUID)
+		level.Error(b.Logger).Log(xlog.ErrorKey(), "restart time too long", "duration", restartTime/3600.0, "device ID", deviceID, "current event", wrpWithTime.Message.TransactionUUID, "codex event", latestPreviousEvent.TransactionUUID)
 	}
 
 	return restartTime, nil
