@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
@@ -40,7 +41,13 @@ var rebootRegex = regexp.MustCompile(".*/reboot-pending/")
 func (b *RebootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
 	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
-		b.Measures.RebootTimeHistogram.With(HardwareLabel, wrpWithTime.Message.Metadata[hardwareKey], FirmwareLabel, wrpWithTime.Message.Metadata[firmwareKey]).Observe(restartTime)
+		hardwareVal, hardwareFound := GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
+		firmwareVal, firmwareFound := GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
+		if hardwareFound && firmwareFound {
+			b.Measures.RebootTimeHistogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
+		} else {
+			b.Measures.UnparsableEventsCount.With(ParserLabel, b.Label, ReasonLabel, noFirmwareorHardwareErr).Add(1.0)
+		}
 	}
 
 	return nil
@@ -96,7 +103,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 }
 
 // sees if this event is part of the most recent previous session
-func checkLatestPreviousEvent(e parsing.Event, previousEventTracked parsing.Event, latestBootTime int64, eventType *regexp.Regexp) (parsing.Event, error) {
+func checkLatestPreviousEvent(e client.Event, previousEventTracked client.Event, latestBootTime int64, eventType *regexp.Regexp) (client.Event, error) {
 	eventBootTimeInt, err := GetEventBootTime(e)
 	previousEventBootTime, _ := GetEventBootTime(previousEventTracked)
 
@@ -128,7 +135,7 @@ func checkLatestPreviousEvent(e parsing.Event, previousEventTracked parsing.Even
 	return previousEventTracked, nil
 }
 
-func isEventValid(event parsing.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
+func isEventValid(event client.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
 	// see if event found matches expected event type
 	if !expectedType.MatchString(event.Dest) {
 		return false, fmt.Errorf("%w. Type Expected: %s. Type Found: %s", errEventNotFound, expectedType.String(), event.Dest)

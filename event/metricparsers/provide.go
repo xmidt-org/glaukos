@@ -1,7 +1,9 @@
 package metricparsers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -9,6 +11,7 @@ import (
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
@@ -16,12 +19,18 @@ import (
 	"go.uber.org/fx"
 )
 
+type TimeElapsedParsersConfig struct {
+	DefaultBootTimeValidation  parsing.TimeRule
+	DefaultBirthdateValidation parsing.TimeRule
+	Parsers                    []TimeElapsedConfig
+}
+
 // CodexConfig determines the auth and address for connecting to the codex cluster.
 type CodexConfig struct {
 	Address        string
 	Auth           AuthAcquirerConfig
 	MaxRetryCount  int
-	CircuitBreaker CircuitBreakerConfig
+	CircuitBreaker client.CircuitBreakerConfig
 }
 
 type AuthAcquirerConfig struct {
@@ -43,6 +52,7 @@ func Provide() fx.Option {
 		provideParsers(),
 		fx.Provide(
 			arrange.UnmarshalKey("codex", CodexConfig{}),
+			arrange.UnmarshalKey("timeElapsedParsers", TimeElapsedParsersConfig),
 			determineCodexTokenAcquirer,
 			createCircuitBreaker,
 			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
@@ -57,13 +67,13 @@ func Provide() fx.Option {
 					ShouldRetry:       func(error) bool { return true },
 					ShouldRetryStatus: func(code int) bool { return false },
 				}
-				return &parsing.CodexClient{
+				return &client.CodexClient{
 					Address:      config.Address,
 					Auth:         codexAuth,
-					retryOptions: retryOptions,
-					client:       http.DefaultClient,
-					logger:       logger,
-					cb:           cb,
+					RetryOptions: retryOptions,
+					Client:       http.DefaultClient,
+					Logger:       logger,
+					CB:           cb,
 				}
 			},
 			func(parsers ParsersIn) []queue.Parser {
@@ -141,4 +151,57 @@ func provideParsers() fx.Option {
 			},
 		},
 	)
+}
+
+func CreateTimeElapsedParsers(config TimeElapsedParsersConfig, measures Measures, logger log.Logger, client EventClient) {
+	defaultName := "time_elapsed_parser"
+	parserNames := make(map[string]int)
+
+	bootTimeValidation := parsing.TimeValidator{
+		CurrentTime: time.Now,
+		ValidFrom:   config.BootTimeValidation.ValidFrom,
+		ValidTo:     config.BootTimeValidation.ValidTo,
+	}
+
+	birthdateValidation := parsing.TimeValidator{
+		CurrentTime: time.Now,
+		ValidFrom:   config.BirthdateValidation.ValidFrom,
+		ValidTo:     config.BirthdateValidation.ValidTo,
+	}
+
+	for _, config := range config.Parsers {
+		var name string
+		if len(config.Name) == 0 {
+			name = CreateName(defaultName, parserNames)
+		} else {
+			name = CreateName(config.Name, parserNames)
+		}
+
+		if parsing.ParseTimeLocation(config.InitialEvent.CalculateUsing) == parsing.Birthdate {
+
+		}
+		initialValidation, err := parsing.NewEventValidator(config.InitialEvent)
+
+		parser := TimeElapsedParser{}
+	}
+}
+
+func CreateName(name string, parsersMap map[string]int) string {
+	name = strings.ReplaceAll(name, " ", "_")
+	num := parsersMap[name]
+	newCount := num + 1
+	var newName string
+	if num == 0 {
+		newName = name
+	} else {
+		tempName := fmt.Sprintf("%s_%d", name, newCount)
+		for parsersMap[tempName] > 0 {
+			newCount++
+			tempName = fmt.Sprintf("%s_%d", name, newCount)
+		}
+		newName = tempName
+		parsersMap[newName] = 1
+	}
+	parsersMap[name] = newCount
+	return newName
 }

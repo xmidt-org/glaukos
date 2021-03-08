@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -30,10 +31,8 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	var bootTime int64
 	var err error
 
-	bootTimeStr, ok := msg.Metadata[bootTimeKey]
-	if !ok {
-		bootTimeStr, ok = msg.Metadata[strings.Trim(bootTimeKey, "/")]
-	}
+	bootTimeStr, ok := GetMetadataValue(bootTimeKey, msg.Metadata)
+
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
@@ -47,13 +46,11 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 }
 
 // GetEventBootTime grabs the boot-time from a Event's metadata.
-func GetEventBootTime(msg Event) (int64, error) {
+func GetEventBootTime(msg client.Event) (int64, error) {
 	var bootTime int64
 	var err error
-	bootTimeStr, ok := msg.Metadata[bootTimeKey]
-	if !ok {
-		bootTimeStr, ok = msg.Metadata[strings.Trim(bootTimeKey, "/")]
-	}
+	bootTimeStr, ok := GetMetadataValue(bootTimeKey, msg.Metadata)
+
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
@@ -113,4 +110,14 @@ func getBirthDate(payload []byte) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return birthDate, true
+}
+
+// GetMetadataValue checks a map for a specific key, allowing for keys with or without forward-slash
+func GetMetadataValue(key string, metadata map[string]string) (string, bool) {
+	value, found := metadata[key]
+	if !found {
+		value, found = metadata[strings.Trim(key, "/")]
+	}
+
+	return value, found
 }

@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.2.3]
+- Fix for metadata keys that don't contain a `/`. [#42](https://github.com/xmidt-org/glaukos/pull/42)
+
 ## [v0.2.2]
 - Allow for `/boot-time` and `boot-time` as metadata keys when getting the boot-time from a wrp message or event. [#41](https://github.com/xmidt-org/glaukos/pull/41)
 
@@ -33,7 +36,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.0.1]
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.2.2..HEAD
+[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.2.3..HEAD
+[v0.2.3]: https://github.com/xmidt-org/glaukos/compare/v0.2.2..v0.2.3
 [v0.2.2]: https://github.com/xmidt-org/glaukos/compare/v0.2.1..v0.2.2
 [v0.2.1]: https://github.com/xmidt-org/glaukos/compare/v0.2.0..v0.2.1
 [v0.2.0]: https://github.com/xmidt-org/glaukos/compare/v0.1.1..v0.2.0

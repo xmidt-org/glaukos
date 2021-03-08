@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/glaukos/event/queue"
 )
 
@@ -47,7 +48,7 @@ func NewEventValidator(rule EventRule, timeValidator TimeValidator) (EventValida
 	}, nil
 }
 
-func (e *EventValidator) IsEventValid(event Event) (bool, error) {
+func (e *EventValidator) IsEventValid(event client.Event) (bool, error) {
 	// see if event found matches expected event type
 	if !e.ValidateType(event.Dest) {
 		return false, fmt.Errorf("%w. Desired type: %s", errInvalidEventType, e.regex.String())
@@ -90,18 +91,14 @@ func (e *EventValidator) ValidateType(dest string) bool {
 	return e.regex.MatchString(dest)
 }
 
-func (e *EventValidator) ValidateEventBirthdate(event Event) (bool, error) {
+func (e *EventValidator) ValidateEventBirthdate(event client.Event) (bool, error) {
 	return e.timeValidator.IsDateValid(time.Unix(0, event.BirthDate))
 }
 
-func (e *EventValidator) ValidateEventBootTime(event Event) (bool, error) {
+func (e *EventValidator) ValidateEventBootTime(event client.Event) (bool, error) {
 	bootTime, err := GetEventBootTime(event)
 	if bootTime <= 0 {
-		var parsingErr error
-		if err != nil {
-			parsingErr = err
-		}
-		return false, fmt.Errorf("%w. Parsed boot-time: %d, parsing err: %v", errPastDate, bootTime, parsingErr)
+		return false, fmt.Errorf("%w. Parsed boot-time: %d, parsing err: %v", errPastDate, bootTime, err)
 	}
 
 	return e.timeValidator.IsDateValid(time.Unix(bootTime, 0))
@@ -111,11 +108,7 @@ func (e *EventValidator) ValidateWRPBootTime(wrpWithTime queue.WrpWithTime) (boo
 	msg := wrpWithTime.Message
 	bootTime, err := GetWRPBootTime(msg)
 	if bootTime <= 0 {
-		var parsingErr error
-		if err != nil {
-			parsingErr = err
-		}
-		return false, fmt.Errorf("%w. Parsed boot-time: %d, parsing err: %v", errPastDate, bootTime, parsingErr)
+		return false, fmt.Errorf("%w. Parsed boot-time: %d, parsing err: %v", errPastDate, bootTime, err)
 	}
 
 	return e.timeValidator.IsDateValid(time.Unix(bootTime, 0))
@@ -129,7 +122,7 @@ func (e *EventValidator) DuplicateAllowed() bool {
 	return e.duplicateAllowed
 }
 
-func (e *EventValidator) GetEventCompareTime(event Event) time.Time {
+func (e *EventValidator) GetEventCompareTime(event client.Event) time.Time {
 	if e.calculateUsing == Birthdate {
 		return time.Unix(0, event.BirthDate)
 	} else {

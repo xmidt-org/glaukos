@@ -36,6 +36,7 @@ func TestNewEventValidator(t *testing.T) {
 				regex:            regexp.MustCompile("/online/.*"),
 				calculateUsing:   Boottime,
 				duplicateAllowed: true,
+				timeValidator:    TimeValidator{CurrentTime: currTime, ValidFrom: time.Hour, ValidTo: time.Hour},
 			},
 		},
 		{
@@ -95,9 +96,7 @@ func TestNewEventValidator(t *testing.T) {
 				assert.Equal(expected.timeValidator.ValidFrom, ev.timeValidator.ValidFrom)
 				assert.Equal(expected.timeValidator.ValidTo, ev.timeValidator.ValidTo)
 				assert.Equal(expected.duplicateAllowed, ev.duplicateAllowed)
-				expected.regex = ev.regex
-				expected.timeValidator = ev.timeValidator
-				assert.Equal(expected, ev)
+				assert.Equal(expected.calculateUsing, ev.calculateUsing)
 			} else {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
