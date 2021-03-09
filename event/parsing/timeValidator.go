@@ -1,29 +1,31 @@
 package parsing
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
-type TimeRule struct {
-	ValidFrom time.Duration
-	ValidTo   time.Duration
+type TimeValidator interface {
+	IsTimeValid(time.Time) (bool, error)
 }
 
-type TimeValidator struct {
+type TimeValidation struct {
 	CurrentTime func() time.Time
 	ValidFrom   time.Duration
 	ValidTo     time.Duration
 }
 
-// IsDateValid sees if a date is within a time validator's allowed time frame.
-func (t *TimeValidator) IsDateValid(date time.Time) (bool, error) {
+// IsTimeValid sees if a date is within a time validator's allowed time frame.
+func (t TimeValidation) IsTimeValid(date time.Time) (bool, error) {
 	if t.CurrentTime == nil {
 		t.CurrentTime = time.Now
 	}
-	return isDateValid(t.CurrentTime, t.ValidFrom, t.ValidTo, date)
+	return isTimeValid(t.CurrentTime, t.ValidFrom, t.ValidTo, date)
 }
 
 // Sees if a date is within a certain time frame.
 // PastBuffer should be a negative duration.
-func isDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
+func isTimeValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
 	if date.Before(time.Unix(0, 0)) || date.Equal(time.Unix(0, 0)) {
 		return false, errPastDate
 	}
@@ -56,13 +58,14 @@ const (
 
 var (
 	timeLocationUnmarshal = map[string]TimeLocation{
-		"Birthdate": Birthdate,
-		"Boot-time": Boottime,
+		"birthdate": Birthdate,
+		"boot-time": Boottime,
 	}
 )
 
 // ParseEventType returns the enum when given a string.
 func ParseTimeLocation(location string) TimeLocation {
+	location = strings.ToLower(location)
 	if value, ok := timeLocationUnmarshal[location]; ok {
 		return value
 	}

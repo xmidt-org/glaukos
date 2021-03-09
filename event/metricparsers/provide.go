@@ -2,40 +2,28 @@ package metricparsers
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/sony/gobreaker"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/arrange"
-	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
-	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/themis/xmetrics"
 	"go.uber.org/fx"
 )
 
+type TimeElapsedConfig struct {
+	Name          string
+	InitialEvent  parsing.EventRule
+	IncomingEvent parsing.EventRule
+}
+
 type TimeElapsedParsersConfig struct {
-	DefaultBootTimeValidation  parsing.TimeRule
-	DefaultBirthdateValidation parsing.TimeRule
-	Parsers                    []TimeElapsedConfig
-}
-
-// CodexConfig determines the auth and address for connecting to the codex cluster.
-type CodexConfig struct {
-	Address        string
-	Auth           AuthAcquirerConfig
-	MaxRetryCount  int
-	CircuitBreaker client.CircuitBreakerConfig
-}
-
-type AuthAcquirerConfig struct {
-	JWT   acquire.RemoteBearerTokenAcquirerOptions
-	Basic string
+	DefaultTimeValidation time.Duration
+	Parsers               []TimeElapsedConfig
 }
 
 // ParsersIn brings together all of the different types of parsers that glaukos uses.
@@ -49,74 +37,20 @@ type ParsersIn struct {
 func Provide() fx.Option {
 	return fx.Options(
 		ProvideEventMetrics(),
+		client.Provide(),
 		provideParsers(),
 		fx.Provide(
-			arrange.UnmarshalKey("codex", CodexConfig{}),
-			arrange.UnmarshalKey("timeElapsedParsers", TimeElapsedParsersConfig),
-			determineCodexTokenAcquirer,
-			createCircuitBreaker,
-			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) EventClient {
-				if config.MaxRetryCount < 0 {
-					config.MaxRetryCount = 3
+			CreateTimeElapsedParsers,
+			arrange.UnmarshalKey("timeElapsedParsers", TimeElapsedParsersConfig{}),
+			func(parsers ParsersIn, timeElapsedParsers []*TimeElapsedParser) []queue.Parser {
+				allParsers := parsers.Parsers
+				for _, tep := range timeElapsedParsers {
+					allParsers = append(allParsers, tep)
 				}
-				retryOptions := xhttp.RetryOptions{
-					Logger:   logger,
-					Retries:  config.MaxRetryCount,
-					Interval: time.Second * 30,
-					// Always retry on failures up to the max count.
-					ShouldRetry:       func(error) bool { return true },
-					ShouldRetryStatus: func(code int) bool { return false },
-				}
-				return &client.CodexClient{
-					Address:      config.Address,
-					Auth:         codexAuth,
-					RetryOptions: retryOptions,
-					Client:       http.DefaultClient,
-					Logger:       logger,
-					CB:           cb,
-				}
-			},
-			func(parsers ParsersIn) []queue.Parser {
-				return parsers.Parsers
+				return allParsers
 			},
 		),
 	)
-}
-
-func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire.Acquirer, error) {
-	defaultAcquirer := &acquire.DefaultAcquirer{}
-	jwt := config.Auth.JWT
-	if jwt.AuthURL != "" && jwt.Buffer > 0 && jwt.Timeout > 0 {
-		level.Debug(logger).Log(xlog.MessageKey(), "using jwt")
-		return acquire.NewRemoteBearerTokenAcquirer(jwt)
-	}
-
-	if config.Auth.Basic != "" {
-		level.Debug(logger).Log(xlog.MessageKey(), "using basic auth")
-		return acquire.NewFixedAuthAcquirer(config.Auth.Basic)
-	}
-
-	level.Error(logger).Log(xlog.ErrorKey(), "failed to create acquirer")
-	return defaultAcquirer, nil
-
-}
-
-func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
-	c := config.CircuitBreaker
-
-	if c.ConsecutiveFailuresAllowed == 0 {
-		c.ConsecutiveFailuresAllowed = 1
-	}
-
-	settings := gobreaker.Settings{
-		Name:        "Codex Circuit Breaker",
-		MaxRequests: c.MaxRequests,
-		Interval:    c.Interval,
-		Timeout:     c.Timeout,
-		ReadyToTrip: createReadyToTripFunc(c),
-	}
-
-	return gobreaker.NewCircuitBreaker(settings)
 }
 
 func provideParsers() fx.Option {
@@ -129,44 +63,17 @@ func provideParsers() fx.Option {
 				}
 			},
 		},
-		fx.Annotated{
-			Group: "parsers",
-			Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
-				return &BootTimeParser{
-					Measures: measures,
-					Logger:   logger,
-					Client:   client,
-				}
-			},
-		},
-		fx.Annotated{
-			Group: "parsers",
-			Target: func(logger log.Logger, measures Measures, client EventClient) queue.Parser {
-				return &RebootTimeParser{
-					Measures: measures,
-					Logger:   logger,
-					Client:   client,
-					Label:    "reboot_to_manageable_parser",
-				}
-			},
-		},
 	)
 }
 
-func CreateTimeElapsedParsers(config TimeElapsedParsersConfig, measures Measures, logger log.Logger, client EventClient) {
-	defaultName := "time_elapsed_parser"
+func CreateTimeElapsedParsers(config TimeElapsedParsersConfig, measures Measures, logger log.Logger, codexClient *client.CodexClient, f xmetrics.Factory) ([]*TimeElapsedParser, error) {
 	parserNames := make(map[string]int)
+	parsers := make([]*TimeElapsedParser, 0, len(config.Parsers))
 
-	bootTimeValidation := parsing.TimeValidator{
+	defaultTimeValidator := parsing.TimeValidation{
 		CurrentTime: time.Now,
-		ValidFrom:   config.BootTimeValidation.ValidFrom,
-		ValidTo:     config.BootTimeValidation.ValidTo,
-	}
-
-	birthdateValidation := parsing.TimeValidator{
-		CurrentTime: time.Now,
-		ValidFrom:   config.BirthdateValidation.ValidFrom,
-		ValidTo:     config.BirthdateValidation.ValidTo,
+		ValidFrom:   config.DefaultTimeValidation,
+		ValidTo:     time.Hour,
 	}
 
 	for _, config := range config.Parsers {
@@ -177,13 +84,40 @@ func CreateTimeElapsedParsers(config TimeElapsedParsersConfig, measures Measures
 			name = CreateName(config.Name, parserNames)
 		}
 
-		if parsing.ParseTimeLocation(config.InitialEvent.CalculateUsing) == parsing.Birthdate {
-
+		initialValidator, err := parsing.NewEventValidator(config.InitialEvent, defaultTimeValidator)
+		if err != nil {
+			return nil, err
 		}
-		initialValidation, err := parsing.NewEventValidator(config.InitialEvent)
+		endValidator, err := parsing.NewEventValidator(config.IncomingEvent, defaultTimeValidator)
+		if err != nil {
+			return nil, err
+		}
 
-		parser := TimeElapsedParser{}
+		added, err := measures.addTimeElapsedHistogram(f, prometheus.HistogramOpts{
+			Name:    name,
+			Help:    fmt.Sprintf("tracks %s durations in s", name),
+			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		},
+			FirmwareLabel,
+			HardwareLabel)
+
+		if !added {
+			return nil, err
+		}
+
+		parser := &TimeElapsedParser{
+			measures:         measures,
+			logger:           logger,
+			client:           codexClient,
+			initialValidator: initialValidator,
+			endValidator:     endValidator,
+			label:            name,
+		}
+
+		parsers = append(parsers, parser)
 	}
+
+	return parsers, nil
 }
 
 func CreateName(name string, parsersMap map[string]int) string {

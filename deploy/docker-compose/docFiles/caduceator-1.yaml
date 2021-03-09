@@ -27,10 +27,10 @@ vegetaConfig:
   postURL: "http://caduceus:6000/api/v3/notify"
   sleepTime: "0s"
   clientTimeout: "15s"
-  wrpMessageDest: "event:device-status/mac:112233445566/fully-manageable/1614265173"
+  wrpMessageDest: "event:device-status/mac:112233445566/online"
   TransactionId: "123"
   BootTimeDuration: "-3m" # needs to be within 12 hours prior and one hour in the future for successful events
-  BirthdateDuration: "-57m" # needs to be within 12 hours prior and one hour in the future for successful events
+  BirthdateDuration: "-5m" # needs to be within 12 hours prior and one hour in the future for successful events
 
   # simulates talaria rehash
   vegetaRehash:

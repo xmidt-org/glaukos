@@ -123,9 +123,3 @@ func circuitBreakerRequestFunc(c *CodexClient) func(req *http.Request) (*http.Re
 
 	}
 }
-
-func CreateReadyToTripFunc(c CircuitBreakerConfig) func(count gobreaker.Counts) bool {
-	return func(count gobreaker.Counts) bool {
-		return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
-	}
-}

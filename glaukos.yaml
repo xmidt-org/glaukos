@@ -225,3 +225,29 @@ queue:
   # time.  If a value below 5 is chosen, it defaults to 5.
   # (Optional) defaults to 5
   maxWorkers: 5
+
+timeElapsedParsers:
+  defaultTimeValidation: "1h"
+  parsers:
+    - Name: "boot_time_parser"
+      InitialEvent:
+        Regex: ".*/offline$"
+        CalculateUsing: "birthdate"
+        DuplicateAllowed: true
+        ValidFrom: "2h"
+      IncomingEvent:
+        Regex: ".*/online$"
+        CalculateUsing: "boot-time"
+        DuplicateAllowed: false
+        ValidFrom: "2h"
+    - Name: "reboot_to_manageable"
+      InitialEvent:
+        Regex: ".*/reboot-pending/"
+        CalculateUsing: "birthdate"
+        DuplicateAllowed: true
+        ValidFrom: "2h"
+      IncomingEvent:
+        Regex: ".*/fully-manageable/"
+        CalculateUsing: "birthdate"
+        DuplicateAllowed: true
+        ValidFrom: "2h"
