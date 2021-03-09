@@ -18,10 +18,7 @@ const (
 )
 
 var (
-	errParseDeviceID = errors.New("error getting device ID from event")
-	errFutureDate    = errors.New("date is too far in the future")
-	errPastDate      = errors.New("date is too far in the past")
-
+	errParseDeviceID    = errors.New("error getting device ID from event")
 	errBootTimeParse    = errors.New("unable to parse boot-time")
 	errBootTimeNotFound = errors.New("boot-time not found")
 )
@@ -76,14 +73,14 @@ func GetDeviceID(destinationRegex *regexp.Regexp, destination string) (string, e
 // GetValidBirthDate attempts to get the birthdate from the payload.
 // If it doesn't exist, the current time is returned.
 // If the birthdate is too old or too far in the future, 0 is returned.
-func GetValidBirthDate(currTime func() time.Time, payload []byte) (time.Time, error) {
-	now := currTime()
+func GetValidBirthDate(timeValidation TimeValidation, payload []byte) (time.Time, error) {
+	now := timeValidation.CurrentTime()
 	birthDate, ok := getBirthDate(payload)
 	if !ok {
 		birthDate = now
 	}
 	// check if birthdate is within the last 12 hours and the next hour
-	if valid, err := isTimeValid(currTime, -12*time.Hour, time.Hour, birthDate); !valid {
+	if valid, err := timeValidation.IsTimeValid(birthDate); !valid {
 		return time.Time{}, err
 	}
 

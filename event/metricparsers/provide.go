@@ -70,10 +70,10 @@ func CreateTimeElapsedParsers(config TimeElapsedParsersConfig, measures Measures
 	parserNames := make(map[string]int)
 	parsers := make([]*TimeElapsedParser, 0, len(config.Parsers))
 
-	defaultTimeValidator := parsing.TimeValidation{
-		CurrentTime: time.Now,
-		ValidFrom:   config.DefaultTimeValidation,
-		ValidTo:     time.Hour,
+	defaultTimeValidator := parsing.TimeValidator{
+		Current:   time.Now,
+		ValidFrom: config.DefaultTimeValidation,
+		ValidTo:   time.Hour,
 	}
 
 	for _, config := range config.Parsers {

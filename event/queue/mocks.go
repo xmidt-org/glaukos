@@ -14,5 +14,6 @@ func (mp *MockParser) Parse(wrpWithTime WrpWithTime) error {
 }
 
 func (mp *MockParser) Name() string {
-	return "mock_parser"
+	args := mp.Called()
+	return args.String(0)
 }

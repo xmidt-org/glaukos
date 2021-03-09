@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -95,13 +96,13 @@ func TestGetEventBootTime(t *testing.T) {
 
 	tests := []struct {
 		description      string
-		msg              Event
+		msg              client.Event
 		expectedBootTime int64
 		expectedErr      error
 	}{
 		{
 			description: "Success",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					bootTimeKey: "1611700028",
 				},
@@ -110,7 +111,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "No Boottime",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
@@ -118,13 +119,13 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description:      "No Metadata",
-			msg:              Event{},
+			msg:              client.Event{},
 			expectedBootTime: 0,
 			expectedErr:      errBootTimeNotFound,
 		},
 		{
 			description: "Key with slash",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					"/boot-time": "1000",
 				},
@@ -133,7 +134,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Key without slash",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					"boot-time": "1000",
 				},
@@ -142,7 +143,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Int conversion error",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					bootTimeKey: "not-a-number",
 				},
@@ -297,10 +298,14 @@ func TestGetValidBirthDate(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			currTime := func() time.Time {
-				return tc.fakeNow
+			tv := TimeValidator{
+				Current: func() time.Time {
+					return tc.fakeNow
+				},
+				ValidFrom: -12 * time.Hour,
+				ValidTo:   time.Hour,
 			}
-			b, err := GetValidBirthDate(currTime, tc.payload)
+			b, err := GetValidBirthDate(tv, tc.payload)
 			assert.Equal(tc.expectedBirthDate, b)
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
@@ -349,83 +354,6 @@ func TestGetBirthDate(t *testing.T) {
 			time, found := getBirthDate(tc.payload)
 			assert.Equal(time, tc.expectedTime)
 			assert.Equal(found, tc.expectedFound)
-		})
-	}
-}
-
-func TestIsDateValid(t *testing.T) {
-	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
-	assert.Nil(t, err)
-
-	currFunc := func() time.Time {
-		return now
-	}
-
-	tests := []struct {
-		description  string
-		pastBuffer   time.Duration
-		futureBuffer time.Duration
-		testTime     time.Time
-		expectedRes  bool
-		expectedErr  error
-	}{
-		{
-			description:  "Valid Time",
-			pastBuffer:   time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     now.Add(2 * time.Minute),
-			expectedRes:  true,
-		},
-		{
-			description:  "Unix Time 0",
-			pastBuffer:   time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     time.Unix(0, 0),
-			expectedRes:  false,
-			expectedErr:  errPastDate,
-		},
-		{
-			description:  "Before unix Time 0",
-			pastBuffer:   time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     time.Unix(-10, 0),
-			expectedRes:  false,
-			expectedErr:  errPastDate,
-		},
-		{
-			description:  "Negative past buffer",
-			pastBuffer:   -1 * time.Hour,
-			futureBuffer: 30 * time.Minute,
-			testTime:     now.Add(2 * time.Minute),
-			expectedRes:  true,
-		},
-		{
-			description:  "0 buffers",
-			pastBuffer:   0,
-			futureBuffer: 0,
-			testTime:     now.Add(2 * time.Minute),
-			expectedRes:  false,
-			expectedErr:  errFutureDate,
-		},
-		{
-			description:  "Equal time",
-			pastBuffer:   0,
-			futureBuffer: 0,
-			testTime:     now,
-			expectedRes:  true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			valid, err := isDateValid(currFunc, tc.pastBuffer, tc.futureBuffer, tc.testTime)
-			assert.Equal(tc.expectedRes, valid)
-			if !tc.expectedRes {
-				assert.Contains(err.Error(), tc.expectedErr.Error())
-			} else {
-				assert.Nil(err)
-			}
 		})
 	}
 }

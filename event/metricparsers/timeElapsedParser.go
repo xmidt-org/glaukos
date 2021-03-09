@@ -19,11 +19,11 @@ type EventClient interface {
 	GetEvents(string) []client.Event
 }
 
-type EventValidator interface {
+type EventValidation interface {
 	IsEventValid(client.Event) (bool, error)
 	IsWRPValid(queue.WrpWithTime) (bool, error)
-	GetEventCompareTime(client.Event) time.Time
-	GetWRPCompareTime(queue.WrpWithTime) time.Time
+	GetEventCompareTime(client.Event) (time.Time, error)
+	GetWRPCompareTime(queue.WrpWithTime) (time.Time, error)
 	ValidateType(string) bool
 	DuplicateAllowed() bool
 }
@@ -31,8 +31,8 @@ type EventValidator interface {
 type TimeElapsedParser struct {
 	measures         Measures
 	logger           log.Logger
-	initialValidator EventValidator
-	endValidator     EventValidator
+	initialValidator EventValidation
+	endValidator     EventValidation
 	client           EventClient
 	label            string
 }
@@ -134,8 +134,8 @@ func (t *TimeElapsedParser) calculateTimeElapsed(wrpWithTime queue.WrpWithTime) 
 		return -1, fmt.Errorf("%s: %w", "Invalid previous event found", err)
 	}
 
-	startingTime := t.initialValidator.GetEventCompareTime(latestPreviousEvent)
-	endingTime := t.endValidator.GetWRPCompareTime(wrpWithTime)
+	startingTime, _ := t.initialValidator.GetEventCompareTime(latestPreviousEvent)
+	endingTime, _ := t.endValidator.GetWRPCompareTime(wrpWithTime)
 
 	// calculate difference
 	timeElapsed := endingTime.Sub(startingTime).Seconds()

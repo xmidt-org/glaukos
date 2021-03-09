@@ -1,6 +1,8 @@
-package parsing
+package client
 
-import "github.com/stretchr/testify/mock"
+import (
+	"github.com/stretchr/testify/mock"
+)
 
 type mockEventClient struct {
 	mock.Mock
