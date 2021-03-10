@@ -35,7 +35,7 @@ func TestIsTimeValid(t *testing.T) {
 			testTime:    now.Add(30 * time.Minute),
 			currTime:    nil,
 			expectedRes: false,
-			expectedErr: errNilTimeFunc,
+			expectedErr: ErrNilTimeFunc,
 		},
 		{
 			description: "Unix Time 0",
@@ -44,7 +44,7 @@ func TestIsTimeValid(t *testing.T) {
 			testTime:    time.Unix(0, 0),
 			currTime:    currFunc,
 			expectedRes: false,
-			expectedErr: errPastDate,
+			expectedErr: ErrPastDate,
 		},
 		{
 			description: "Before unix Time 0",
@@ -53,7 +53,7 @@ func TestIsTimeValid(t *testing.T) {
 			testTime:    time.Unix(-10, 0),
 			currTime:    currFunc,
 			expectedRes: false,
-			expectedErr: errPastDate,
+			expectedErr: ErrPastDate,
 		},
 		{
 			description: "Positive past buffer",
@@ -70,7 +70,7 @@ func TestIsTimeValid(t *testing.T) {
 			testTime:    now.Add(2 * time.Minute),
 			currTime:    currFunc,
 			expectedRes: false,
-			expectedErr: errFutureDate,
+			expectedErr: ErrFutureDate,
 		},
 		{
 			description: "Equal time",
@@ -87,7 +87,7 @@ func TestIsTimeValid(t *testing.T) {
 			testTime:    now.Add(-2 * time.Hour),
 			currTime:    currFunc,
 			expectedRes: false,
-			expectedErr: errPastDate,
+			expectedErr: ErrPastDate,
 		},
 		{
 			description: "Too far in future",
@@ -96,7 +96,7 @@ func TestIsTimeValid(t *testing.T) {
 			testTime:    now.Add(2 * time.Hour),
 			currTime:    currFunc,
 			expectedRes: false,
-			expectedErr: errFutureDate,
+			expectedErr: ErrFutureDate,
 		},
 	}
 

@@ -10,6 +10,16 @@ import (
 	"github.com/xmidt-org/glaukos/event/queue"
 )
 
+// EventValidation is an interface for checking if wrp messages and events pass certain validations
+type EventValidation interface {
+	IsEventValid(client.Event) (bool, error)
+	IsWRPValid(queue.WrpWithTime) (bool, error)
+	GetEventCompareTime(client.Event) (time.Time, error)
+	GetWRPCompareTime(queue.WrpWithTime) (time.Time, error)
+	ValidateType(string) bool
+	DuplicateAllowed() bool
+}
+
 // EventRule is the config struct for event validation
 type EventRule struct {
 	Regex            string
@@ -18,9 +28,9 @@ type EventRule struct {
 	ValidFrom        time.Duration
 }
 
-// EventValidator implements a metricparser.EventValidator interface.
+// eventValidator implements a metricparser.EventValidator interface.
 // Keeps a set of information/rules to see if an event or wrp fits these rules.
-type EventValidator struct {
+type eventValidator struct {
 	regex            *regexp.Regexp
 	calculateUsing   TimeLocation
 	timeValidation   TimeValidation
@@ -28,27 +38,22 @@ type EventValidator struct {
 }
 
 var (
-	errInvalidEventType = errors.New("event type doesn't match")
-	errInvalidRegex     = errors.New("invalid regex")
+	ErrInvalidEventType = errors.New("event type doesn't match")
+	ErrInvalidRegex     = errors.New("invalid regex")
 )
 
-// NewEventValidator creates a new EventValidator from an EventRule
-func NewEventValidator(rule EventRule, defaultTimeValidation TimeValidation) (EventValidator, error) {
+// NewEventValidation creates a new EventValidator from an EventRule
+func NewEventValidation(rule EventRule, validTo time.Duration, currentTime func() time.Time) (EventValidation, error) {
 	regex, err := regexp.Compile(rule.Regex)
 	if err != nil {
-		return EventValidator{}, fmt.Errorf("%w: %v", errInvalidRegex, err)
+		return eventValidator{}, fmt.Errorf("%w: %v", ErrInvalidRegex, err)
 	}
 
-	var tv TimeValidation
-	if rule.ValidFrom == 0 {
-		tv = defaultTimeValidation
-	} else {
-		tv = TimeValidator{Current: time.Now, ValidFrom: rule.ValidFrom, ValidTo: time.Hour}
-	}
+	tv := TimeValidator{Current: currentTime, ValidFrom: rule.ValidFrom, ValidTo: validTo}
 
 	timeLocation := ParseTimeLocation(rule.CalculateUsing)
 
-	return EventValidator{
+	return eventValidator{
 		regex:            regex,
 		calculateUsing:   timeLocation,
 		timeValidation:   tv,
@@ -57,10 +62,10 @@ func NewEventValidator(rule EventRule, defaultTimeValidation TimeValidation) (Ev
 }
 
 // IsEventValid checks if an event is valid based on the rules kept by the EventValidator.
-func (e EventValidator) IsEventValid(event client.Event) (bool, error) {
+func (e eventValidator) IsEventValid(event client.Event) (bool, error) {
 	// see if event found matches expected event type
 	if !e.ValidateType(event.Dest) {
-		return false, fmt.Errorf("%w. Desired type: %s", errInvalidEventType, e.regex.String())
+		return false, fmt.Errorf("%w. Desired type: %s", ErrInvalidEventType, e.regex.String())
 	}
 
 	compareTime, err := e.GetEventCompareTime(event)
@@ -79,11 +84,11 @@ func (e EventValidator) IsEventValid(event client.Event) (bool, error) {
 }
 
 // IsWRPValid checks if a wrp is valid baased on the rules kept by the EventValidator.
-func (e EventValidator) IsWRPValid(wrpWithTime queue.WrpWithTime) (bool, error) {
+func (e eventValidator) IsWRPValid(wrpWithTime queue.WrpWithTime) (bool, error) {
 	msg := wrpWithTime.Message
 	// see if event found matches expected event type
 	if !e.ValidateType(msg.Destination) {
-		return false, fmt.Errorf("%w. Desired type: %s", errInvalidEventType, e.regex.String())
+		return false, fmt.Errorf("%w. Desired type: %s", ErrInvalidEventType, e.regex.String())
 	}
 
 	compareTime, err := e.GetWRPCompareTime(wrpWithTime)
@@ -102,18 +107,18 @@ func (e EventValidator) IsWRPValid(wrpWithTime queue.WrpWithTime) (bool, error) 
 }
 
 // ValidateType validates that a destination string matches the type that the EventValidator is looking for
-func (e EventValidator) ValidateType(dest string) bool {
+func (e eventValidator) ValidateType(dest string) bool {
 	return e.regex.MatchString(dest)
 }
 
 // DuplicateAllowed sees if the same type of event with the same boot-time is allowed.
-func (e EventValidator) DuplicateAllowed() bool {
+func (e eventValidator) DuplicateAllowed() bool {
 	return e.duplicateAllowed
 }
 
 // GetEventCompareTime gets the time used for comparison from an event
 // depending on the TimeLocation of the EventValidator.
-func (e EventValidator) GetEventCompareTime(event client.Event) (time.Time, error) {
+func (e eventValidator) GetEventCompareTime(event client.Event) (time.Time, error) {
 	if e.calculateUsing == Boottime {
 		bootTime, err := GetEventBootTime(event)
 		if err != nil {
@@ -126,7 +131,7 @@ func (e EventValidator) GetEventCompareTime(event client.Event) (time.Time, erro
 
 // GetWRPCompareTime gets the time used for comparison from a wrp
 // depending on the TimeLocation of the EventValidator.
-func (e EventValidator) GetWRPCompareTime(wrpWithTime queue.WrpWithTime) (time.Time, error) {
+func (e eventValidator) GetWRPCompareTime(wrpWithTime queue.WrpWithTime) (time.Time, error) {
 	if e.calculateUsing == Boottime {
 		bootTime, err := GetWRPBootTime(wrpWithTime.Message)
 		if err != nil {

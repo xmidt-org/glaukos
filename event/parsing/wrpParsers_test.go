@@ -285,13 +285,13 @@ func TestGetValidBirthDate(t *testing.T) {
 			description: "Future Birthdate Error",
 			fakeNow:     currTime.Add(-5 * time.Hour),
 			payload:     payload,
-			expectedErr: errFutureDate,
+			expectedErr: ErrFutureDate,
 		},
 		{
 			description: "Past Birthdate Error",
 			fakeNow:     currTime.Add(200 * time.Hour),
 			payload:     payload,
-			expectedErr: errPastDate,
+			expectedErr: ErrPastDate,
 		},
 	}
 

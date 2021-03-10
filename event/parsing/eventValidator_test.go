@@ -14,103 +14,86 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
-func TestNewEventValidator(t *testing.T) {
+func TestNewEventValidation(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
 	currTime := func() time.Time {
 		return now
 	}
-	defaultValidator := TimeValidator{
-		Current:   currTime,
-		ValidFrom: -1 * time.Hour,
-		ValidTo:   time.Hour,
-	}
 
 	tests := []struct {
-		description       string
-		rule              EventRule
-		defaultValidator  TimeValidation
-		expectedValidator EventValidator
-		expectedErr       error
+		description string
+		rule        EventRule
+		validDest   string
+		validDate   time.Time
+		invalidDest string
+		invalidDate time.Time
+		expectedErr error
 	}{
 		{
 			description: "Success with boot-time",
 			rule: EventRule{
-				Regex:            "/online/.*",
+				Regex:            ".*/online/.*",
 				CalculateUsing:   "Boot-time",
 				DuplicateAllowed: true,
 				ValidFrom:        -1 * time.Hour,
 			},
-			defaultValidator: defaultValidator,
-			expectedValidator: EventValidator{
-				regex:            regexp.MustCompile("/online/.*"),
-				calculateUsing:   Boottime,
-				duplicateAllowed: true,
-			},
+			validDest:   "whatever/online/hello",
+			invalidDest: "random",
+			validDate:   now.Add(-30 * time.Minute),
+			invalidDate: now.Add(-2 * time.Hour),
 		},
 		{
 			description: "Success with birthdate",
 			rule: EventRule{
-				Regex:            "/online/.*",
+				Regex:            ".*/online/.*",
 				CalculateUsing:   "Birthdate",
 				DuplicateAllowed: true,
 				ValidFrom:        -1 * time.Hour,
 			},
-			defaultValidator: defaultValidator,
-			expectedValidator: EventValidator{
-				regex:            regexp.MustCompile("/online/.*"),
-				calculateUsing:   Birthdate,
-				duplicateAllowed: true,
-			},
+			validDest:   "whatever/online/hello",
+			invalidDest: "random",
+			validDate:   now.Add(-30 * time.Minute),
+			invalidDate: now.Add(-2 * time.Hour),
 		},
 		{
 			description: "Success with defaults",
 			rule: EventRule{
-				Regex: "/online/.*",
+				Regex: ".*/online/.*",
 			},
-			defaultValidator: defaultValidator,
-			expectedValidator: EventValidator{
-				regex:            regexp.MustCompile("/online/.*"),
-				calculateUsing:   Birthdate,
-				duplicateAllowed: false,
-				timeValidation:   defaultValidator,
-			},
+			validDest:   "whatever/online/hello",
+			invalidDest: "random",
+			validDate:   now.Add(-30 * time.Minute),
+			invalidDate: now.Add(-2 * time.Hour),
 		},
 		{
 			description: "Unrecognized time location",
 			rule: EventRule{
-				Regex:          "/online/.*",
+				Regex:          ".*/online/.*",
 				CalculateUsing: "header",
 				ValidFrom:      -1 * time.Hour,
 			},
-			defaultValidator: defaultValidator,
-			expectedValidator: EventValidator{
-				regex:            regexp.MustCompile("/online/.*"),
-				calculateUsing:   Birthdate,
-				duplicateAllowed: false,
-			},
+			validDest:   "whatever/online/hello",
+			invalidDest: "random",
+			validDate:   now.Add(-30 * time.Minute),
+			invalidDate: now.Add(-2 * time.Hour),
 		},
 		{
 			description: "regex error",
 			rule: EventRule{
 				Regex: `'(?=.*\d)'`,
 			},
-			defaultValidator: defaultValidator,
-			expectedErr:      errInvalidRegex,
+			expectedErr: ErrInvalidRegex,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			ev, err := NewEventValidator(tc.rule, tc.defaultValidator)
+			ev, err := NewEventValidation(tc.rule, time.Hour, currTime)
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
-				expected := tc.expectedValidator
-				assert.Equal(expected.regex.String(), ev.regex.String())
-				assert.NotEmpty(ev.timeValidation)
-				assert.Equal(expected.duplicateAllowed, ev.duplicateAllowed)
-				assert.Equal(expected.calculateUsing, ev.calculateUsing)
+				assert.NotNil(ev)
 			} else {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
@@ -158,7 +141,7 @@ func TestIsEventValid(t *testing.T) {
 				Dest:    "event:device-status/mac:112233445566/online",
 			},
 			expectedRes: false,
-			expectedErr: errInvalidEventType,
+			expectedErr: ErrInvalidEventType,
 		},
 		{
 			description: "No boot-time",
@@ -187,9 +170,9 @@ func TestIsEventValid(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			timeIsValid:  false,
-			timeValError: errPastDate,
+			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  errPastDate,
+			expectedErr:  ErrPastDate,
 		},
 		{
 			description: "Birthdate Invalid",
@@ -198,9 +181,9 @@ func TestIsEventValid(t *testing.T) {
 			},
 			timeLocation: Birthdate,
 			timeIsValid:  false,
-			timeValError: errPastDate,
+			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  errPastDate,
+			expectedErr:  ErrPastDate,
 		},
 	}
 
@@ -209,7 +192,7 @@ func TestIsEventValid(t *testing.T) {
 			assert := assert.New(t)
 			mockTimeVal := new(MockTimeValidation)
 			mockTimeVal.On("IsTimeValid", mock.Anything).Return(tc.timeIsValid, tc.timeValError).Once()
-			ev := EventValidator{
+			ev := eventValidator{
 				regex:          testRegex,
 				calculateUsing: tc.timeLocation,
 				timeValidation: mockTimeVal,
@@ -267,7 +250,7 @@ func TestIsWRPValid(t *testing.T) {
 				},
 			},
 			expectedRes: false,
-			expectedErr: errInvalidEventType,
+			expectedErr: ErrInvalidEventType,
 		},
 		{
 			description: "No Boot-time",
@@ -303,9 +286,9 @@ func TestIsWRPValid(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			timeIsValid:  false,
-			timeValError: errPastDate,
+			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  errPastDate,
+			expectedErr:  ErrPastDate,
 		},
 		{
 			description: "Boot-time Invalid",
@@ -316,9 +299,9 @@ func TestIsWRPValid(t *testing.T) {
 			},
 			timeLocation: Birthdate,
 			timeIsValid:  false,
-			timeValError: errPastDate,
+			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  errPastDate,
+			expectedErr:  ErrPastDate,
 		},
 	}
 
@@ -327,7 +310,7 @@ func TestIsWRPValid(t *testing.T) {
 			assert := assert.New(t)
 			mockTimeVal := new(MockTimeValidation)
 			mockTimeVal.On("IsTimeValid", mock.Anything).Return(tc.timeIsValid, tc.timeValError).Once()
-			ev := EventValidator{
+			ev := eventValidator{
 				regex:          testRegex,
 				calculateUsing: tc.timeLocation,
 				timeValidation: mockTimeVal,
@@ -349,7 +332,7 @@ func TestIsWRPValid(t *testing.T) {
 
 func TestValidateType(t *testing.T) {
 	testRegex := regexp.MustCompile("device-status/.*/some-event/.*")
-	testVal := EventValidator{
+	testVal := eventValidator{
 		regex: testRegex,
 	}
 	tests := []struct {
@@ -419,7 +402,7 @@ func TestGetEventCompareTime(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			ev := EventValidator{calculateUsing: tc.timeLocation}
+			ev := eventValidator{calculateUsing: tc.timeLocation}
 			time, err := ev.GetEventCompareTime(tc.event)
 			assert.True(tc.expectedTime.Equal(time))
 			assert.Equal(tc.expectedErr, err)
@@ -483,7 +466,7 @@ func TestGetWRPCompareTime(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			ev := EventValidator{calculateUsing: tc.timeLocation}
+			ev := eventValidator{calculateUsing: tc.timeLocation}
 			time, err := ev.GetWRPCompareTime(tc.wrp)
 			assert.True(tc.expectedTime.Equal(time))
 			assert.Equal(tc.expectedErr, err)
@@ -492,6 +475,6 @@ func TestGetWRPCompareTime(t *testing.T) {
 }
 
 func TestDuplicateAllowed(t *testing.T) {
-	ev := EventValidator{duplicateAllowed: true}
+	ev := eventValidator{duplicateAllowed: true}
 	assert.True(t, ev.DuplicateAllowed())
 }

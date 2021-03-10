@@ -42,6 +42,11 @@ type EndpointsDecodeIn struct {
 }
 
 func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
+	timeValidator := parsing.TimeValidator{
+		Current:   time.Now,
+		ValidFrom: -12 * time.Hour,
+		ValidTo:   time.Hour,
+	}
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(wrp.Message)
@@ -49,7 +54,7 @@ func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 				return nil, errors.New("invalid request info")
 			}
 
-			begin, err := parsing.GetValidBirthDate(time.Now, v.Payload)
+			begin, err := parsing.GetValidBirthDate(timeValidator, v.Payload)
 			if err != nil {
 				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to get valid birthdate from payload")
 				begin = time.Now()

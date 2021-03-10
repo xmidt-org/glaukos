@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	errFutureDate  = errors.New("date is too far in the future")
-	errPastDate    = errors.New("date is too far in the past")
-	errNilTimeFunc = errors.New("currenttime function has not been set")
+	ErrFutureDate  = errors.New("date is too far in the future")
+	ErrPastDate    = errors.New("date is too far in the past")
+	ErrNilTimeFunc = errors.New("currenttime function has not been set")
 )
 
 // TimeValidation sees if a given time is within the time frame it is set to validate
@@ -28,11 +28,11 @@ type TimeValidator struct {
 // IsTimeValid sees if a date is within a time validator's allowed time frame.
 func (t TimeValidator) IsTimeValid(date time.Time) (bool, error) {
 	if t.Current == nil {
-		return false, errNilTimeFunc
+		return false, ErrNilTimeFunc
 	}
 
 	if date.Before(time.Unix(0, 0)) || date.Equal(time.Unix(0, 0)) {
-		return false, errPastDate
+		return false, ErrPastDate
 	}
 
 	if t.ValidFrom.Seconds() > 0 {
@@ -44,11 +44,11 @@ func (t TimeValidator) IsTimeValid(date time.Time) (bool, error) {
 	futureTime := now.Add(t.ValidTo)
 
 	if !(pastTime.Before(date) || pastTime.Equal(date)) {
-		return false, errPastDate
+		return false, ErrPastDate
 	}
 
 	if !(futureTime.Equal(date) || futureTime.After(date)) {
-		return false, errFutureDate
+		return false, ErrFutureDate
 	}
 
 	return true, nil

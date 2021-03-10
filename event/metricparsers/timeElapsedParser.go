@@ -19,33 +19,24 @@ type EventClient interface {
 	GetEvents(string) []client.Event
 }
 
-type EventValidation interface {
-	IsEventValid(client.Event) (bool, error)
-	IsWRPValid(queue.WrpWithTime) (bool, error)
-	GetEventCompareTime(client.Event) (time.Time, error)
-	GetWRPCompareTime(queue.WrpWithTime) (time.Time, error)
-	ValidateType(string) bool
-	DuplicateAllowed() bool
-}
-
 type TimeElapsedParser struct {
 	measures         Measures
 	logger           log.Logger
-	initialValidator EventValidation
-	endValidator     EventValidation
+	initialValidator parsing.EventValidation
+	endValidator     parsing.EventValidation
 	client           EventClient
 	label            string
 }
 
 var (
-	errEventNotFound      = errors.New("event not found")
 	errNewerBootTime      = errors.New("found newer boot-time")
 	errSameBootTime       = errors.New("found same boot-time")
-	errTimeElapsed        = errors.New("failed to get time elapsed")
 	errInvalidTimeElapsed = errors.New("amount of time elapsed is invalid")
 	errInvalidBootTime    = errors.New("invalid boot time")
+	errInvalidDeviceID    = errors.New("could not parse device id")
+	errInvalidEventDest   = errors.New("event destination does not match event regex")
 
-	defaultLogger = log.NewNopLogger()
+	errInvalidPrevEvent = errors.New("invalid previous event found")
 )
 
 const (
@@ -58,6 +49,28 @@ const (
 )
 
 var eventRegex = regexp.MustCompile(`^(?P<event>[^/]+)/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+))/(?P<type>[^/\s]+)`)
+
+// CreateNewTimeElapsedParser creates a new TimeElapsedParser from a TimeElapsedConfig
+func CreateNewTimeElapsedParser(config TimeElapsedConfig, name string, eventClient EventClient, logger log.Logger, measures Measures) (*TimeElapsedParser, error) {
+	initialValidator, err := parsing.NewEventValidation(config.InitialEvent, time.Hour, time.Now)
+	if err != nil {
+		return nil, err
+	}
+
+	endValidator, err := parsing.NewEventValidation(config.IncomingEvent, time.Hour, time.Now)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TimeElapsedParser{
+		measures:         measures,
+		logger:           GetParserLogger(logger, name),
+		client:           eventClient,
+		initialValidator: initialValidator,
+		endValidator:     endValidator,
+		label:            name,
+	}, nil
+}
 
 /* Parse calculates the difference of events (either by boot-time or birthdate, depending on what is configured)
  by querying codex for the latest device events and performing calculations.
@@ -75,17 +88,24 @@ func (t *TimeElapsedParser) Parse(wrpWithTime queue.WrpWithTime) error {
 		hardwareVal, hardwareFound := parsing.GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
 		firmwareVal, firmwareFound := parsing.GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
 		if hardwareFound && firmwareFound {
-			t.measures.TimeElapsedHistograms[t.label].With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
+			histogram, ok := t.measures.TimeElapsedHistograms[t.label]
+			if ok {
+				histogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
+			} else {
+				level.Error(t.logger).Log(xlog.ErrorKey(), "No histogram found for this time elapsed parser")
+			}
 		} else {
 			t.measures.UnparsableEventsCount.With(ParserLabel, t.label, ReasonLabel, errNoFirmwareOrHardware).Add(1.0)
 		}
-	} else {
+	} else if err != nil {
 		return err
 	}
 
 	return nil
 }
 
+// Name implements the Parser interface, returning the name associated with the
+// TimeElapsedParser
 func (t *TimeElapsedParser) Name() string {
 	return t.label
 }
@@ -96,13 +116,11 @@ func (t *TimeElapsedParser) calculateTimeElapsed(wrpWithTime queue.WrpWithTime) 
 	// If event is not of the intended type, do not continue with calculations.
 	if !eventRegex.MatchString(msg.Destination) {
 		level.Debug(t.logger).Log(xlog.MessageKey(), "incoming event does not match event regex", "destination", msg.Destination)
-		// TODO: return proper error here
-		return -1, nil
+		return -1, errInvalidEventDest
 	}
 
 	if !valid {
 		level.Debug(t.logger).Log(xlog.MessageKey(), "incoming event is not valid", "error", err)
-		// TODO: depending on error, return the error
 		return -1, nil
 	}
 
@@ -120,8 +138,8 @@ func (t *TimeElapsedParser) calculateTimeElapsed(wrpWithTime queue.WrpWithTime) 
 	// Go through events to find a starting event with the boot-time of the previous session
 	for _, event := range events {
 		if latestPreviousEvent, err = t.checkLatestInitialEvent(event, latestPreviousEvent, bootTimeInt); err != nil {
-			level.Error(t.logger).Log(xlog.ErrorKey(), err)
-			if errors.Is(err, errNewerBootTime) {
+			t.logErrWithEventDetails(err, deviceID, msg, event)
+			if errors.Is(err, errNewerBootTime) || errors.Is(err, errSameBootTime) {
 				// Something is wrong with this event's boot time, we shouldn't continue.
 				t.measures.UnparsableEventsCount.With(ParserLabel, t.label, ReasonLabel, errEventBootTime).Add(1.0)
 				return -1, err
@@ -130,10 +148,12 @@ func (t *TimeElapsedParser) calculateTimeElapsed(wrpWithTime queue.WrpWithTime) 
 	}
 
 	if valid, err := t.initialValidator.IsEventValid(latestPreviousEvent); !valid {
-		level.Error(t.logger).Log(xlog.ErrorKey(), err)
-		return -1, fmt.Errorf("%s: %w", "Invalid previous event found", err)
+		previousEventErr := fmt.Errorf("%w: %v", errInvalidPrevEvent, err)
+		t.logErrWithEventDetails(previousEventErr, deviceID, msg, latestPreviousEvent)
+		return -1, previousEventErr
 	}
 
+	// errors will not pop up here because we have already checked that both events are valid earlier
 	startingTime, _ := t.initialValidator.GetEventCompareTime(latestPreviousEvent)
 	endingTime, _ := t.endValidator.GetWRPCompareTime(wrpWithTime)
 
@@ -155,7 +175,7 @@ func (t *TimeElapsedParser) checkLatestInitialEvent(e client.Event, previousEven
 	previousEventBootTime, _ := parsing.GetEventBootTime(previousEventTracked)
 
 	if err != nil {
-		return previousEventTracked, err
+		return previousEventTracked, fmt.Errorf("%w. %v", errInvalidBootTime, err)
 	}
 
 	if eventBootTimeInt <= 0 {
@@ -192,16 +212,20 @@ func (t *TimeElapsedParser) checkLatestInitialEvent(e client.Event, previousEven
 	return previousEventTracked, nil
 }
 
-func getWRPInfo(destinationRegex *regexp.Regexp, msg wrp.Message) (bootTime int64, deviceID string, err error) {
-	bootTime, err = parsing.GetWRPBootTime(msg)
+func (t *TimeElapsedParser) logErrWithEventDetails(err error, deviceID string, incomingWRP wrp.Message, codexEvent client.Event) {
+	level.Error(t.logger).Log(xlog.ErrorKey(), err, "deviceID", deviceID, "current event", incomingWRP.TransactionUUID, "codex event", codexEvent.TransactionUUID)
+}
+
+func getWRPInfo(destinationRegex *regexp.Regexp, msg wrp.Message) (int64, string, error) {
+	deviceID, err := parsing.GetDeviceID(destinationRegex, msg.Destination)
 	if err != nil {
-		return
+		return 0, "", fmt.Errorf("%w. %v", errInvalidDeviceID, err)
 	}
 
-	deviceID, err = parsing.GetDeviceID(destinationRegex, msg.Destination)
+	bootTime, err := parsing.GetWRPBootTime(msg)
 	if err != nil {
-		return
+		return 0, "", fmt.Errorf("%w. %v", errInvalidBootTime, err)
 	}
 
-	return
+	return bootTime, deviceID, nil
 }

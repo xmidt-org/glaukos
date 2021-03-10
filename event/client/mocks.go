@@ -4,11 +4,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type mockEventClient struct {
+type MockEventClient struct {
 	mock.Mock
 }
 
-func (m *mockEventClient) GetEvents(device string) []Event {
+func (m *MockEventClient) GetEvents(device string) []Event {
 	args := m.Called(device)
 	return args.Get(0).([]Event)
 }

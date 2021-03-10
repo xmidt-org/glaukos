@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/glaukos/event/parsing"
@@ -26,6 +25,15 @@ type TimeElapsedParsersConfig struct {
 	Parsers               []TimeElapsedConfig
 }
 
+type TimeElapsedParsersIn struct {
+	fx.In
+	config      TimeElapsedParsersConfig
+	logger      log.Logger
+	measures    Measures
+	codexClient *client.CodexClient
+	factory     xmetrics.Factory
+}
+
 // ParsersIn brings together all of the different types of parsers that glaukos uses.
 type ParsersIn struct {
 	fx.In
@@ -38,10 +46,17 @@ func Provide() fx.Option {
 	return fx.Options(
 		ProvideEventMetrics(),
 		client.Provide(),
-		provideParsers(),
 		fx.Provide(
 			CreateTimeElapsedParsers,
 			arrange.UnmarshalKey("timeElapsedParsers", TimeElapsedParsersConfig{}),
+			fx.Annotated{
+				Group: "parsers",
+				Target: func(measures Measures) queue.Parser {
+					return &MetadataParser{
+						Measures: measures,
+					}
+				},
+			},
 			func(parsers ParsersIn, timeElapsedParsers []*TimeElapsedParser) []queue.Parser {
 				allParsers := parsers.Parsers
 				for _, tep := range timeElapsedParsers {
@@ -53,74 +68,48 @@ func Provide() fx.Option {
 	)
 }
 
-func provideParsers() fx.Option {
-	return fx.Provide(
-		fx.Annotated{
-			Group: "parsers",
-			Target: func(measures Measures) queue.Parser {
-				return &MetadataParser{
-					Measures: measures,
-				}
-			},
-		},
-	)
+// GetParserLogger adds the parser name to the logger
+func GetParserLogger(logger log.Logger, parserName string) log.Logger {
+	return log.With(logger, "parser", parserName)
 }
 
-func CreateTimeElapsedParsers(config TimeElapsedParsersConfig, measures Measures, logger log.Logger, codexClient *client.CodexClient, f xmetrics.Factory) ([]*TimeElapsedParser, error) {
+func CreateTimeElapsedParsers(parsers TimeElapsedParsersIn, otherParsers ParsersIn) ([]*TimeElapsedParser, error) {
 	parserNames := make(map[string]int)
-	parsers := make([]*TimeElapsedParser, 0, len(config.Parsers))
+	parsersList := make([]*TimeElapsedParser, 0, len(parsers.config.Parsers))
 
-	defaultTimeValidator := parsing.TimeValidator{
-		Current:   time.Now,
-		ValidFrom: config.DefaultTimeValidation,
-		ValidTo:   time.Hour,
+	for _, parser := range otherParsers.Parsers {
+		parserNames[parser.Name()] = 1
 	}
 
-	for _, config := range config.Parsers {
+	for _, parserConfig := range parsers.config.Parsers {
 		var name string
-		if len(config.Name) == 0 {
-			name = CreateName(defaultName, parserNames)
+		if len(parserConfig.Name) == 0 {
+			name = createParserName(defaultName, parserNames)
 		} else {
-			name = CreateName(config.Name, parserNames)
+			name = createParserName(parserConfig.Name, parserNames)
 		}
 
-		initialValidator, err := parsing.NewEventValidator(config.InitialEvent, defaultTimeValidator)
+		if added, err := parsers.measures.addTimeElapsedHistogram(parsers.factory, name, FirmwareLabel, HardwareLabel); !added {
+			return nil, err
+		}
+
+		parser, err := CreateNewTimeElapsedParser(parserConfig, name, parsers.codexClient, parsers.logger, parsers.measures)
 		if err != nil {
 			return nil, err
 		}
-		endValidator, err := parsing.NewEventValidator(config.IncomingEvent, defaultTimeValidator)
-		if err != nil {
-			return nil, err
-		}
 
-		added, err := measures.addTimeElapsedHistogram(f, prometheus.HistogramOpts{
-			Name:    name,
-			Help:    fmt.Sprintf("tracks %s durations in s", name),
-			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
-		},
-			FirmwareLabel,
-			HardwareLabel)
-
-		if !added {
-			return nil, err
-		}
-
-		parser := &TimeElapsedParser{
-			measures:         measures,
-			logger:           logger,
-			client:           codexClient,
-			initialValidator: initialValidator,
-			endValidator:     endValidator,
-			label:            name,
-		}
-
-		parsers = append(parsers, parser)
+		parsersList = append(parsersList, parser)
 	}
 
-	return parsers, nil
+	return parsersList, nil
 }
 
-func CreateName(name string, parsersMap map[string]int) string {
+// createParserName creates a unique name for parsers
+// parsersMap keeps track of the names that already exist and how many times they have collided
+func createParserName(name string, parsersMap map[string]int) string {
+	if len(name) == 0 {
+		name = "parser"
+	}
 	name = strings.ReplaceAll(name, " ", "_")
 	num := parsersMap[name]
 	newCount := num + 1
