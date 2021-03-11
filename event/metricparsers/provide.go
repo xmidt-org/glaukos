@@ -1,26 +1,11 @@
 package metricparsers
 
 import (
-	"time"
-
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"go.uber.org/fx"
 )
-
-type CircuitBreakerConfig struct {
-	MaxRequests                uint32
-	Interval                   time.Duration
-	Timeout                    time.Duration
-	ConsecutiveFailuresAllowed uint32
-}
-
-type AuthAcquirerConfig struct {
-	JWT   acquire.RemoteBearerTokenAcquirerOptions
-	Basic string
-}
 
 // ParsersIn brings together all of the different types of parsers that glaukos uses.
 type ParsersIn struct {
