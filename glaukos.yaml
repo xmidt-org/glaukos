@@ -227,19 +227,26 @@ queue:
   maxWorkers: 5
 
 timeElapsedParsers:
-  defaultTimeValidation: "1h"
+  defaultTimeValidation: "2h"
   parsers:
-    - Name: "boot_time_parser"
+    - Name: "offline_to_boot"
       InitialEvent:
         Regex: ".*/offline$"
         CalculateUsing: "birthdate"
         DuplicateAllowed: true
-        ValidFrom: "2h"
       IncomingEvent:
         Regex: ".*/online$"
         CalculateUsing: "boot-time"
         DuplicateAllowed: false
-        ValidFrom: "2h"
+    - Name: "boot_to_online"
+      InitialEvent:
+        Regex: ".*/offline$"
+        CalculateUsing: "birthdate"
+        DuplicateAllowed: true
+      IncomingEvent:
+        Regex: ".*/online$"
+        CalculateUsing: "boot-time"
+        DuplicateAllowed: false
     - Name: "reboot_to_manageable"
       InitialEvent:
         Regex: ".*/reboot-pending/"

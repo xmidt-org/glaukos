@@ -33,10 +33,9 @@ func TestNewEventValidation(t *testing.T) {
 		{
 			description: "Success with boot-time",
 			rule: EventRule{
-				Regex:            ".*/online/.*",
-				CalculateUsing:   "Boot-time",
-				DuplicateAllowed: true,
-				ValidFrom:        -1 * time.Hour,
+				Regex:          ".*/online/.*",
+				CalculateUsing: "Boot-time",
+				ValidFrom:      -1 * time.Hour,
 			},
 			validDest:   "whatever/online/hello",
 			invalidDest: "random",
@@ -46,10 +45,9 @@ func TestNewEventValidation(t *testing.T) {
 		{
 			description: "Success with birthdate",
 			rule: EventRule{
-				Regex:            ".*/online/.*",
-				CalculateUsing:   "Birthdate",
-				DuplicateAllowed: true,
-				ValidFrom:        -1 * time.Hour,
+				Regex:          ".*/online/.*",
+				CalculateUsing: "Birthdate",
+				ValidFrom:      -1 * time.Hour,
 			},
 			validDest:   "whatever/online/hello",
 			invalidDest: "random",
@@ -139,6 +137,9 @@ func TestIsEventValid(t *testing.T) {
 			event: client.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/online",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Unix()),
+				},
 			},
 			expectedRes: false,
 			expectedErr: ErrInvalidEventType,
@@ -150,7 +151,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			expectedRes:  false,
-			expectedErr:  errBootTimeNotFound,
+			expectedErr:  ErrInvalidBootTime,
 		},
 		{
 			description: "Boot-time Invalid",
@@ -160,7 +161,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			expectedRes:  false,
-			expectedErr:  errBootTimeParse,
+			expectedErr:  ErrInvalidBootTime,
 		},
 		{
 			description: "Boot-time Too Old",
@@ -172,18 +173,21 @@ func TestIsEventValid(t *testing.T) {
 			timeIsValid:  false,
 			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  ErrPastDate,
+			expectedErr:  ErrInvalidBootTime,
 		},
 		{
 			description: "Birthdate Invalid",
 			event: client.Event{
 				Dest: "event:device-status/mac:112233445566/some-event/1613033276/2s",
+				Metadata: map[string]string{
+					bootTimeKey: fmt.Sprint(now.Unix()),
+				},
 			},
 			timeLocation: Birthdate,
 			timeIsValid:  false,
 			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  ErrPastDate,
+			expectedErr:  ErrInvalidBirthdate,
 		},
 	}
 
@@ -247,6 +251,9 @@ func TestIsWRPValid(t *testing.T) {
 			wrp: queue.WrpWithTime{
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/online",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Unix()),
+					},
 				},
 			},
 			expectedRes: false,
@@ -262,7 +269,7 @@ func TestIsWRPValid(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			expectedRes:  false,
-			expectedErr:  errBootTimeNotFound,
+			expectedErr:  ErrInvalidBootTime,
 		},
 		{
 			description: "Boot-time Invalid",
@@ -274,7 +281,7 @@ func TestIsWRPValid(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			expectedRes:  false,
-			expectedErr:  errBootTimeParse,
+			expectedErr:  ErrInvalidBootTime,
 		},
 		{
 			description: "Boot-time Too Old",
@@ -288,20 +295,23 @@ func TestIsWRPValid(t *testing.T) {
 			timeIsValid:  false,
 			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  ErrPastDate,
+			expectedErr:  ErrInvalidBootTime,
 		},
 		{
-			description: "Boot-time Invalid",
+			description: "Birthdate Invalid",
 			wrp: queue.WrpWithTime{
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/some-event/1613033276/2s",
+					Metadata: map[string]string{
+						bootTimeKey: fmt.Sprint(now.Unix()),
+					},
 				},
 			},
 			timeLocation: Birthdate,
 			timeIsValid:  false,
 			timeValError: ErrPastDate,
 			expectedRes:  false,
-			expectedErr:  ErrPastDate,
+			expectedErr:  ErrInvalidBirthdate,
 		},
 	}
 
@@ -472,9 +482,4 @@ func TestGetWRPCompareTime(t *testing.T) {
 			assert.Equal(tc.expectedErr, err)
 		})
 	}
-}
-
-func TestDuplicateAllowed(t *testing.T) {
-	ev := eventValidator{duplicateAllowed: true}
-	assert.True(t, ev.DuplicateAllowed())
 }

@@ -99,14 +99,12 @@ func TestParseNoHardwareFirmwareError(t *testing.T) {
 	assert.Nil(t, err)
 	currTimeFunc := func() time.Time { return now }
 	initialRule := parsing.EventRule{
-		Regex:            ".*/event-1/",
-		DuplicateAllowed: true,
-		ValidFrom:        -2 * time.Hour,
+		Regex:     ".*/event-1/",
+		ValidFrom: -2 * time.Hour,
 	}
 	endRule := parsing.EventRule{
-		Regex:            ".*/event-2/",
-		DuplicateAllowed: true,
-		ValidFrom:        -2 * time.Hour,
+		Regex:     ".*/event-2/",
+		ValidFrom: -2 * time.Hour,
 	}
 
 	currBirthdate := now.Add(-1 * time.Minute)
@@ -164,14 +162,12 @@ func TestTimeElapsedSuccess(t *testing.T) {
 	assert.Nil(t, err)
 	currTimeFunc := func() time.Time { return now }
 	initialRule := parsing.EventRule{
-		Regex:            ".*/event-1/",
-		DuplicateAllowed: true,
-		ValidFrom:        -2 * time.Hour,
+		Regex:     ".*/event-1/",
+		ValidFrom: -2 * time.Hour,
 	}
 	endRule := parsing.EventRule{
-		Regex:            ".*/event-2/",
-		DuplicateAllowed: true,
-		ValidFrom:        -2 * time.Hour,
+		Regex:     ".*/event-2/",
+		ValidFrom: -2 * time.Hour,
 	}
 
 	currBirthdate := now.Add(-1 * time.Minute)
@@ -288,17 +284,15 @@ func TestTimeElapsedCodexEventErrors(t *testing.T) {
 	assert.Nil(t, err)
 	currTimeFunc := func() time.Time { return now }
 	initialRule := parsing.EventRule{
-		Regex:            ".*/event-1/",
-		CalculateUsing:   "Boot-time",
-		DuplicateAllowed: true,
-		ValidFrom:        -2 * time.Hour,
+		Regex:          ".*/event-1/",
+		CalculateUsing: "Boot-time",
+		ValidFrom:      -2 * time.Hour,
 	}
 
 	endRule := parsing.EventRule{
-		Regex:            ".*/event-2/",
-		CalculateUsing:   "Boot-time",
-		DuplicateAllowed: true,
-		ValidFrom:        -2 * time.Hour,
+		Regex:          ".*/event-2/",
+		CalculateUsing: "Boot-time",
+		ValidFrom:      -2 * time.Hour,
 	}
 
 	tests := []struct {
@@ -381,10 +375,9 @@ func TestTimeElapsedCodexEventErrors(t *testing.T) {
 				},
 			},
 			initialRule: parsing.EventRule{
-				Regex:            ".*/event-1/",
-				CalculateUsing:   "Boot-time",
-				DuplicateAllowed: false,
-				ValidFrom:        -2 * time.Hour,
+				Regex:          ".*/event-1/",
+				CalculateUsing: "Boot-time",
+				ValidFrom:      -2 * time.Hour,
 			},
 			endRule: endRule,
 			codexEvents: []client.Event{
@@ -401,7 +394,7 @@ func TestTimeElapsedCodexEventErrors(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:      errSameBootTime,
+			expectedErr:      errDuplicateFound,
 			expectedBadParse: 1.0,
 		},
 		{
@@ -415,10 +408,9 @@ func TestTimeElapsedCodexEventErrors(t *testing.T) {
 				},
 			},
 			initialRule: parsing.EventRule{
-				Regex:            ".*/event-1/",
-				CalculateUsing:   "Boot-time",
-				DuplicateAllowed: false,
-				ValidFrom:        -2 * time.Hour,
+				Regex:          ".*/event-1/",
+				CalculateUsing: "Boot-time",
+				ValidFrom:      -2 * time.Hour,
 			},
 			endRule: endRule,
 			codexEvents: []client.Event{
@@ -448,10 +440,9 @@ func TestTimeElapsedCodexEventErrors(t *testing.T) {
 				},
 			},
 			initialRule: parsing.EventRule{
-				Regex:            ".*/event-1/",
-				CalculateUsing:   "Birthdate",
-				DuplicateAllowed: false,
-				ValidFrom:        -2 * time.Hour,
+				Regex:          ".*/event-1/",
+				CalculateUsing: "Birthdate",
+				ValidFrom:      -2 * time.Hour,
 			},
 			endRule: endRule,
 			codexEvents: []client.Event{
@@ -704,7 +695,7 @@ func testInitialSameBootTime(t *testing.T) {
 			},
 			latestBootTime:   70,
 			expectedEvent:    client.Event{},
-			expectedErr:      errSameBootTime,
+			expectedErr:      errDuplicateFound,
 			currEventIsValid: true,
 			prevEventIsValid: true,
 			duplicateAllowed: false,
