@@ -50,8 +50,3 @@ func (m *MockEventValidation) ValidateType(dest string) bool {
 	args := m.Called(dest)
 	return args.Bool(0)
 }
-
-func (m *MockEventValidation) DuplicateAllowed() bool {
-	args := m.Called()
-	return args.Bool(0)
-}
