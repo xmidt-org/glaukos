@@ -3,10 +3,12 @@ package parsing
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -34,13 +36,13 @@ func TestGetWRPBootTime(t *testing.T) {
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
-			expectedErr:      errBootTimeNotFound,
+			expectedErr:      ErrBootTimeNotFound,
 		},
 		{
 			description:      "No Metadata",
 			msg:              wrp.Message{},
 			expectedBootTime: 0,
-			expectedErr:      errBootTimeNotFound,
+			expectedErr:      ErrBootTimeNotFound,
 		},
 		{
 			description: "Key with slash",
@@ -68,7 +70,7 @@ func TestGetWRPBootTime(t *testing.T) {
 				},
 			},
 			expectedBootTime: 0,
-			expectedErr:      errBootTimeParse,
+			expectedErr:      ErrBootTimeParse,
 		},
 	}
 
@@ -94,13 +96,13 @@ func TestGetEventBootTime(t *testing.T) {
 
 	tests := []struct {
 		description      string
-		msg              Event
+		msg              client.Event
 		expectedBootTime int64
 		expectedErr      error
 	}{
 		{
 			description: "Success",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					bootTimeKey: "1611700028",
 				},
@@ -109,21 +111,21 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "No Boottime",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
-			expectedErr:      errBootTimeNotFound,
+			expectedErr:      ErrBootTimeNotFound,
 		},
 		{
 			description:      "No Metadata",
-			msg:              Event{},
+			msg:              client.Event{},
 			expectedBootTime: 0,
-			expectedErr:      errBootTimeNotFound,
+			expectedErr:      ErrBootTimeNotFound,
 		},
 		{
 			description: "Key with slash",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					"/boot-time": "1000",
 				},
@@ -132,7 +134,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Key without slash",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					"boot-time": "1000",
 				},
@@ -141,13 +143,13 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Int conversion error",
-			msg: Event{
+			msg: client.Event{
 				Metadata: map[string]string{
 					bootTimeKey: "not-a-number",
 				},
 			},
 			expectedBootTime: 0,
-			expectedErr:      errBootTimeParse,
+			expectedErr:      ErrBootTimeParse,
 		},
 	}
 
@@ -169,6 +171,7 @@ func TestGetEventBootTime(t *testing.T) {
 }
 
 func TestGetDeviceID(t *testing.T) {
+	destinationRegex := regexp.MustCompile(`^(?P<event>[^/]+)/((?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+))/(?P<type>[^/\s]+)`)
 	assert := assert.New(t)
 	tests := []struct {
 		description string
@@ -184,12 +187,12 @@ func TestGetDeviceID(t *testing.T) {
 		{
 			description: "Invalid ID-missing event",
 			destination: "mac:123",
-			expectedErr: errParseDeviceID,
+			expectedErr: ErrParseDeviceID,
 		},
 		{
 			description: "Invalid ID-missing event type",
 			destination: "event:device-status/mac:123",
-			expectedErr: errParseDeviceID,
+			expectedErr: ErrParseDeviceID,
 		},
 		{
 			description: "Non device-status event",
@@ -282,13 +285,13 @@ func TestGetValidBirthDate(t *testing.T) {
 			description: "Future Birthdate Error",
 			fakeNow:     currTime.Add(-5 * time.Hour),
 			payload:     payload,
-			expectedErr: errFutureDate,
+			expectedErr: ErrFutureDate,
 		},
 		{
 			description: "Past Birthdate Error",
 			fakeNow:     currTime.Add(200 * time.Hour),
 			payload:     payload,
-			expectedErr: errPastDate,
+			expectedErr: ErrPastDate,
 		},
 	}
 
@@ -380,7 +383,7 @@ func TestIsDateValid(t *testing.T) {
 			futureBuffer: 30 * time.Minute,
 			testTime:     time.Unix(0, 0),
 			expectedRes:  false,
-			expectedErr:  errPastDate,
+			expectedErr:  ErrPastDate,
 		},
 		{
 			description:  "Before unix Time 0",
@@ -388,7 +391,7 @@ func TestIsDateValid(t *testing.T) {
 			futureBuffer: 30 * time.Minute,
 			testTime:     time.Unix(-10, 0),
 			expectedRes:  false,
-			expectedErr:  errPastDate,
+			expectedErr:  ErrPastDate,
 		},
 		{
 			description:  "Negative past buffer",
@@ -403,7 +406,7 @@ func TestIsDateValid(t *testing.T) {
 			futureBuffer: 0,
 			testTime:     now.Add(2 * time.Minute),
 			expectedRes:  false,
-			expectedErr:  errFutureDate,
+			expectedErr:  ErrFutureDate,
 		},
 		{
 			description:  "Equal time",
@@ -417,7 +420,7 @@ func TestIsDateValid(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			valid, err := isDateValid(currFunc, tc.pastBuffer, tc.futureBuffer, tc.testTime)
+			valid, err := IsDateValid(currFunc, tc.pastBuffer, tc.futureBuffer, tc.testTime)
 			assert.Equal(tc.expectedRes, valid)
 			if !tc.expectedRes {
 				assert.Contains(err.Error(), tc.expectedErr.Error())

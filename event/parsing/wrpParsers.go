@@ -9,16 +9,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xmidt-org/glaukos/event/client"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
-var (
-	errParseDeviceID = errors.New("error getting device ID from event")
-	errFutureDate    = errors.New("date is too far in the future")
-	errPastDate      = errors.New("date is too far in the past")
+const (
+	bootTimeKey = "/boot-time"
+)
 
-	errBootTimeParse    = errors.New("unable to parse boot-time")
-	errBootTimeNotFound = errors.New("boot-time not found")
+var (
+	ErrParseDeviceID = errors.New("error getting device ID from event")
+
+	ErrBootTimeParse    = errors.New("unable to parse boot-time")
+	ErrBootTimeNotFound = errors.New("boot-time not found")
 )
 
 // GetWRPBootTime grabs the boot-time from a wrp.Message's metadata.
@@ -31,17 +34,17 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
+			return 0, fmt.Errorf("%w: %v", ErrBootTimeParse, err)
 		}
 	} else {
-		err = errBootTimeNotFound
+		err = ErrBootTimeNotFound
 	}
 
 	return bootTime, err
 }
 
 // GetEventBootTime grabs the boot-time from a Event's metadata.
-func GetEventBootTime(msg Event) (int64, error) {
+func GetEventBootTime(msg client.Event) (int64, error) {
 	var bootTime int64
 	var err error
 	bootTimeStr, ok := GetMetadataValue(bootTimeKey, msg.Metadata)
@@ -49,10 +52,10 @@ func GetEventBootTime(msg Event) (int64, error) {
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("%w: %v", errBootTimeParse, err)
+			return 0, fmt.Errorf("%w: %v", ErrBootTimeParse, err)
 		}
 	} else {
-		err = errBootTimeNotFound
+		err = ErrBootTimeNotFound
 	}
 
 	return bootTime, err
@@ -62,7 +65,7 @@ func GetEventBootTime(msg Event) (int64, error) {
 func GetDeviceID(destinationRegex *regexp.Regexp, destination string) (string, error) {
 	match := destinationRegex.FindStringSubmatch(destination)
 	if len(match) < 3 {
-		return "", errParseDeviceID
+		return "", ErrParseDeviceID
 	}
 
 	return match[2], nil
@@ -79,7 +82,7 @@ func GetValidBirthDate(currTime func() time.Time, payload []byte) (time.Time, er
 	}
 
 	// check if birthdate is within the last 12 hours and the next hour
-	if valid, err := isDateValid(currTime, 12*time.Hour, time.Hour, birthDate); !valid {
+	if valid, err := IsDateValid(currTime, 12*time.Hour, time.Hour, birthDate); !valid {
 		return time.Time{}, err
 	}
 
@@ -110,9 +113,9 @@ func getBirthDate(payload []byte) (time.Time, bool) {
 
 // Sees if a date is within a certain time frame.
 // PastBuffer should be a positive duration.
-func isDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
+func IsDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
 	if date.Before(time.Unix(0, 0)) || date.Equal(time.Unix(0, 0)) {
-		return false, errPastDate
+		return false, ErrPastDate
 	}
 
 	if pastBuffer.Seconds() < 0 {
@@ -124,11 +127,11 @@ func isDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuff
 	futureTime := now.Add(futureBuffer)
 
 	if !(pastTime.Before(date) || pastTime.Equal(date)) {
-		return false, errPastDate
+		return false, ErrPastDate
 	}
 
 	if !(futureTime.Equal(date) || futureTime.After(date)) {
-		return false, errFutureDate
+		return false, ErrFutureDate
 	}
 
 	return true, nil

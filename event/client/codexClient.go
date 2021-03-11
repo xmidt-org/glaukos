@@ -1,4 +1,4 @@
-package parsing
+package client
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -15,14 +16,20 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
-type CodexClient struct {
-	Address string
-	Auth    acquire.Acquirer
+type CircuitBreakerConfig struct {
+	MaxRequests                uint32
+	Interval                   time.Duration
+	Timeout                    time.Duration
+	ConsecutiveFailuresAllowed uint32
+}
 
-	retryOptions xhttp.RetryOptions
-	client       *http.Client
-	cb           *gobreaker.CircuitBreaker
-	logger       log.Logger
+type CodexClient struct {
+	Address      string
+	Auth         acquire.Acquirer
+	RetryOptions xhttp.RetryOptions
+	Client       *http.Client
+	CB           *gobreaker.CircuitBreaker
+	Logger       log.Logger
 }
 
 // Event is the struct that codex query results will be unmarshalled into.
@@ -44,23 +51,23 @@ func (c *CodexClient) GetEvents(device string) []Event {
 
 	request, err := buildGetRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
 	if err != nil {
-		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to build request")
+		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to build request")
 		return eventList
 	}
 
 	status, data, err := c.doRequest(request)
 	if err != nil {
-		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to complete request")
+		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to complete request")
 		return eventList
 	}
 
 	if status != 200 {
-		level.Error(c.logger).Log("status", status, xlog.MessageKey(), "non 200", "url", request.URL)
+		level.Error(c.Logger).Log("status", status, xlog.MessageKey(), "non 200", "url", request.URL)
 		return eventList
 	}
 
 	if err = json.Unmarshal(data, &eventList); err != nil {
-		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
+		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
 		return eventList
 	}
 
@@ -69,16 +76,16 @@ func (c *CodexClient) GetEvents(device string) []Event {
 
 func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
 	f := circuitBreakerRequestFunc(c)
-	response, err := xhttp.RetryTransactor(c.retryOptions, f)(request)
+	response, err := xhttp.RetryTransactor(c.RetryOptions, f)(request)
 	if err != nil {
-		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "RetryTransactor failed")
+		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "RetryTransactor failed")
 		return 0, []byte{}, err
 	}
 
 	data, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 	if err != nil {
-		level.Error(c.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
+		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
 		return 0, []byte{}, err
 	}
 
@@ -100,8 +107,8 @@ func buildGetRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 
 func circuitBreakerRequestFunc(c *CodexClient) func(req *http.Request) (*http.Response, error) {
 	return func(req *http.Request) (*http.Response, error) {
-		resp, err := c.cb.Execute(func() (interface{}, error) {
-			return c.client.Do(req)
+		resp, err := c.CB.Execute(func() (interface{}, error) {
+			return c.Client.Do(req)
 		})
 
 		if err != nil {

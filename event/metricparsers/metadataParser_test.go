@@ -1,4 +1,4 @@
-package parsing
+package metricparsers
 
 import (
 	"testing"

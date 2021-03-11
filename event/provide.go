@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/glaukos/event/parsing"
+	"github.com/xmidt-org/glaukos/event/metricparsers"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"go.uber.org/fx"
 )
@@ -17,7 +17,7 @@ import (
 // together for easier wiring into an uber fx application.
 func Provide() fx.Option {
 	return fx.Options(
-		parsing.Provide(),
+		metricparsers.Provide(),
 		queue.ProvideEventQueue(),
 		queue.ProvideMetrics(),
 		fx.Provide(

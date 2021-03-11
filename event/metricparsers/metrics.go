@@ -1,4 +1,4 @@
-package parsing
+package metricparsers
 
 import (
 	"github.com/go-kit/kit/metrics"
