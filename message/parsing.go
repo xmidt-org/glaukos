@@ -164,25 +164,3 @@ func GetMetadataValue(key string, metadata map[string]string) (string, bool) {
 
 	return value, found
 }
-
-func GetStringBirthDate(payload string) (time.Time, bool) {
-	p := make(map[string]interface{})
-	if len(payload) == 0 {
-		return time.Time{}, false
-	}
-	err := json.Unmarshal([]byte(payload), &p)
-	if err != nil {
-		return time.Time{}, false
-	}
-
-	// parse the time from the payload
-	timeString, ok := p["ts"].(string)
-	if !ok {
-		return time.Time{}, false
-	}
-	birthDate, err := time.Parse(time.RFC3339Nano, timeString)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return birthDate, true
-}
