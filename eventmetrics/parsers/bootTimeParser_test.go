@@ -9,8 +9,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/event/history"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -23,7 +23,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 
 	tests := []struct {
 		description      string
-		event            history.Event
+		event            message.Event
 		currentUUID      string
 		previousBootTime int64
 		latestBootTime   int64
@@ -32,7 +32,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 	}{
 		{
 			description: "More recent boot time",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -46,7 +46,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		},
 		{
 			description: "Old boot time",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
 				},
@@ -60,7 +60,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		},
 		{
 			description: "Error-Newer boot time found",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
@@ -75,7 +75,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		},
 		{
 			description: "Error-Same boot time found",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
@@ -90,7 +90,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		},
 		{
 			description: "Same boot time & same transactionUUID",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -104,7 +104,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		},
 		{
 			description: "Current Event Boot Time & TransactionID",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
@@ -118,7 +118,7 @@ func TestCheckOnlineEvent(t *testing.T) {
 		},
 		{
 			description: "Not online event",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -148,14 +148,14 @@ func TestCheckOfflineEvent(t *testing.T) {
 
 	tests := []struct {
 		description       string
-		event             history.Event
+		event             message.Event
 		previousBootTime  int64
 		latestBirthDate   int64
 		expectedBirthDate int64
 	}{
 		{
 			description: "More recent birthdate",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -168,7 +168,7 @@ func TestCheckOfflineEvent(t *testing.T) {
 		},
 		{
 			description: "Same birthdate",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -181,7 +181,7 @@ func TestCheckOfflineEvent(t *testing.T) {
 		},
 		{
 			description: "Older birthdate",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -194,7 +194,7 @@ func TestCheckOfflineEvent(t *testing.T) {
 		},
 		{
 			description: "Wrong Boot time",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Add(-3 * time.Second).Unix()),
 				},
@@ -207,7 +207,7 @@ func TestCheckOfflineEvent(t *testing.T) {
 		},
 		{
 			description: "Not Offline Event",
-			event: history.Event{
+			event: message.Event{
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
@@ -235,7 +235,7 @@ type test struct {
 	latestOfflineBirthDate int64 // should be unix timestamp in nanoseconds
 	msg                    wrp.Message
 	beginTime              time.Time
-	events                 []history.Event
+	events                 []message.Event
 	expectedErr            bool
 	expectedBadParse       float64
 }
@@ -271,8 +271,8 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				Destination:     "event:device-status/mac:112233445566/online",
 				TransactionUUID: "123abc",
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline",
@@ -291,8 +291,8 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				Destination:     "event:device-status/mac:112233445566/online",
 				TransactionUUID: "123abc",
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/offline",
 					TransactionUUID: "abcdefghi",
@@ -312,7 +312,7 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				Destination:     "event:device-status/mac:112233445566/online",
 				TransactionUUID: "123abc",
 			},
-			events: []history.Event{},
+			events: []message.Event{},
 		},
 		{
 			description:    "Error with Event Boottime",
@@ -323,8 +323,8 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				Destination:     "event:device-status/mac:112233445566/online",
 				TransactionUUID: "123abc",
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline",
@@ -346,8 +346,8 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				TransactionUUID: "123abc",
 			},
 			beginTime: now.Add(-5 * time.Hour),
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline2",
@@ -355,7 +355,7 @@ func TestCalculateRestartTimeError(t *testing.T) {
 						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
 					},
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/offline",
 					TransactionUUID: "testOffline2",
@@ -376,8 +376,8 @@ func TestCalculateRestartTimeError(t *testing.T) {
 				TransactionUUID: "123abc",
 			},
 			beginTime: now,
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline2",
@@ -385,7 +385,7 @@ func TestCalculateRestartTimeError(t *testing.T) {
 						bootTimeKey: fmt.Sprint(now.Add(-5 * time.Minute).Unix()),
 					},
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/offline",
 					TransactionUUID: "testOffline2",
@@ -400,7 +400,7 @@ func TestCalculateRestartTimeError(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			client := new(history.MockEventClient)
+			client := new(mockEventClient)
 			client.On("GetEvents", mock.Anything).Return(tc.events)
 			p := xmetricstest.NewProvider(&xmetrics.Options{})
 			m := Measures{
@@ -439,7 +439,7 @@ func TestCalculateRestartTimeError(t *testing.T) {
 func TestCalculateRestartSuccess(t *testing.T) {
 	var (
 		assert      = assert.New(t)
-		eventClient = new(history.MockEventClient)
+		eventClient = new(mockEventClient)
 		p           = xmetricstest.NewProvider(&xmetrics.Options{})
 		now         = time.Now()
 		m           = Measures{
@@ -465,8 +465,8 @@ func TestCalculateRestartSuccess(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline",
@@ -474,7 +474,7 @@ func TestCalculateRestartSuccess(t *testing.T) {
 						bootTimeKey: fmt.Sprint(now.Add(-1 * time.Minute).Unix()),
 					},
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/offline",
 					TransactionUUID: "testOffline",
@@ -483,7 +483,7 @@ func TestCalculateRestartSuccess(t *testing.T) {
 					},
 					BirthDate: now.Add(-1 * time.Minute).UnixNano(),
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/offline",
 					TransactionUUID: "testOffline2",
@@ -506,14 +506,14 @@ func TestCalculateRestartSuccess(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline",
 					Metadata:        map[string]string{},
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline2",
@@ -521,7 +521,7 @@ func TestCalculateRestartSuccess(t *testing.T) {
 						bootTimeKey: fmt.Sprint(now.Add(-2 * time.Minute).Unix()),
 					},
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/offline",
 					TransactionUUID: "testOffline2",

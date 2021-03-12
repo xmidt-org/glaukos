@@ -1,4 +1,4 @@
-package parsing
+package validation
 
 import (
 	"time"

@@ -1,4 +1,4 @@
-package parsing
+package message
 
 import (
 	"encoding/json"
@@ -9,12 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
 const (
-	bootTimeKey = "/boot-time"
+	BootTimeKey = "/boot-time"
 )
 
 var (
@@ -22,14 +21,32 @@ var (
 
 	ErrBootTimeParse    = errors.New("unable to parse boot-time")
 	ErrBootTimeNotFound = errors.New("boot-time not found")
+
+	// TODO: remove these once IsDateValid is no longer needed
+	ErrFutureDate = errors.New("date is too far in the future")
+	ErrPastDate   = errors.New("date is too far in the past")
 )
+
+// Event is the struct that contains the wrp.Message fields along with the birthdate
+// that is parsed from the payload.
+type Event struct {
+	MsgType         int               `json:"msg_type"`
+	Source          string            `json:"source"`
+	Dest            string            `json:"dest,omitempty"`
+	TransactionUUID string            `json:"transaction_uuid,omitempty"`
+	ContentType     string            `json:"content_type,omitempty"`
+	Metadata        map[string]string `json:"metadata"`
+	Payload         string            `json:"payload,omitempty"`
+	BirthDate       int64             `json:"birth_date"`
+	PartnerIDs      []string          `json:"partner_ids,omitempty"`
+}
 
 // GetWRPBootTime grabs the boot-time from a wrp.Message's metadata.
 func GetWRPBootTime(msg wrp.Message) (int64, error) {
 	var bootTime int64
 	var err error
 
-	bootTimeStr, ok := GetMetadataValue(bootTimeKey, msg.Metadata)
+	bootTimeStr, ok := GetMetadataValue(BootTimeKey, msg.Metadata)
 
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
@@ -44,10 +61,10 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 }
 
 // GetEventBootTime grabs the boot-time from a Event's metadata.
-func GetEventBootTime(msg history.Event) (int64, error) {
+func GetEventBootTime(msg Event) (int64, error) {
 	var bootTime int64
 	var err error
-	bootTimeStr, ok := GetMetadataValue(bootTimeKey, msg.Metadata)
+	bootTimeStr, ok := GetMetadataValue(BootTimeKey, msg.Metadata)
 
 	if ok {
 		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
@@ -113,6 +130,7 @@ func getBirthDate(payload []byte) (time.Time, bool) {
 
 // Sees if a date is within a certain time frame.
 // PastBuffer should be a positive duration.
+// TODO: remove once timeElapsedParser is finished
 func IsDateValid(currTime func() time.Time, pastBuffer time.Duration, futureBuffer time.Duration, date time.Time) (bool, error) {
 	if date.Before(time.Unix(0, 0)) || date.Equal(time.Unix(0, 0)) {
 		return false, ErrPastDate
@@ -145,4 +163,26 @@ func GetMetadataValue(key string, metadata map[string]string) (string, bool) {
 	}
 
 	return value, found
+}
+
+func GetStringBirthDate(payload string) (time.Time, bool) {
+	p := make(map[string]interface{})
+	if len(payload) == 0 {
+		return time.Time{}, false
+	}
+	err := json.Unmarshal([]byte(payload), &p)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	// parse the time from the payload
+	timeString, ok := p["ts"].(string)
+	if !ok {
+		return time.Time{}, false
+	}
+	birthDate, err := time.Parse(time.RFC3339Nano, timeString)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return birthDate, true
 }

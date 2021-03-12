@@ -8,7 +8,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 )
 
 const (

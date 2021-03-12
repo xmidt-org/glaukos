@@ -1,4 +1,4 @@
-package parsing
+package validation
 
 import (
 	"errors"
@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/xmidt-org/glaukos/event/history"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 )
 
 // RuleConfig is the config struct for a rule
@@ -52,8 +52,8 @@ func NewRule(config RuleConfig, validTo time.Duration, currentTime func() time.T
 }
 
 // IsEventValid checks if an event is valid using the information kept by the rule.
-func (r *rule) ValidateEvent(event history.Event) (bool, error) {
-	bootTime, err := GetEventBootTime(event)
+func (r *rule) ValidateEvent(event message.Event) (bool, error) {
+	bootTime, err := message.GetEventBootTime(event)
 	if err != nil || bootTime <= 0 {
 		return false, ErrInvalidBootTime
 	}
@@ -81,7 +81,7 @@ func (r *rule) ValidateEvent(event history.Event) (bool, error) {
 // IsWRPValid checks if a wrp is valid using the information kept by the rule.
 func (r *rule) ValidateWRP(wrpWithTime queue.WrpWithTime) (bool, error) {
 	msg := wrpWithTime.Message
-	bootTime, err := GetWRPBootTime(msg)
+	bootTime, err := message.GetWRPBootTime(msg)
 	if err != nil || bootTime <= 0 {
 		return false, ErrInvalidBootTime
 	}
@@ -112,9 +112,9 @@ func (r *rule) ValidateType(dest string) bool {
 
 // EventTime gets the time used for comparison from an event
 // depending on the TimeLocation of the rule.
-func (r *rule) EventTime(event history.Event) (time.Time, error) {
+func (r *rule) EventTime(event message.Event) (time.Time, error) {
 	if r.calculateUsing == Boottime {
-		bootTime, err := GetEventBootTime(event)
+		bootTime, err := message.GetEventBootTime(event)
 		if err != nil {
 			return time.Time{}, err
 		}
@@ -127,7 +127,7 @@ func (r *rule) EventTime(event history.Event) (time.Time, error) {
 // depending on the TimeLocation of the rule.
 func (r *rule) WRPTime(wrpWithTime queue.WrpWithTime) (time.Time, error) {
 	if r.calculateUsing == Boottime {
-		bootTime, err := GetWRPBootTime(wrpWithTime.Message)
+		bootTime, err := message.GetWRPBootTime(wrpWithTime.Message)
 		if err != nil {
 			return time.Time{}, err
 		}

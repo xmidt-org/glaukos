@@ -54,16 +54,17 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 
 // DecodeEvent decodes the request body into a wrp.Message type.
 func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
-	var message wrp.Message
+	var msg wrp.Message
 	msgBytes, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("could not read request body: %v", err)
 	}
 
-	err = wrp.NewDecoderBytes(msgBytes, wrp.Msgpack).Decode(&message)
+	err = wrp.NewDecoderBytes(msgBytes, wrp.Msgpack).Decode(&msg)
 	if err != nil {
 		return nil, fmt.Errorf("could not decode request body: %v", err)
 	}
-	return message, nil
+
+	return msg, nil
 }

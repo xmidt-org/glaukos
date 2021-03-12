@@ -8,8 +8,8 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/glaukos/event/parsers"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/parsers"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"go.uber.org/fx"
 )
 
