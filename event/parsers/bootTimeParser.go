@@ -1,8 +1,8 @@
 /**
- *  Copyright (c) 2020  Comcast Cable Communications Management, LLC
+ *  Copyright (c) 2021  Comcast Cable Communications Management, LLC
  */
 
-package parsing
+package parsers
 
 import (
 	"errors"
@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/glaukos/event/history"
+	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -35,7 +37,7 @@ var (
 )
 
 type EventClient interface {
-	GetEvents(string) []Event
+	GetEvents(string) []history.Event
 }
 
 // BootTimeParser takes online events and calculates the reboot time of a device by getting the last
@@ -61,8 +63,8 @@ Steps to calculate boot time:
 func (b *BootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
 	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
-		hardwareVal, hardwareFound := GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
-		firmwareVal, firmwareFound := GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
+		hardwareVal, hardwareFound := parsing.GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
+		firmwareVal, firmwareFound := parsing.GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
 		if hardwareFound && firmwareFound {
 			b.Measures.BootTimeHistogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
 		} else {
@@ -147,12 +149,12 @@ func (b *BootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (fl
 // Returns either the event's boot time or the previous boot time, whichever is greater.
 // In cases where the event's boot time is found to be equal or greater to the latest boot time, we return -1 and error, indicating
 // that we should not continue to parse metrics from this event.
-func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, latestBootTime int64) (int64, error) {
+func checkOnlineEvent(e history.Event, currentUUID string, previousBootTime int64, latestBootTime int64) (int64, error) {
 	if !onlineRegex.MatchString(e.Dest) {
 		return previousBootTime, nil
 	}
 
-	eventBootTimeInt, err := GetEventBootTime(e)
+	eventBootTimeInt, err := parsing.GetEventBootTime(e)
 	if err != nil {
 		return previousBootTime, err
 	}
@@ -178,12 +180,12 @@ func checkOnlineEvent(e Event, currentUUID string, previousBootTime int64, lates
 // Checks an event and sees if it is an offline event.
 // If event is an offline event, checks for the boot time to see if it matches the boot time we are looking for.
 // Returns either the event's birthdate or the latest birth date found, whichever is greater.
-func checkOfflineEvent(e Event, previousBootTime int64, latestBirthDate int64) (int64, error) {
+func checkOfflineEvent(e history.Event, previousBootTime int64, latestBirthDate int64) (int64, error) {
 	if !offlineRegex.MatchString(e.Dest) {
 		return latestBirthDate, nil
 	}
 
-	eventBootTimeInt, err := GetEventBootTime(e)
+	eventBootTimeInt, err := parsing.GetEventBootTime(e)
 	if err != nil {
 		return latestBirthDate, err
 	}
@@ -198,12 +200,12 @@ func checkOfflineEvent(e Event, previousBootTime int64, latestBirthDate int64) (
 }
 
 func getWRPInfo(destinationRegex *regexp.Regexp, msg wrp.Message) (bootTime int64, deviceID string, err error) {
-	bootTime, err = GetWRPBootTime(msg)
+	bootTime, err = parsing.GetWRPBootTime(msg)
 	if err != nil {
 		return
 	}
 
-	deviceID, err = GetDeviceID(destinationRegex, msg.Destination)
+	deviceID, err = parsing.GetDeviceID(destinationRegex, msg.Destination)
 	if err != nil {
 		return
 	}

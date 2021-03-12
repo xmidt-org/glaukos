@@ -1,4 +1,4 @@
-package parsing
+package history
 
 import (
 	"errors"
@@ -54,9 +54,9 @@ func TestDoRequest(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		c      = CodexClient{
-			logger: log.NewNopLogger(),
-			client: http.DefaultClient,
-			cb:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+			Logger: log.NewNopLogger(),
+			Client: http.DefaultClient,
+			CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 		}
 	)
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
@@ -92,11 +92,11 @@ func TestGetEvents(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			c := CodexClient{
-				logger:  log.NewNopLogger(),
-				client:  http.DefaultClient,
+				Logger:  log.NewNopLogger(),
+				Client:  http.DefaultClient,
 				Address: tc.address,
 				Auth:    auth,
-				cb:      gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+				CB:      gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 			}
 
 			events := c.GetEvents("test-device")
@@ -115,11 +115,13 @@ func TestCircuitBreakerRequestFunc(t *testing.T) {
 		Name:        "Codex Circuit Breaker",
 		MaxRequests: 0,
 		Interval:    0,
-		ReadyToTrip: createReadyToTripFunc(CircuitBreakerConfig{ConsecutiveFailuresAllowed: failuresAllowed}),
+		ReadyToTrip: func(count gobreaker.Counts) bool {
+			return count.ConsecutiveFailures >= failuresAllowed
+		},
 	}
 	testCodexClient := &CodexClient{
-		cb:     gobreaker.NewCircuitBreaker(settings),
-		client: &http.Client{},
+		CB:     gobreaker.NewCircuitBreaker(settings),
+		Client: &http.Client{},
 	}
 
 	f := circuitBreakerRequestFunc(testCodexClient)

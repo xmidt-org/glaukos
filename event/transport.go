@@ -2,7 +2,7 @@
  *  Copyright (c) 2020  Comcast Cable Communications Management, LLC
  */
 
-package event
+package eventmetrics
 
 import (
 	"context"

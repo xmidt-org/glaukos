@@ -22,7 +22,7 @@ import (
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
-	"github.com/xmidt-org/glaukos/event"
+	eventmetrics "github.com/xmidt-org/glaukos/event"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/config"
 	"github.com/xmidt-org/themis/xhealth"
@@ -74,8 +74,8 @@ func main() {
 		provideMetrics(),
 		basculechecks.ProvideMetrics(),
 		basculemetrics.ProvideMetrics(),
-		fx.Supply(event.GetLogger),
-		event.Provide(),
+		fx.Supply(eventmetrics.GetLogger),
+		eventmetrics.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
@@ -138,7 +138,7 @@ func main() {
 					},
 				},
 			),
-			event.ConfigureRoutes,
+			eventmetrics.ConfigureRoutes,
 			BuildMetricsRoutes,
 			BuildHealthRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
