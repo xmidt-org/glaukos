@@ -17,8 +17,8 @@ import (
 )
 
 func TestNewEventParser(t *testing.T) {
-	mockMetadataParser := new(MockParser)
-	mockBootTimeCalc := new(MockParser)
+	mockMetadataParser := new(mockParser)
+	mockBootTimeCalc := new(mockParser)
 	emptyMetrics := Measures{}
 	tests := []struct {
 		description        string
@@ -128,8 +128,8 @@ func TestParseEvent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			mockMetadataParser := new(MockParser)
-			mockBootTimeCalc := new(MockParser)
+			mockMetadataParser := new(mockParser)
+			mockBootTimeCalc := new(mockParser)
 
 			mockMetadataParser.On("Parse", mock.Anything).Return(nil).Once()
 			mockBootTimeCalc.On("Parse", mock.Anything).Return(nil).Once()

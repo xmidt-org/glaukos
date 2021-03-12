@@ -4,11 +4,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockParser struct {
+type mockParser struct {
 	mock.Mock
 }
 
-func (mp *MockParser) Parse(wrpWithTime WrpWithTime) error {
+func (mp *mockParser) Parse(wrpWithTime WrpWithTime) error {
 	args := mp.Called(wrpWithTime)
 	return args.Error(0)
 }
