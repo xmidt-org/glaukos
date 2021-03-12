@@ -2,7 +2,7 @@
  *  Copyright (c) 2021  Comcast Cable Communications Management, LLC
  */
 
-package metricparsers
+package parsers
 
 import (
 	"errors"

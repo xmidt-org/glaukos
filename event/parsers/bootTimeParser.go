@@ -2,7 +2,7 @@
  *  Copyright (c) 2021  Comcast Cable Communications Management, LLC
  */
 
-package metricparsers
+package parsers
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/glaukos/event/client"
+	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
@@ -37,7 +37,7 @@ var (
 )
 
 type EventClient interface {
-	GetEvents(string) []client.Event
+	GetEvents(string) []history.Event
 }
 
 // BootTimeParser takes online events and calculates the reboot time of a device by getting the last
@@ -149,7 +149,7 @@ func (b *BootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (fl
 // Returns either the event's boot time or the previous boot time, whichever is greater.
 // In cases where the event's boot time is found to be equal or greater to the latest boot time, we return -1 and error, indicating
 // that we should not continue to parse metrics from this event.
-func checkOnlineEvent(e client.Event, currentUUID string, previousBootTime int64, latestBootTime int64) (int64, error) {
+func checkOnlineEvent(e history.Event, currentUUID string, previousBootTime int64, latestBootTime int64) (int64, error) {
 	if !onlineRegex.MatchString(e.Dest) {
 		return previousBootTime, nil
 	}
@@ -180,7 +180,7 @@ func checkOnlineEvent(e client.Event, currentUUID string, previousBootTime int64
 // Checks an event and sees if it is an offline event.
 // If event is an offline event, checks for the boot time to see if it matches the boot time we are looking for.
 // Returns either the event's birthdate or the latest birth date found, whichever is greater.
-func checkOfflineEvent(e client.Event, previousBootTime int64, latestBirthDate int64) (int64, error) {
+func checkOfflineEvent(e history.Event, previousBootTime int64, latestBirthDate int64) (int64, error) {
 	if !offlineRegex.MatchString(e.Dest) {
 		return latestBirthDate, nil
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmidt-org/glaukos/event/client"
+	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -44,7 +44,7 @@ func GetWRPBootTime(msg wrp.Message) (int64, error) {
 }
 
 // GetEventBootTime grabs the boot-time from a Event's metadata.
-func GetEventBootTime(msg client.Event) (int64, error) {
+func GetEventBootTime(msg history.Event) (int64, error) {
 	var bootTime int64
 	var err error
 	bootTimeStr, ok := GetMetadataValue(bootTimeKey, msg.Metadata)

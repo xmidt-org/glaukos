@@ -2,7 +2,7 @@
  *  Copyright (c) 2021  Comcast Cable Communications Management, LLC
  */
 
-package metricparsers
+package parsers
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/glaukos/event/client"
+	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/glaukos/event/parsing"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/themis/xlog"
@@ -81,7 +81,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 
 	// Get events from codex pertaining to this device id.
 	events := b.Client.GetEvents(deviceID)
-	latestPreviousEvent := client.Event{}
+	latestPreviousEvent := history.Event{}
 
 	// Go through events to find reboot-pending event with the boot-time of the previous session
 	for _, event := range events {
@@ -118,7 +118,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 }
 
 // sees if this event is part of the most recent previous session
-func checkLatestPreviousEvent(e client.Event, previousEventTracked client.Event, latestBootTime int64, eventType *regexp.Regexp) (client.Event, error) {
+func checkLatestPreviousEvent(e history.Event, previousEventTracked history.Event, latestBootTime int64, eventType *regexp.Regexp) (history.Event, error) {
 	eventBootTimeInt, err := parsing.GetEventBootTime(e)
 	previousEventBootTime, _ := parsing.GetEventBootTime(previousEventTracked)
 
@@ -127,7 +127,7 @@ func checkLatestPreviousEvent(e client.Event, previousEventTracked client.Event,
 	}
 
 	if eventBootTimeInt > latestBootTime {
-		return client.Event{}, fmt.Errorf("%w. Codex Event: %s", errNewerBootTime, e.TransactionUUID)
+		return history.Event{}, fmt.Errorf("%w. Codex Event: %s", errNewerBootTime, e.TransactionUUID)
 	}
 
 	// If this event has a boot time greater than what we've seen so far
@@ -150,7 +150,7 @@ func checkLatestPreviousEvent(e client.Event, previousEventTracked client.Event,
 	return previousEventTracked, nil
 }
 
-func isEventValid(event client.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
+func isEventValid(event history.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
 	// see if event found matches expected event type
 	if !expectedType.MatchString(event.Dest) {
 		return false, fmt.Errorf("%w. Type Expected: %s. Type Found: %s", errEventNotFound, expectedType.String(), event.Dest)

@@ -1,4 +1,4 @@
-package client
+package history
 
 import (
 	"github.com/stretchr/testify/mock"

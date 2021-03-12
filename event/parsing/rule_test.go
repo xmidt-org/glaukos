@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/event/client"
+	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -23,7 +23,7 @@ func TestNewEventValidation(t *testing.T) {
 
 	tests := []struct {
 		description string
-		rule        EventRule
+		rule        RuleConfig
 		validDest   string
 		validDate   time.Time
 		invalidDest string
@@ -32,7 +32,7 @@ func TestNewEventValidation(t *testing.T) {
 	}{
 		{
 			description: "Success with boot-time",
-			rule: EventRule{
+			rule: RuleConfig{
 				Regex:          ".*/online/.*",
 				CalculateUsing: "Boot-time",
 				ValidFrom:      -1 * time.Hour,
@@ -44,7 +44,7 @@ func TestNewEventValidation(t *testing.T) {
 		},
 		{
 			description: "Success with birthdate",
-			rule: EventRule{
+			rule: RuleConfig{
 				Regex:          ".*/online/.*",
 				CalculateUsing: "Birthdate",
 				ValidFrom:      -1 * time.Hour,
@@ -56,7 +56,7 @@ func TestNewEventValidation(t *testing.T) {
 		},
 		{
 			description: "Success with defaults",
-			rule: EventRule{
+			rule: RuleConfig{
 				Regex: ".*/online/.*",
 			},
 			validDest:   "whatever/online/hello",
@@ -66,7 +66,7 @@ func TestNewEventValidation(t *testing.T) {
 		},
 		{
 			description: "Unrecognized time location",
-			rule: EventRule{
+			rule: RuleConfig{
 				Regex:          ".*/online/.*",
 				CalculateUsing: "header",
 				ValidFrom:      -1 * time.Hour,
@@ -78,7 +78,7 @@ func TestNewEventValidation(t *testing.T) {
 		},
 		{
 			description: "regex error",
-			rule: EventRule{
+			rule: RuleConfig{
 				Regex: `'(?=.*\d)'`,
 			},
 			expectedErr: ErrInvalidRegex,
@@ -88,16 +88,16 @@ func TestNewEventValidation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			ev, err := NewEventValidation(tc.rule, time.Hour, currTime)
+			validation, err := NewRule(tc.rule, time.Hour, currTime)
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
-				assert.NotNil(ev)
+				assert.NotNil(validation)
 			} else {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 						err, tc.expectedErr),
 				)
-				assert.Empty(ev)
+				assert.Nil(validation)
 			}
 		})
 	}
@@ -111,7 +111,7 @@ func TestIsEventValid(t *testing.T) {
 
 	tests := []struct {
 		description  string
-		event        client.Event
+		event        history.Event
 		timeIsValid  bool
 		timeValError error
 		timeLocation TimeLocation
@@ -120,7 +120,7 @@ func TestIsEventValid(t *testing.T) {
 	}{
 		{
 			description: "Valid Event",
-			event: client.Event{
+			event: history.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/some-event/1613033276/2s",
 				Metadata: map[string]string{
@@ -134,7 +134,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Wrong Event Type",
-			event: client.Event{
+			event: history.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{
@@ -146,7 +146,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "No boot-time",
-			event: client.Event{
+			event: history.Event{
 				Dest: "event:device-status/mac:112233445566/some-event/1613033276/2s",
 			},
 			timeLocation: Boottime,
@@ -155,7 +155,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Boot-time Invalid",
-			event: client.Event{
+			event: history.Event{
 				Dest:     "event:device-status/mac:112233445566/some-event/1613033276/2s",
 				Metadata: map[string]string{bootTimeKey: "not-a-number"},
 			},
@@ -165,7 +165,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Boot-time Too Old",
-			event: client.Event{
+			event: history.Event{
 				Dest:     "event:device-status/mac:112233445566/some-event/1613033276/2s",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
@@ -177,7 +177,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Birthdate Invalid",
-			event: client.Event{
+			event: history.Event{
 				Dest: "event:device-status/mac:112233445566/some-event/1613033276/2s",
 				Metadata: map[string]string{
 					bootTimeKey: fmt.Sprint(now.Unix()),
@@ -194,14 +194,14 @@ func TestIsEventValid(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			mockTimeVal := new(MockTimeValidation)
+			mockTimeVal := new(mockTimeValidation)
 			mockTimeVal.On("IsTimeValid", mock.Anything).Return(tc.timeIsValid, tc.timeValError).Once()
-			ev := eventValidator{
+			validation := rule{
 				regex:          testRegex,
 				calculateUsing: tc.timeLocation,
 				timeValidation: mockTimeVal,
 			}
-			res, err := ev.IsEventValid(tc.event)
+			res, err := validation.ValidateEvent(tc.event)
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
 			} else {
@@ -318,14 +318,14 @@ func TestIsWRPValid(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			mockTimeVal := new(MockTimeValidation)
+			mockTimeVal := new(mockTimeValidation)
 			mockTimeVal.On("IsTimeValid", mock.Anything).Return(tc.timeIsValid, tc.timeValError).Once()
-			ev := eventValidator{
+			validation := rule{
 				regex:          testRegex,
 				calculateUsing: tc.timeLocation,
 				timeValidation: mockTimeVal,
 			}
-			res, err := ev.IsWRPValid(tc.wrp)
+			res, err := validation.ValidateWRP(tc.wrp)
 			if tc.expectedErr == nil || err == nil {
 				assert.Equal(tc.expectedErr, err)
 			} else {
@@ -342,7 +342,7 @@ func TestIsWRPValid(t *testing.T) {
 
 func TestValidateType(t *testing.T) {
 	testRegex := regexp.MustCompile("device-status/.*/some-event/.*")
-	testVal := eventValidator{
+	testVal := rule{
 		regex: testRegex,
 	}
 	tests := []struct {
@@ -375,14 +375,14 @@ func TestValidateType(t *testing.T) {
 func TestGetEventCompareTime(t *testing.T) {
 	tests := []struct {
 		description  string
-		event        client.Event
+		event        history.Event
 		timeLocation TimeLocation
 		expectedTime time.Time
 		expectedErr  error
 	}{
 		{
 			description: "Successful with boot-time",
-			event: client.Event{
+			event: history.Event{
 				Metadata:  map[string]string{bootTimeKey: "50"},
 				BirthDate: 60,
 			},
@@ -391,7 +391,7 @@ func TestGetEventCompareTime(t *testing.T) {
 		},
 		{
 			description: "Successful with birthdate",
-			event: client.Event{
+			event: history.Event{
 				Metadata:  map[string]string{bootTimeKey: "50"},
 				BirthDate: 60,
 			},
@@ -400,7 +400,7 @@ func TestGetEventCompareTime(t *testing.T) {
 		},
 		{
 			description: "Boot-time doesn't exist",
-			event: client.Event{
+			event: history.Event{
 				Metadata:  map[string]string{},
 				BirthDate: 60,
 			},
@@ -412,8 +412,8 @@ func TestGetEventCompareTime(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			ev := eventValidator{calculateUsing: tc.timeLocation}
-			time, err := ev.GetEventCompareTime(tc.event)
+			validation := rule{calculateUsing: tc.timeLocation}
+			time, err := validation.EventTime(tc.event)
 			assert.True(tc.expectedTime.Equal(time))
 			assert.Equal(tc.expectedErr, err)
 		})
@@ -476,8 +476,8 @@ func TestGetWRPCompareTime(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			ev := eventValidator{calculateUsing: tc.timeLocation}
-			time, err := ev.GetWRPCompareTime(tc.wrp)
+			validation := rule{calculateUsing: tc.timeLocation}
+			time, err := validation.WRPTime(tc.wrp)
 			assert.True(tc.expectedTime.Equal(time))
 			assert.Equal(tc.expectedErr, err)
 		})

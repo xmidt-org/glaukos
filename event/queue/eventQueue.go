@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"sync"
@@ -13,7 +12,6 @@ import (
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
-	"go.uber.org/fx"
 )
 
 var (
@@ -84,32 +82,6 @@ func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log
 	}
 
 	return &e, nil
-}
-
-// ProvideEventQueue creates an uber/fx option and appends the queue start and stop into the fx lifecycle.
-func ProvideEventQueue() fx.Option {
-	return fx.Provide(
-		func(config Config, lc fx.Lifecycle, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
-			e, err := newEventQueue(config, parsers, metrics, logger)
-
-			if err != nil {
-				return nil, err
-			}
-
-			lc.Append(fx.Hook{
-				OnStart: func(context context.Context) error {
-					e.Start()
-					return nil
-				},
-				OnStop: func(context context.Context) error {
-					e.Stop()
-					return nil
-				},
-			})
-
-			return e, nil
-		},
-	)
 }
 
 func (e *EventQueue) Start() {

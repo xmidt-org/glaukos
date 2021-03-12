@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/event/client"
+	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -96,13 +96,13 @@ func TestGetEventBootTime(t *testing.T) {
 
 	tests := []struct {
 		description      string
-		msg              client.Event
+		msg              history.Event
 		expectedBootTime int64
 		expectedErr      error
 	}{
 		{
 			description: "Success",
-			msg: client.Event{
+			msg: history.Event{
 				Metadata: map[string]string{
 					bootTimeKey: "1611700028",
 				},
@@ -111,7 +111,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "No Boottime",
-			msg: client.Event{
+			msg: history.Event{
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
@@ -119,13 +119,13 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description:      "No Metadata",
-			msg:              client.Event{},
+			msg:              history.Event{},
 			expectedBootTime: 0,
 			expectedErr:      ErrBootTimeNotFound,
 		},
 		{
 			description: "Key with slash",
-			msg: client.Event{
+			msg: history.Event{
 				Metadata: map[string]string{
 					"/boot-time": "1000",
 				},
@@ -134,7 +134,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Key without slash",
-			msg: client.Event{
+			msg: history.Event{
 				Metadata: map[string]string{
 					"boot-time": "1000",
 				},
@@ -143,7 +143,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Int conversion error",
-			msg: client.Event{
+			msg: history.Event{
 				Metadata: map[string]string{
 					bootTimeKey: "not-a-number",
 				},

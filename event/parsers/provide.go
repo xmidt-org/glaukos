@@ -1,30 +1,19 @@
-package metricparsers
+package parsers
 
 import (
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/glaukos/event/client"
+	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/glaukos/event/queue"
 	"go.uber.org/fx"
 )
-
-// ParsersIn brings together all of the different types of parsers that glaukos uses.
-type ParsersIn struct {
-	fx.In
-	Parsers []queue.Parser `group:"parsers"`
-}
 
 // Provide bundles everything needed for setting up all of the event objects
 // for easier wiring into an uber fx application.
 func Provide() fx.Option {
 	return fx.Options(
 		ProvideEventMetrics(),
-		client.Provide(),
+		history.Provide(),
 		provideParsers(),
-		fx.Provide(
-			func(parsers ParsersIn) []queue.Parser {
-				return parsers.Parsers
-			},
-		),
 	)
 }
 
@@ -40,7 +29,7 @@ func provideParsers() fx.Option {
 		},
 		fx.Annotated{
 			Group: "parsers",
-			Target: func(logger log.Logger, measures Measures, client *client.CodexClient) queue.Parser {
+			Target: func(logger log.Logger, measures Measures, client *history.CodexClient) queue.Parser {
 				return &BootTimeParser{
 					Measures: measures,
 					Logger:   logger,
@@ -50,7 +39,7 @@ func provideParsers() fx.Option {
 		},
 		fx.Annotated{
 			Group: "parsers",
-			Target: func(logger log.Logger, measures Measures, client *client.CodexClient) queue.Parser {
+			Target: func(logger log.Logger, measures Measures, client *history.CodexClient) queue.Parser {
 				return &RebootTimeParser{
 					Measures: measures,
 					Logger:   logger,

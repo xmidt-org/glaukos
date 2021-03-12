@@ -18,7 +18,7 @@ type TimeValidation interface {
 	CurrentTime() time.Time
 }
 
-// TimeValidator implements the TimeValidator interface
+// TimeValidator implements the TimeValidation interface
 type TimeValidator struct {
 	Current   func() time.Time
 	ValidFrom time.Duration // should be a negative duration. If not, it will be changed to negative once IsTimeValid is called
