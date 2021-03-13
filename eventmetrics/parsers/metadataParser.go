@@ -8,7 +8,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 )
 
 const (
@@ -24,12 +24,12 @@ type MetadataParser struct {
 }
 
 // Parse gathers metrics for each metadata key.
-func (m MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
-	if len(wrpWithTime.Message.Metadata) < 1 {
+func (m MetadataParser) Parse(event message.Event) error {
+	if len(event.Metadata) < 1 {
 		m.Measures.UnparsableEventsCount.With(ParserLabel, metadataParserLabel, ReasonLabel, noMetadataFoundErr).Add(1.0)
 		return errors.New("no metadata found")
 	}
-	for key := range wrpWithTime.Message.Metadata {
+	for key := range event.Metadata {
 		trimmedKey := strings.Trim(key, "/")
 		m.Measures.MetadataFields.With(MetadataKeyLabel, trimmedKey).Add(1.0)
 	}

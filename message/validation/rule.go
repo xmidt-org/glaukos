@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/message"
 )
 
@@ -53,44 +52,17 @@ func NewRule(config RuleConfig, validTo time.Duration, currentTime func() time.T
 
 // IsEventValid checks if an event is valid using the information kept by the rule.
 func (r *rule) ValidateEvent(event message.Event) (bool, error) {
-	bootTime, err := message.GetEventBootTime(event)
+	bootTime, err := event.BootTime()
 	if err != nil || bootTime <= 0 {
 		return false, ErrInvalidBootTime
 	}
 
 	// see if event found matches expected event type
-	if !r.ValidateType(event.Dest) {
+	if !r.ValidateType(event.Destination) {
 		return false, fmt.Errorf("%w. Desired type: %s", ErrInvalidEventType, r.regex.String())
 	}
 
-	compareTime, err := r.EventTime(event)
-	if err != nil {
-		return false, fmt.Errorf("%w: %v", ErrTimeParse, err)
-	}
-
-	if valid, err := r.timeValidation.IsTimeValid(compareTime); !valid {
-		if r.calculateUsing == Birthdate {
-			return false, fmt.Errorf("%w: %v", ErrInvalidBirthdate, err)
-		}
-		return false, fmt.Errorf("%w: %v", ErrInvalidBootTime, err)
-	}
-
-	return true, nil
-}
-
-// IsWRPValid checks if a wrp is valid using the information kept by the rule.
-func (r *rule) ValidateWRP(wrpWithTime queue.WrpWithTime) (bool, error) {
-	msg := wrpWithTime.Message
-	bootTime, err := message.GetWRPBootTime(msg)
-	if err != nil || bootTime <= 0 {
-		return false, ErrInvalidBootTime
-	}
-	// see if event found matches expected event type
-	if !r.ValidateType(msg.Destination) {
-		return false, fmt.Errorf("%w. Desired type: %s", ErrInvalidEventType, r.regex.String())
-	}
-
-	compareTime, err := r.WRPTime(wrpWithTime)
+	compareTime, err := r.GetCompareTime(event)
 	if err != nil {
 		return false, fmt.Errorf("%w: %v", ErrTimeParse, err)
 	}
@@ -110,28 +82,15 @@ func (r *rule) ValidateType(dest string) bool {
 	return r.regex.MatchString(dest)
 }
 
-// EventTime gets the time used for comparison from an event
+// GetCompareTime gets the time used for comparison from an event
 // depending on the TimeLocation of the rule.
-func (r *rule) EventTime(event message.Event) (time.Time, error) {
+func (r *rule) GetCompareTime(event message.Event) (time.Time, error) {
 	if r.calculateUsing == Boottime {
-		bootTime, err := message.GetEventBootTime(event)
+		bootTime, err := event.BootTime()
 		if err != nil {
 			return time.Time{}, err
 		}
 		return time.Unix(bootTime, 0), nil
 	}
-	return time.Unix(0, event.BirthDate), nil
-}
-
-// WRPTime gets the time used for comparison from a wrp
-// depending on the TimeLocation of the rule.
-func (r *rule) WRPTime(wrpWithTime queue.WrpWithTime) (time.Time, error) {
-	if r.calculateUsing == Boottime {
-		bootTime, err := message.GetWRPBootTime(wrpWithTime.Message)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return time.Unix(bootTime, 0), nil
-	}
-	return wrpWithTime.Beginning, nil
+	return time.Unix(0, event.Birthdate), nil
 }

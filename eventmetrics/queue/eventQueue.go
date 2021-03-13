@@ -4,14 +4,13 @@ import (
 	"errors"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
-	"github.com/xmidt-org/wrp-go/v3"
 )
 
 var (
@@ -33,7 +32,7 @@ type Config struct {
 }
 
 type EventQueue struct {
-	queue   chan WrpWithTime
+	queue   chan message.Event
 	workers semaphore.Interface
 	wg      sync.WaitGroup
 	logger  log.Logger
@@ -42,14 +41,9 @@ type EventQueue struct {
 	metrics Measures
 }
 
-type WrpWithTime struct {
-	Message   wrp.Message
-	Beginning time.Time
-}
-
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
-	Parse(WrpWithTime) error
+	Parse(message.Event) error
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
@@ -69,7 +63,7 @@ func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log
 		logger = defaultLogger
 	}
 
-	queue := make(chan WrpWithTime, config.QueueSize)
+	queue := make(chan message.Event, config.QueueSize)
 	workers := semaphore.New(config.MaxWorkers)
 
 	e := EventQueue{
@@ -95,9 +89,9 @@ func (e *EventQueue) Stop() {
 }
 
 // Queue attempts to add a message to the queue and returns an error if the queue is full.
-func (e *EventQueue) Queue(message WrpWithTime) (err error) {
+func (e *EventQueue) Queue(event message.Event) (err error) {
 	select {
-	case e.queue <- message:
+	case e.queue <- event:
 		if e.metrics.EventsQueueDepth != nil {
 			e.metrics.EventsQueueDepth.Add(1.0)
 		}
@@ -124,15 +118,15 @@ func (e *EventQueue) ParseEvents() {
 }
 
 // ParseEvent parses the metadata and boot-time of each event and generates metrics.
-func (e *EventQueue) ParseEvent(wrpWithTime WrpWithTime) {
+func (e *EventQueue) ParseEvent(event message.Event) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
-		partnerID := basculechecks.DeterminePartnerMetric(wrpWithTime.Message.PartnerIDs)
+		partnerID := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
 		e.metrics.EventsCount.With(partnerIDLabel, partnerID).Add(1.0)
 	}
 
 	for _, p := range e.parsers {
-		if err := p.Parse(wrpWithTime); err != nil {
+		if err := p.Parse(event); err != nil {
 			level.Error(e.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to parse")
 		}
 	}

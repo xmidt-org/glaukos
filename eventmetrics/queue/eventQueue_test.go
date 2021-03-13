@@ -4,11 +4,11 @@ import (
 	"errors"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/themis/xlog/xlogtest"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/xmetrics"
@@ -97,13 +97,13 @@ func TestNewEventParser(t *testing.T) {
 
 func TestParseEvent(t *testing.T) {
 	p := xmetricstest.NewProvider(&xmetrics.Options{})
-	msg := wrp.Message{
+	event := message.Event{
 		Source:          "test source",
 		Destination:     "device-status/mac:some_address/an-event/some_timestamp",
-		Type:            wrp.SimpleEventMessageType,
+		MsgType:         int(wrp.SimpleEventMessageType),
 		PartnerIDs:      []string{"test1"},
 		TransactionUUID: "transaction test uuid",
-		Payload:         []byte(`{"ts":"2019-02-13T21:19:02.614191735Z"}`),
+		Payload:         `{"ts":"2019-02-13T21:19:02.614191735Z"}`,
 		Metadata:        map[string]string{"testkey": "testvalue"},
 	}
 
@@ -147,13 +147,11 @@ func TestParseEvent(t *testing.T) {
 				metrics: tc.metrics,
 			}
 
-			wrpWithTime := WrpWithTime{Message: msg, Beginning: time.Now()}
-
 			queue.workers.Acquire()
-			queue.ParseEvent(wrpWithTime)
+			queue.ParseEvent(event)
 
-			mockMetadataParser.AssertCalled(t, "Parse", wrpWithTime)
-			mockBootTimeCalc.AssertCalled(t, "Parse", wrpWithTime)
+			mockMetadataParser.AssertCalled(t, "Parse", event)
+			mockBootTimeCalc.AssertCalled(t, "Parse", event)
 			p.Assert(t, "depth", partnerIDLabel, "test1")(xmetricstest.Value(tc.expectedEventsCount))
 
 		})
@@ -196,11 +194,11 @@ func TestQueue(t *testing.T) {
 				logger:  xlogtest.New(t),
 				workers: semaphore.New(2),
 				metrics: metrics,
-				queue:   make(chan WrpWithTime, tc.queueSize),
+				queue:   make(chan message.Event, tc.queueSize),
 			}
 
 			for i := 0; i < tc.numEvents; i++ {
-				q.Queue(WrpWithTime{Message: wrp.Message{}, Beginning: time.Now()})
+				q.Queue(message.Event{})
 			}
 
 			p.Assert(t, "depth")(xmetricstest.Value(tc.eventsMetricCount))
