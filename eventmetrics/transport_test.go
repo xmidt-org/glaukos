@@ -123,7 +123,9 @@ func TestDecodeEvent(t *testing.T) {
 				assert.Equal(tc.expectedEvent, msg)
 				assert.Nil(err)
 			} else {
-				assert.Equal(err.(kithttp.StatusCoder).StatusCode(), http.StatusBadRequest)
+				var statusCoder kithttp.StatusCoder
+				assert.True(errors.As(err, &statusCoder))
+				assert.Equal(statusCoder.StatusCode(), http.StatusBadRequest)
 			}
 		})
 	}
