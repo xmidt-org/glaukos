@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -61,6 +61,14 @@ func TestDecodeEvent(t *testing.T) {
 		Type:        wrp.SimpleEventMessageType,
 		Source:      "test",
 		Destination: "test",
+		Metadata: map[string]string{
+			"key1": "val1",
+			"key2": "val2",
+		},
+		TransactionUUID: "some-id",
+		ContentType:     "content",
+		Payload:         []byte(`{"ts": "2021-03-05T21:49:22.786733856Z"}`),
+		PartnerIDs:      []string{"partner1", "partner2"},
 	}
 	tests := []struct {
 		description string

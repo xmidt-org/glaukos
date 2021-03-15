@@ -10,9 +10,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/event/history"
-	"github.com/xmidt-org/glaukos/event/parsing"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -21,96 +20,96 @@ import (
 func TestCheckLatestPreviousEvent(t *testing.T) {
 	tests := []struct {
 		description    string
-		event          history.Event
-		previousEvent  history.Event
+		event          message.Event
+		previousEvent  message.Event
 		latestBootTime int64
 		eventRegex     *regexp.Regexp
-		expectedEvent  history.Event
+		expectedEvent  message.Event
 		expectedErr    error
 	}{
 		{
 			description: "New reboot event returned",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "50"},
 			},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
 		},
 		{
 			description: "New different event returned",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/some-event",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "50"},
 			},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:     "event:device-status/some-event",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
 		},
 		{
 			description: "Same boot-time as previous, not reboot event",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/some-event",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
 		},
 		{
 			description: "Same boot-time, reboot event",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
 		},
 		{
 			description: "Same boot time, both reboot events",
-			event: history.Event{
+			event: message.Event{
 				Dest:      "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata:  map[string]string{bootTimeKey: "60"},
 				BirthDate: 30,
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:      "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata:  map[string]string{bootTimeKey: "60"},
 				BirthDate: 20,
 			},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:      "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata:  map[string]string{bootTimeKey: "60"},
 				BirthDate: 20,
@@ -118,15 +117,15 @@ func TestCheckLatestPreviousEvent(t *testing.T) {
 		},
 		{
 			description: "Empty previous event",
-			event: history.Event{
+			event: message.Event{
 				Dest:      "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata:  map[string]string{bootTimeKey: "60"},
 				BirthDate: 30,
 			},
-			previousEvent:  history.Event{},
+			previousEvent:  message.Event{},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:      "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata:  map[string]string{bootTimeKey: "60"},
 				BirthDate: 30,
@@ -134,35 +133,35 @@ func TestCheckLatestPreviousEvent(t *testing.T) {
 		},
 		{
 			description: "Error parsing boot-time",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata: map[string]string{bootTimeKey: "not-a-number"},
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "50"},
 			},
 			latestBootTime: 70,
 			eventRegex:     rebootRegex,
-			expectedEvent: history.Event{
+			expectedEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "50"},
 			},
-			expectedErr: parsing.ErrBootTimeParse,
+			expectedErr: message.ErrBootTimeParse,
 		},
 		{
 			description: "Error-Newer boot-time found",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/mac:112233445566/reboot-pending/1612424775/2s",
 				Metadata: map[string]string{bootTimeKey: "60"},
 			},
-			previousEvent: history.Event{
+			previousEvent: message.Event{
 				Dest:     "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{bootTimeKey: "30"},
 			},
 			latestBootTime: 40,
 			eventRegex:     rebootRegex,
-			expectedEvent:  history.Event{},
+			expectedEvent:  message.Event{},
 			expectedErr:    errNewerBootTime,
 		},
 	}
@@ -194,14 +193,14 @@ func TestIsEventValid(t *testing.T) {
 	}
 	tests := []struct {
 		description string
-		event       history.Event
+		event       message.Event
 		regex       *regexp.Regexp
 		expectedRes bool
 		expectedErr error
 	}{
 		{
 			description: "Valid Event",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 				Metadata: map[string]string{
@@ -214,7 +213,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Wrong Event Type",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/online",
 			},
@@ -224,17 +223,17 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "No boot time",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: parsing.ErrPastDate,
+			expectedErr: message.ErrPastDate,
 		},
 		{
 			description: "Invalid boot time",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 				Metadata: map[string]string{
@@ -243,11 +242,11 @@ func TestIsEventValid(t *testing.T) {
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: parsing.ErrPastDate,
+			expectedErr: message.ErrPastDate,
 		},
 		{
 			description: "Invalid birthdate",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 				Metadata: map[string]string{
@@ -257,7 +256,7 @@ func TestIsEventValid(t *testing.T) {
 			},
 			regex:       rebootRegex,
 			expectedRes: false,
-			expectedErr: parsing.ErrPastDate,
+			expectedErr: message.ErrPastDate,
 		},
 	}
 
@@ -284,7 +283,7 @@ type testReboot struct {
 	latestRebootPending int64 // should be unix timestamp in nanoseconds
 	msg                 wrp.Message
 	beginTime           time.Time
-	events              []history.Event
+	events              []message.Event
 	expectedErr         error
 	expectedBadParse    float64
 }
@@ -308,7 +307,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					bootTimeKey: "not-a-number",
 				},
 			},
-			expectedErr: parsing.ErrBootTimeParse,
+			expectedErr: message.ErrBootTimeParse,
 		},
 		{
 			description: "No previous events",
@@ -321,7 +320,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{},
+			events: []message.Event{},
 		},
 		{
 			description: "No previous reboot-pending event",
@@ -334,8 +333,8 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline",
@@ -358,8 +357,8 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/some-event",
 					TransactionUUID: "testReboot",
@@ -381,8 +380,8 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 					TransactionUUID: "testReboot",
@@ -404,8 +403,8 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					bootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			events: []history.Event{
-				history.Event{
+			events: []message.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 					TransactionUUID: "testReboot",
@@ -414,7 +413,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 					},
 					BirthDate: now.Add(-1 * time.Minute).UnixNano(),
 				},
-				history.Event{
+				message.Event{
 					MsgType:         4,
 					Dest:            "event:device-status/mac:112233445566/online",
 					TransactionUUID: "testOnline",
@@ -430,7 +429,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			client := new(history.MockEventClient)
+			client := new(mockEventClient)
 			client.On("GetEvents", mock.Anything).Return(tc.events)
 			p := xmetricstest.NewProvider(&xmetrics.Options{})
 			m := Measures{
@@ -466,7 +465,7 @@ func TestCalculateRebootTimeError(t *testing.T) {
 func TestCalculateRebootTimeSuccess(t *testing.T) {
 	var (
 		assert      = assert.New(t)
-		eventClient = new(history.MockEventClient)
+		eventClient = new(mockEventClient)
 		p           = xmetricstest.NewProvider(&xmetrics.Options{})
 		now         = time.Now()
 		m           = Measures{
@@ -491,8 +490,8 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 			},
 		},
 		latestRebootPending: now.Add(-1 * time.Minute).UnixNano(),
-		events: []history.Event{
-			history.Event{
+		events: []message.Event{
+			message.Event{
 				MsgType:         4,
 				Dest:            "event:device-status/mac:112233445566/reboot-pending/1613033276/2s",
 				TransactionUUID: "testReboot",
@@ -501,7 +500,7 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 				},
 				BirthDate: now.Add(-6 * time.Minute).UnixNano(),
 			},
-			history.Event{
+			message.Event{
 				MsgType:         4,
 				Dest:            "event:device-status/mac:112233445566/online",
 				TransactionUUID: "testOnline",
@@ -510,7 +509,7 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 				},
 				BirthDate: now.Add(-2 * time.Minute).UnixNano(),
 			},
-			history.Event{
+			message.Event{
 				MsgType:         4,
 				Dest:            "event:device-status/mac:112233445566/reboot-pending/1122556/2s",
 				TransactionUUID: "rebootEventFound",
@@ -519,7 +518,7 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 				},
 				BirthDate: now.Add(-1 * time.Minute).UnixNano(),
 			},
-			history.Event{
+			message.Event{
 				MsgType:         4,
 				Dest:            "event:device-status/mac:112233445566/online",
 				TransactionUUID: "testOnline",
@@ -528,7 +527,7 @@ func TestCalculateRebootTimeSuccess(t *testing.T) {
 				},
 				BirthDate: now.Add(-4 * time.Minute).UnixNano(),
 			},
-			history.Event{
+			message.Event{
 				MsgType:         4,
 				Dest:            "event:device-status/mac:112233445566/online",
 				TransactionUUID: "emptyMetadata",

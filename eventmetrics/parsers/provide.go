@@ -2,8 +2,8 @@ package parsers
 
 import (
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/glaukos/event/history"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message/history"
 	"go.uber.org/fx"
 )
 

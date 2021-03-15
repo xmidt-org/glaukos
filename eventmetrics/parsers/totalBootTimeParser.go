@@ -12,9 +12,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/glaukos/event/history"
-	"github.com/xmidt-org/glaukos/event/parsing"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/themis/xlog"
 )
 
@@ -47,8 +46,8 @@ var rebootRegex = regexp.MustCompile(".*/reboot-pending/")
 func (b *RebootTimeParser) Parse(wrpWithTime queue.WrpWithTime) error {
 	// Add to metrics if no error calculating restart time.
 	if restartTime, err := b.calculateRestartTime(wrpWithTime); err == nil && restartTime > 0 {
-		hardwareVal, hardwareFound := parsing.GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
-		firmwareVal, firmwareFound := parsing.GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
+		hardwareVal, hardwareFound := message.GetMetadataValue(hardwareKey, wrpWithTime.Message.Metadata)
+		firmwareVal, firmwareFound := message.GetMetadataValue(firmwareKey, wrpWithTime.Message.Metadata)
 		if hardwareFound && firmwareFound {
 			b.Measures.RebootTimeHistogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal).Observe(restartTime)
 		} else {
@@ -81,7 +80,7 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 
 	// Get events from codex pertaining to this device id.
 	events := b.Client.GetEvents(deviceID)
-	latestPreviousEvent := history.Event{}
+	latestPreviousEvent := message.Event{}
 
 	// Go through events to find reboot-pending event with the boot-time of the previous session
 	for _, event := range events {
@@ -118,16 +117,16 @@ func (b *RebootTimeParser) calculateRestartTime(wrpWithTime queue.WrpWithTime) (
 }
 
 // sees if this event is part of the most recent previous session
-func checkLatestPreviousEvent(e history.Event, previousEventTracked history.Event, latestBootTime int64, eventType *regexp.Regexp) (history.Event, error) {
-	eventBootTimeInt, err := parsing.GetEventBootTime(e)
-	previousEventBootTime, _ := parsing.GetEventBootTime(previousEventTracked)
+func checkLatestPreviousEvent(e message.Event, previousEventTracked message.Event, latestBootTime int64, eventType *regexp.Regexp) (message.Event, error) {
+	eventBootTimeInt, err := message.GetEventBootTime(e)
+	previousEventBootTime, _ := message.GetEventBootTime(previousEventTracked)
 
 	if err != nil {
 		return previousEventTracked, err
 	}
 
 	if eventBootTimeInt > latestBootTime {
-		return history.Event{}, fmt.Errorf("%w. Codex Event: %s", errNewerBootTime, e.TransactionUUID)
+		return message.Event{}, fmt.Errorf("%w. Codex Event: %s", errNewerBootTime, e.TransactionUUID)
 	}
 
 	// If this event has a boot time greater than what we've seen so far
@@ -150,28 +149,28 @@ func checkLatestPreviousEvent(e history.Event, previousEventTracked history.Even
 	return previousEventTracked, nil
 }
 
-func isEventValid(event history.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
+func isEventValid(event message.Event, expectedType *regexp.Regexp, currTime func() time.Time) (bool, error) {
 	// see if event found matches expected event type
 	if !expectedType.MatchString(event.Dest) {
 		return false, fmt.Errorf("%w. Type Expected: %s. Type Found: %s", errEventNotFound, expectedType.String(), event.Dest)
 	}
 
 	// check if boot-time is valid
-	bootTime, err := parsing.GetEventBootTime(event)
+	bootTime, err := message.GetEventBootTime(event)
 	if bootTime <= 0 {
 		var parsingErr error
 		if err != nil {
 			parsingErr = err
 		}
-		return false, fmt.Errorf("%w. Parsed boot-time: %d, parsing err: %v", parsing.ErrPastDate, bootTime, parsingErr)
+		return false, fmt.Errorf("%w. Parsed boot-time: %d, parsing err: %v", message.ErrPastDate, bootTime, parsingErr)
 	}
 
-	if valid, err := parsing.IsDateValid(currTime, 12*time.Hour, time.Hour, time.Unix(bootTime, 0)); !valid {
+	if valid, err := message.IsDateValid(currTime, 12*time.Hour, time.Hour, time.Unix(bootTime, 0)); !valid {
 		return false, fmt.Errorf("Invalid boot-time: %w", err)
 	}
 
 	// see if birthdate is valid
-	if valid, err := parsing.IsDateValid(currTime, 12*time.Hour, time.Hour, time.Unix(0, event.BirthDate)); !valid {
+	if valid, err := message.IsDateValid(currTime, 12*time.Hour, time.Hour, time.Unix(0, event.BirthDate)); !valid {
 		return false, fmt.Errorf("Invalid birthdate: %w", err)
 	}
 

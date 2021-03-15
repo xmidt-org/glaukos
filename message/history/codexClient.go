@@ -12,6 +12,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
@@ -32,22 +33,9 @@ type CodexClient struct {
 	Logger       log.Logger
 }
 
-// Event is the struct that codex query results will be unmarshalled into.
-type Event struct {
-	MsgType         int               `json:"msg_type"`
-	Source          string            `json:"source"`
-	Dest            string            `json:"dest,omitempty"`
-	TransactionUUID string            `json:"transaction_uuid,omitempty"`
-	ContentType     string            `json:"content_type,omitempty"`
-	Metadata        map[string]string `json:"metadata"`
-	Payload         string            `json:"payload,omitempty"`
-	BirthDate       int64             `json:"birth_date"`
-	PartnerIDs      []string          `json:"partner_ids,omitempty"`
-}
-
 // GetEvents queries codex for events related to a device.
-func (c *CodexClient) GetEvents(device string) []Event {
-	eventList := make([]Event, 0)
+func (c *CodexClient) GetEvents(device string) []message.Event {
+	eventList := make([]message.Event, 0)
 
 	request, err := buildGetRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
 	if err != nil {

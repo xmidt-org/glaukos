@@ -1,4 +1,4 @@
-package parsing
+package message
 
 import (
 	"errors"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/event/history"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -25,7 +24,7 @@ func TestGetWRPBootTime(t *testing.T) {
 			description: "Success",
 			msg: wrp.Message{
 				Metadata: map[string]string{
-					bootTimeKey: "1611700028",
+					BootTimeKey: "1611700028",
 				},
 			},
 			expectedBootTime: 1611700028,
@@ -66,7 +65,7 @@ func TestGetWRPBootTime(t *testing.T) {
 			description: "Int conversion error",
 			msg: wrp.Message{
 				Metadata: map[string]string{
-					bootTimeKey: "not-a-number",
+					BootTimeKey: "not-a-number",
 				},
 			},
 			expectedBootTime: 0,
@@ -96,22 +95,22 @@ func TestGetEventBootTime(t *testing.T) {
 
 	tests := []struct {
 		description      string
-		msg              history.Event
+		msg              Event
 		expectedBootTime int64
 		expectedErr      error
 	}{
 		{
 			description: "Success",
-			msg: history.Event{
+			msg: Event{
 				Metadata: map[string]string{
-					bootTimeKey: "1611700028",
+					BootTimeKey: "1611700028",
 				},
 			},
 			expectedBootTime: 1611700028,
 		},
 		{
 			description: "No Boottime",
-			msg: history.Event{
+			msg: Event{
 				Metadata: map[string]string{},
 			},
 			expectedBootTime: 0,
@@ -119,13 +118,13 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description:      "No Metadata",
-			msg:              history.Event{},
+			msg:              Event{},
 			expectedBootTime: 0,
 			expectedErr:      ErrBootTimeNotFound,
 		},
 		{
 			description: "Key with slash",
-			msg: history.Event{
+			msg: Event{
 				Metadata: map[string]string{
 					"/boot-time": "1000",
 				},
@@ -134,7 +133,7 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Key without slash",
-			msg: history.Event{
+			msg: Event{
 				Metadata: map[string]string{
 					"boot-time": "1000",
 				},
@@ -143,9 +142,9 @@ func TestGetEventBootTime(t *testing.T) {
 		},
 		{
 			description: "Int conversion error",
-			msg: history.Event{
+			msg: Event{
 				Metadata: map[string]string{
-					bootTimeKey: "not-a-number",
+					BootTimeKey: "not-a-number",
 				},
 			},
 			expectedBootTime: 0,

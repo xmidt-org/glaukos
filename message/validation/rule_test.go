@@ -1,4 +1,4 @@
-package parsing
+package validation
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/event/history"
-	"github.com/xmidt-org/glaukos/event/queue"
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -111,7 +111,7 @@ func TestIsEventValid(t *testing.T) {
 
 	tests := []struct {
 		description  string
-		event        history.Event
+		event        message.Event
 		timeIsValid  bool
 		timeValError error
 		timeLocation TimeLocation
@@ -120,11 +120,11 @@ func TestIsEventValid(t *testing.T) {
 	}{
 		{
 			description: "Valid Event",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/some-event/1613033276/2s",
 				Metadata: map[string]string{
-					bootTimeKey: fmt.Sprint(now.Unix()),
+					message.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 				BirthDate: now.UnixNano(),
 			},
@@ -134,11 +134,11 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Wrong Event Type",
-			event: history.Event{
+			event: message.Event{
 				MsgType: 4,
 				Dest:    "event:device-status/mac:112233445566/online",
 				Metadata: map[string]string{
-					bootTimeKey: fmt.Sprint(now.Unix()),
+					message.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 			expectedRes: false,
@@ -146,7 +146,7 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "No boot-time",
-			event: history.Event{
+			event: message.Event{
 				Dest: "event:device-status/mac:112233445566/some-event/1613033276/2s",
 			},
 			timeLocation: Boottime,
@@ -155,9 +155,9 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Boot-time Invalid",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/mac:112233445566/some-event/1613033276/2s",
-				Metadata: map[string]string{bootTimeKey: "not-a-number"},
+				Metadata: map[string]string{message.BootTimeKey: "not-a-number"},
 			},
 			timeLocation: Boottime,
 			expectedRes:  false,
@@ -165,9 +165,9 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Boot-time Too Old",
-			event: history.Event{
+			event: message.Event{
 				Dest:     "event:device-status/mac:112233445566/some-event/1613033276/2s",
-				Metadata: map[string]string{bootTimeKey: "60"},
+				Metadata: map[string]string{message.BootTimeKey: "60"},
 			},
 			timeLocation: Boottime,
 			timeIsValid:  false,
@@ -177,10 +177,10 @@ func TestIsEventValid(t *testing.T) {
 		},
 		{
 			description: "Birthdate Invalid",
-			event: history.Event{
+			event: message.Event{
 				Dest: "event:device-status/mac:112233445566/some-event/1613033276/2s",
 				Metadata: map[string]string{
-					bootTimeKey: fmt.Sprint(now.Unix()),
+					message.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 			timeLocation: Birthdate,
@@ -237,7 +237,7 @@ func TestIsWRPValid(t *testing.T) {
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/some-event/1613033276/2s",
 					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Unix()),
+						message.BootTimeKey: fmt.Sprint(now.Unix()),
 					},
 				},
 				Beginning: now,
@@ -252,7 +252,7 @@ func TestIsWRPValid(t *testing.T) {
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/online",
 					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Unix()),
+						message.BootTimeKey: fmt.Sprint(now.Unix()),
 					},
 				},
 			},
@@ -276,7 +276,7 @@ func TestIsWRPValid(t *testing.T) {
 			wrp: queue.WrpWithTime{
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/some-event/1613033276/2s",
-					Metadata:    map[string]string{bootTimeKey: "not-a-number"},
+					Metadata:    map[string]string{message.BootTimeKey: "not-a-number"},
 				},
 			},
 			timeLocation: Boottime,
@@ -288,7 +288,7 @@ func TestIsWRPValid(t *testing.T) {
 			wrp: queue.WrpWithTime{
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/some-event/1613033276/2s",
-					Metadata:    map[string]string{bootTimeKey: "60"},
+					Metadata:    map[string]string{message.BootTimeKey: "60"},
 				},
 			},
 			timeLocation: Boottime,
@@ -303,7 +303,7 @@ func TestIsWRPValid(t *testing.T) {
 				Message: wrp.Message{
 					Destination: "event:device-status/mac:112233445566/some-event/1613033276/2s",
 					Metadata: map[string]string{
-						bootTimeKey: fmt.Sprint(now.Unix()),
+						message.BootTimeKey: fmt.Sprint(now.Unix()),
 					},
 				},
 			},
@@ -375,15 +375,15 @@ func TestValidateType(t *testing.T) {
 func TestGetEventCompareTime(t *testing.T) {
 	tests := []struct {
 		description  string
-		event        history.Event
+		event        message.Event
 		timeLocation TimeLocation
 		expectedTime time.Time
 		expectedErr  error
 	}{
 		{
 			description: "Successful with boot-time",
-			event: history.Event{
-				Metadata:  map[string]string{bootTimeKey: "50"},
+			event: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: "50"},
 				BirthDate: 60,
 			},
 			timeLocation: Boottime,
@@ -391,8 +391,8 @@ func TestGetEventCompareTime(t *testing.T) {
 		},
 		{
 			description: "Successful with birthdate",
-			event: history.Event{
-				Metadata:  map[string]string{bootTimeKey: "50"},
+			event: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: "50"},
 				BirthDate: 60,
 			},
 			timeLocation: Birthdate,
@@ -400,13 +400,13 @@ func TestGetEventCompareTime(t *testing.T) {
 		},
 		{
 			description: "Boot-time doesn't exist",
-			event: history.Event{
+			event: message.Event{
 				Metadata:  map[string]string{},
 				BirthDate: 60,
 			},
 			timeLocation: Boottime,
 			expectedTime: time.Time{},
-			expectedErr:  ErrBootTimeNotFound,
+			expectedErr:  message.ErrBootTimeNotFound,
 		},
 	}
 	for _, tc := range tests {
@@ -432,7 +432,7 @@ func TestGetWRPCompareTime(t *testing.T) {
 			description: "Successful with boot-time",
 			wrp: queue.WrpWithTime{
 				Message: wrp.Message{
-					Metadata: map[string]string{bootTimeKey: "50"},
+					Metadata: map[string]string{message.BootTimeKey: "50"},
 				},
 				Beginning: time.Unix(0, 60),
 			},
@@ -443,7 +443,7 @@ func TestGetWRPCompareTime(t *testing.T) {
 			description: "Successful with birthdate",
 			wrp: queue.WrpWithTime{
 				Message: wrp.Message{
-					Metadata: map[string]string{bootTimeKey: "50"},
+					Metadata: map[string]string{message.BootTimeKey: "50"},
 				},
 				Beginning: time.Unix(0, 60),
 			},
@@ -460,7 +460,7 @@ func TestGetWRPCompareTime(t *testing.T) {
 			},
 			timeLocation: Boottime,
 			expectedTime: time.Time{},
-			expectedErr:  ErrBootTimeNotFound,
+			expectedErr:  message.ErrBootTimeNotFound,
 		},
 		{
 			description: "Default Birthdate",
