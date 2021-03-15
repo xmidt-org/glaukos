@@ -60,15 +60,14 @@ func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 	msgBytes, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
-		return nil, fmt.Errorf("could not read request body: %v", err)
+		return nil, BadRequestErr{Message: fmt.Sprintf("could not read request body: %v", err)}
 	}
 
 	err = wrp.NewDecoderBytes(msgBytes, wrp.Msgpack).Decode(&msg)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode request body: %v", err)
+		return nil, BadRequestErr{Message: fmt.Sprintf("could not decode request body: %v", err)}
 	}
 
-	event, err := message.NewEvent(msg)
-
-	return event, err
+	event, _ := message.NewEvent(msg)
+	return event, nil
 }
