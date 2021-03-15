@@ -10,7 +10,7 @@ type mockTimeValidation struct {
 	mock.Mock
 }
 
-func (m *mockTimeValidation) IsTimeValid(t time.Time) (bool, error) {
+func (m *mockTimeValidation) ValidTime(t time.Time) (bool, error) {
 	args := m.Called(t)
 	return args.Bool(0), args.Error(1)
 }

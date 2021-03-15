@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsTimeValid(t *testing.T) {
+func TestValidTime(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
 	currFunc := func() time.Time { return now }
@@ -104,7 +104,7 @@ func TestIsTimeValid(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 			tv := TimeValidator{Current: tc.currTime, ValidFrom: tc.validFrom, ValidTo: tc.validTo}
-			valid, err := tv.IsTimeValid(tc.testTime)
+			valid, err := tv.ValidTime(tc.testTime)
 			assert.Equal(tc.expectedErr, err)
 			assert.Equal(tc.expectedRes, valid)
 		})
