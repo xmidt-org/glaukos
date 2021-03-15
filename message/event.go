@@ -17,14 +17,10 @@ const (
 )
 
 var (
-	ErrParseDeviceID = errors.New("error getting device ID from event")
-
+	ErrParseDeviceID    = errors.New("error getting device ID from event")
+	ErrBirthdateParse   = errors.New("unable to parse birthdate from payload")
 	ErrBootTimeParse    = errors.New("unable to parse boot-time")
 	ErrBootTimeNotFound = errors.New("boot-time not found")
-
-	// TODO: remove these once IsDateValid is no longer needed
-	ErrFutureDate = errors.New("date is too far in the future")
-	ErrPastDate   = errors.New("date is too far in the past")
 )
 
 // Event is the struct that contains the wrp.Message fields along with the birthdate
@@ -43,8 +39,8 @@ type Event struct {
 
 // NewEvent creates an Event from a wrp.Message and also parses the Birthdate from the
 // message payload, setting the birthdate to the defaultBirthdate if it cannot be parsed.
-func NewEvent(msg wrp.Message, currentTime func() time.Time) Event {
-	now := currentTime()
+func NewEvent(msg wrp.Message) (Event, error) {
+	var err error
 	event := Event{
 		MsgType:         int(msg.MessageType()),
 		Source:          msg.Source,
@@ -59,10 +55,10 @@ func NewEvent(msg wrp.Message, currentTime func() time.Time) Event {
 	if birthdate, ok := getBirthDate(msg.Payload); ok {
 		event.Birthdate = birthdate.UnixNano()
 	} else {
-		event.Birthdate = now.UnixNano()
+		err = ErrBirthdateParse
 	}
 
-	return event
+	return event, err
 }
 
 // Checks a map for a specific key, allowing for keys with or without forward-slash

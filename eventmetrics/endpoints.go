@@ -57,7 +57,7 @@ func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
 			}
 
 			if valid, err := validator.IsTimeValid(time.Unix(0, v.Birthdate)); !valid {
-				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "invalid birthdate")
+				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "invalid birthdate", "birthdate", v.Birthdate)
 				v.Birthdate = time.Now().UnixNano()
 			}
 

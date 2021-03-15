@@ -17,12 +17,11 @@ func TestNewEvent(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, timeString)
 	assert.Nil(t, err)
 
-	currTime := func() time.Time { return now }
-
 	tests := []struct {
 		description string
 		msg         wrp.Message
 		expected    Event
+		expectedErr error
 	}{
 		{
 			description: "birthdate in payload",
@@ -32,7 +31,7 @@ func TestNewEvent(t *testing.T) {
 				Destination:     "test-destination",
 				TransactionUUID: "some-ID",
 				Metadata:        map[string]string{"key1": "value1", "key2": "value2"},
-				Payload:         []byte(fmt.Sprintf(`{"ts":%s`, timeString)),
+				Payload:         []byte(fmt.Sprintf(`{"ts":"%s"}`, timeString)),
 			},
 			expected: Event{
 				MsgType:         int(wrp.SimpleEventMessageType),
@@ -40,7 +39,7 @@ func TestNewEvent(t *testing.T) {
 				Destination:     "test-destination",
 				TransactionUUID: "some-ID",
 				Metadata:        map[string]string{"key1": "value1", "key2": "value2"},
-				Payload:         fmt.Sprintf(`{"ts":%s`, timeString),
+				Payload:         fmt.Sprintf(`{"ts":"%s"}`, timeString),
 				Birthdate:       now.UnixNano(),
 			},
 		},
@@ -61,8 +60,8 @@ func TestNewEvent(t *testing.T) {
 				TransactionUUID: "some-ID",
 				Metadata:        map[string]string{"key1": "value1", "key2": "value2"},
 				Payload:         `{"random":"some-value"`,
-				Birthdate:       now.UnixNano(),
 			},
+			expectedErr: ErrBirthdateParse,
 		},
 		{
 			description: "no payload, no metadata",
@@ -77,19 +76,21 @@ func TestNewEvent(t *testing.T) {
 				Source:          "test-source",
 				Destination:     "test-destination",
 				TransactionUUID: "some-ID",
-				Birthdate:       now.UnixNano(),
 			},
+			expectedErr: ErrBirthdateParse,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			event := NewEvent(tc.msg, currTime)
+			event, err := NewEvent(tc.msg)
 			assert.Equal(tc.expected, event)
+			assert.Equal(tc.expectedErr, err)
 		})
 	}
 }
+
 func TestBootTime(t *testing.T) {
 	assert := assert.New(t)
 

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -57,6 +56,7 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 // DecodeEvent decodes the request body into a wrp.Message type.
 func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 	var msg wrp.Message
+	var err error
 	msgBytes, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
@@ -68,7 +68,7 @@ func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 		return nil, fmt.Errorf("could not decode request body: %v", err)
 	}
 
-	event := message.NewEvent(msg, time.Now)
+	event, err := message.NewEvent(msg)
 
-	return event, nil
+	return event, err
 }
