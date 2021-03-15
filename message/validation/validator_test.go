@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"testing"
@@ -186,4 +187,28 @@ func TestDestinationValidator(t *testing.T) {
 		})
 	}
 
+}
+
+func TestValidators(t *testing.T) {
+	assert := assert.New(t)
+	testEvent := message.Event{}
+	validators := Validators([]Validator{testValidator(true, nil), testValidator(true, nil)})
+	valid, err := validators.Valid(testEvent)
+	assert.True(valid)
+	assert.Nil(err)
+
+	validators = Validators([]Validator{
+		testValidator(true, nil),
+		testValidator(false, errors.New("invalid event")),
+		testValidator(false, errors.New("another invalid event")),
+	})
+	valid, err = validators.Valid(testEvent)
+	assert.False(valid)
+	assert.Equal(errors.New("invalid event"), err)
+}
+
+func testValidator(returnBool bool, returnErr error) ValidatorFunc {
+	return func(e message.Event) (bool, error) {
+		return returnBool, returnErr
+	}
 }

@@ -14,7 +14,6 @@ var (
 // TimeValidation sees if a given time is within the time frame it is set to validate
 type TimeValidation interface {
 	IsTimeValid(time.Time) (bool, error)
-	CurrentTime() time.Time
 }
 
 // TimeValidator implements the TimeValidation interface
@@ -51,13 +50,4 @@ func (t TimeValidator) IsTimeValid(date time.Time) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// CurrentTime returns the time that is given by the Current function
-func (t TimeValidator) CurrentTime() time.Time {
-	if t.Current != nil {
-		return t.Current()
-	}
-
-	return time.Time{}
 }
