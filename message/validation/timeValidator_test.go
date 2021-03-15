@@ -110,39 +110,3 @@ func TestIsTimeValid(t *testing.T) {
 		})
 	}
 }
-
-func TestParseTimeLocation(t *testing.T) {
-	tests := []struct {
-		testLocation     string
-		expectedLocation TimeLocation
-	}{
-		{
-			testLocation:     "Birthdate",
-			expectedLocation: Birthdate,
-		},
-		{
-			testLocation:     "Boot-time",
-			expectedLocation: Boottime,
-		},
-		{
-			testLocation:     "birthdate",
-			expectedLocation: Birthdate,
-		},
-		{
-			testLocation:     "boot-time",
-			expectedLocation: Boottime,
-		},
-		{
-			testLocation:     "random",
-			expectedLocation: Birthdate,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.testLocation, func(t *testing.T) {
-			assert := assert.New(t)
-			res := ParseTimeLocation(tc.testLocation)
-			assert.Equal(tc.expectedLocation, res)
-		})
-	}
-}

@@ -2,14 +2,13 @@ package validation
 
 import (
 	"errors"
-	"strings"
 	"time"
 )
 
 var (
 	ErrFutureDate  = errors.New("date is too far in the future")
 	ErrPastDate    = errors.New("date is too far in the past")
-	ErrNilTimeFunc = errors.New("currenttime function has not been set")
+	ErrNilTimeFunc = errors.New("current-time function has not been set")
 )
 
 // TimeValidation sees if a given time is within the time frame it is set to validate
@@ -61,28 +60,4 @@ func (t TimeValidator) CurrentTime() time.Time {
 	}
 
 	return time.Time{}
-}
-
-// TimeLocation is an enum to determine what should be used in timeElapsed calculations
-type TimeLocation int
-
-const (
-	Birthdate TimeLocation = iota
-	Boottime
-)
-
-var (
-	timeLocationUnmarshal = map[string]TimeLocation{
-		"birthdate": Birthdate,
-		"boot-time": Boottime,
-	}
-)
-
-// ParseTimeLocation returns the TimeLocation enum when given a string.
-func ParseTimeLocation(location string) TimeLocation {
-	location = strings.ToLower(location)
-	if value, ok := timeLocationUnmarshal[location]; ok {
-		return value
-	}
-	return Birthdate
 }
