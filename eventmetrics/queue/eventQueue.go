@@ -2,7 +2,6 @@ package queue
 
 import (
 	"errors"
-	"net/http"
 	"sync"
 
 	"github.com/go-kit/kit/log"
@@ -17,7 +16,6 @@ var (
 	defaultLogger = log.NewNopLogger()
 
 	errNoParsers = errors.New("No parsers")
-	errQueueFull = errors.New("Queue Full")
 )
 
 const (
@@ -99,7 +97,7 @@ func (e *EventQueue) Queue(event message.Event) (err error) {
 		if e.metrics.DroppedEventsCount != nil {
 			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
 		}
-		err = NewErrorCode(http.StatusTooManyRequests, errQueueFull)
+		err = TooManyRequestsErr{Message: "Queue Full"}
 	}
 
 	return

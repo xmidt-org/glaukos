@@ -38,7 +38,8 @@ type Event struct {
 }
 
 // NewEvent creates an Event from a wrp.Message and also parses the Birthdate from the
-// message payload, setting the birthdate to the defaultBirthdate if it cannot be parsed.
+// message payload. A new Event will always be returned from this function, but if the
+// birthdate cannot be parsed from the payload, it will return an error along with the Event created.
 func NewEvent(msg wrp.Message) (Event, error) {
 	var err error
 	event := Event{
@@ -61,7 +62,8 @@ func NewEvent(msg wrp.Message) (Event, error) {
 	return event, err
 }
 
-// Checks a map for a specific key, allowing for keys with or without forward-slash
+// GetMetadataValue checks the metadata map for a specific key,
+// allowing for keys with or without forward-slash.
 func (e Event) GetMetadataValue(key string) (string, bool) {
 	value, found := e.Metadata[key]
 	if !found {
@@ -72,19 +74,16 @@ func (e Event) GetMetadataValue(key string) (string, bool) {
 }
 
 // BootTime parses the boot-time from an event, returning an
-// error if the boot-time doens't exist or cannot be parsed.
+// error if the boot-time doesn't exist or cannot be parsed.
 func (e Event) BootTime() (int64, error) {
-	var bootTime int64
-	var err error
 	bootTimeStr, ok := e.GetMetadataValue(BootTimeKey)
+	if !ok {
+		return 0, ErrBootTimeNotFound
+	}
 
-	if ok {
-		bootTime, err = strconv.ParseInt(bootTimeStr, 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("%w: %v", ErrBootTimeParse, err)
-		}
-	} else {
-		err = ErrBootTimeNotFound
+	bootTime, err := strconv.ParseInt(bootTimeStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrBootTimeParse, err)
 	}
 
 	return bootTime, err

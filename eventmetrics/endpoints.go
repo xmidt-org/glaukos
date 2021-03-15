@@ -9,9 +9,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/message/validation"
 
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/themis/xlog"
 
@@ -42,18 +42,12 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
-	validator := validation.TimeValidator{
-		ValidFrom: -12 * time.Hour,
-		ValidTo:   time.Hour,
-		Current:   time.Now,
-	}
-
+func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			v, ok := request.(message.Event)
 			if !ok {
-				return nil, errors.New("invalid request info")
+				return nil, errors.New("invalid request info: unable to convert to Event")
 			}
 
 			if valid, err := validator.IsTimeValid(time.Unix(0, v.Birthdate)); !valid {

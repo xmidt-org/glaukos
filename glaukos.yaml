@@ -225,3 +225,14 @@ queue:
   # time.  If a value below 5 is chosen, it defaults to 5.
   # (Optional) defaults to 5
   maxWorkers: 5
+
+# eventMetrics deals with various settings for parsers used to parse metrics from incoming events
+eventMetrics:
+  # birthdateValidFrom is a negative time duration used when checking if an incoming event's birthdate is valid or not.
+  # A birthdate is deemed valid if it is between (current time - birthdateValidFrom) and (current time + birthdateValidTo).
+  # If a birthdate is deemed invalid, it will be replaced with the current time.
+  birthdateValidFrom: "-12h"
+  # birthdateValidTo is a positive time duration used when checking if an incoming event's birthdate is valid or not.
+  # A birthdate is deemed valid if it is between (current time - birthdateValidFrom) and (current time + birthdateValidTo).
+  # If a birthdate is deemed invalid, it will be replaced with the current time.
+  birthdateValidTo: "1h"

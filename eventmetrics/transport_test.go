@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -37,13 +37,13 @@ func TestEncodeError(t *testing.T) {
 	}{
 		{
 			description:        "Status Coder Error",
-			err:                queue.NewErrorCode(400, errors.New("bad request")),
-			expectedStatusCode: 400,
+			err:                BadRequestErr{Message: "bad request"},
+			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			description:        "Non-Status Coder Error",
 			err:                errors.New("bad request"),
-			expectedStatusCode: 500,
+			expectedStatusCode: http.StatusInternalServerError,
 		},
 	}
 
@@ -104,7 +104,7 @@ func TestDecodeEvent(t *testing.T) {
 			expectedEvent: goodEvent,
 		},
 		{
-			description: "Error decoding request body",
+			description: "Error decoding msgpack",
 			request:     "{{{",
 			expectedErr: true,
 		},
@@ -119,11 +119,11 @@ func TestDecodeEvent(t *testing.T) {
 			request, e := http.NewRequest(http.MethodGet, "/", bytes.NewReader(marshaledMsg))
 			assert.Nil(e)
 			msg, err := DecodeEvent(context.Background(), request)
-			if tc.expectedErr {
-				assert.NotNil(err)
-			} else {
-				assert.Nil(err)
+			if !tc.expectedErr {
 				assert.Equal(tc.expectedEvent, msg)
+				assert.Nil(err)
+			} else {
+				assert.Equal(err.(kithttp.StatusCoder).StatusCode(), http.StatusBadRequest)
 			}
 		})
 	}
