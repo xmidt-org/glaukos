@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// RuleConfig is the config struct for a rule
+// RuleConfig is the config struct holding information to create validators for an event.
 type RuleConfig struct {
 	Regex          string
 	CalculateUsing string

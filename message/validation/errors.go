@@ -1,8 +1,15 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+const (
+	invalidEventLabel     = "invalid_event_err"
+	invalidBootTimeLabel  = "invalid_boot_time"
+	invalidBirthdateLabel = "invalid_birthdate"
 )
 
 type MetricsLogError interface {
@@ -25,11 +32,12 @@ func (e InvalidEventErr) Unwrap() error {
 }
 
 func (e InvalidEventErr) ErrorLabel() string {
-	if m, ok := (e.OriginalErr).(MetricsLogError); ok {
-		return strings.Replace(m.ErrorLabel(), " ", "_", -1)
+	var err MetricsLogError
+	if ok := errors.As(e.OriginalErr, &err); ok {
+		return strings.Replace(err.ErrorLabel(), " ", "_", -1)
 	}
 
-	return "invalid_event_err"
+	return invalidEventLabel
 }
 
 type InvalidBootTimeErr struct {
@@ -48,7 +56,7 @@ func (e InvalidBootTimeErr) Unwrap() error {
 }
 
 func (e InvalidBootTimeErr) ErrorLabel() string {
-	return "invalid_boot_time"
+	return invalidBootTimeLabel
 }
 
 type InvalidBirthdateErr struct {
@@ -67,5 +75,5 @@ func (e InvalidBirthdateErr) Unwrap() error {
 }
 
 func (e InvalidBirthdateErr) ErrorLabel() string {
-	return "invalid_birthdate"
+	return invalidBirthdateLabel
 }
