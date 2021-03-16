@@ -13,8 +13,6 @@ var (
 	ErrInvalidBootTime  = errors.New("invalid boot-time")
 	ErrInvalidBirthdate = errors.New("invalid birthdate")
 	ErrTimeParse        = errors.New("parsing error")
-
-	errInvalidRegex = errors.New("invalid regex")
 )
 
 // Validator validates an event, returning false and an error if the event is not valid
