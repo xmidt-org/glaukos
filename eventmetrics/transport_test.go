@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -34,13 +37,13 @@ func TestEncodeError(t *testing.T) {
 	}{
 		{
 			description:        "Status Coder Error",
-			err:                queue.NewErrorCode(400, errors.New("bad request")),
-			expectedStatusCode: 400,
+			err:                BadRequestErr{Message: "bad request"},
+			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			description:        "Non-Status Coder Error",
 			err:                errors.New("bad request"),
-			expectedStatusCode: 500,
+			expectedStatusCode: http.StatusInternalServerError,
 		},
 	}
 
@@ -57,6 +60,10 @@ func TestEncodeError(t *testing.T) {
 
 func TestDecodeEvent(t *testing.T) {
 	assert := assert.New(t)
+	timeString := "2021-03-02T18:00:01Z"
+	now, err := time.Parse(time.RFC3339Nano, timeString)
+	assert.Nil(err)
+
 	goodMsg := wrp.Message{
 		Type:        wrp.SimpleEventMessageType,
 		Source:      "test",
@@ -67,22 +74,37 @@ func TestDecodeEvent(t *testing.T) {
 		},
 		TransactionUUID: "some-id",
 		ContentType:     "content",
-		Payload:         []byte(`{"ts": "2021-03-05T21:49:22.786733856Z"}`),
+		Payload:         []byte(fmt.Sprintf(`{"ts": "%s"}`, timeString)),
 		PartnerIDs:      []string{"partner1", "partner2"},
 	}
+
+	goodEvent := message.Event{
+		MsgType:     int(wrp.SimpleEventMessageType),
+		Source:      "test",
+		Destination: "test",
+		Metadata: map[string]string{
+			"key1": "val1",
+			"key2": "val2",
+		},
+		TransactionUUID: "some-id",
+		ContentType:     "content",
+		Payload:         fmt.Sprintf(`{"ts": "%s"}`, timeString),
+		PartnerIDs:      []string{"partner1", "partner2"},
+		Birthdate:       now.UnixNano(),
+	}
 	tests := []struct {
-		description string
-		request     interface{}
-		expectedMsg wrp.Message
-		expectedErr bool
+		description   string
+		request       interface{}
+		expectedEvent message.Event
+		expectedErr   bool
 	}{
 		{
-			description: "Success",
-			request:     goodMsg,
-			expectedMsg: goodMsg,
+			description:   "Success",
+			request:       goodMsg,
+			expectedEvent: goodEvent,
 		},
 		{
-			description: "Error decoding request body",
+			description: "Error decoding msgpack",
 			request:     "{{{",
 			expectedErr: true,
 		},
@@ -97,11 +119,13 @@ func TestDecodeEvent(t *testing.T) {
 			request, e := http.NewRequest(http.MethodGet, "/", bytes.NewReader(marshaledMsg))
 			assert.Nil(e)
 			msg, err := DecodeEvent(context.Background(), request)
-			if tc.expectedErr {
-				assert.NotNil(err)
-			} else {
+			if !tc.expectedErr {
+				assert.Equal(tc.expectedEvent, msg)
 				assert.Nil(err)
-				assert.Equal(tc.expectedMsg, msg)
+			} else {
+				var statusCoder kithttp.StatusCoder
+				assert.True(errors.As(err, &statusCoder))
+				assert.Equal(statusCoder.StatusCode(), http.StatusBadRequest)
 			}
 		})
 	}

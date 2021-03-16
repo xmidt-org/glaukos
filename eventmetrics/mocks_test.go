@@ -1,15 +1,15 @@
-package queue
+package eventmetrics
 
 import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/glaukos/message"
 )
 
-type mockParser struct {
+type mockQueue struct {
 	mock.Mock
 }
 
-func (mp *mockParser) Parse(event message.Event) error {
-	args := mp.Called(event)
+func (m *mockQueue) Queue(e message.Event) error {
+	args := m.Called(e)
 	return args.Error(0)
 }

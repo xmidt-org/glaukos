@@ -2,12 +2,10 @@ package parsers
 
 import (
 	"testing"
-	"time"
 
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
-	"github.com/xmidt-org/wrp-go/v3"
 )
 
 func TestParse(t *testing.T) {
@@ -22,13 +20,13 @@ func TestParse(t *testing.T) {
 
 	tests := []struct {
 		description        string
-		message            wrp.Message
+		message            message.Event
 		expectedCount      map[string]float64
 		expectedUnparsable float64
 	}{
 		{
 			description: "Success",
-			message: wrp.Message{
+			message: message.Event{
 				Metadata: map[string]string{
 					trustKey:     "1000",
 					partnerIDKey: "random partner",
@@ -45,7 +43,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			description: "No metadata",
-			message: wrp.Message{
+			message: message.Event{
 				Metadata: map[string]string{},
 			},
 			expectedUnparsable: 1,
@@ -62,7 +60,7 @@ func TestParse(t *testing.T) {
 				Measures: m,
 			}
 
-			mp.Parse(queue.WrpWithTime{Message: tc.message, Beginning: time.Now()})
+			mp.Parse(tc.message)
 			for key, val := range tc.expectedCount {
 				p.Assert(t, "metadata_keys", MetadataKeyLabel, key)(xmetricstest.Value(val))
 			}
@@ -81,8 +79,8 @@ func TestMultipleParse(t *testing.T) {
 	)
 
 	p := xmetricstest.NewProvider(&xmetrics.Options{})
-	messages := []wrp.Message{
-		wrp.Message{
+	messages := []message.Event{
+		message.Event{
 			Metadata: map[string]string{
 				trustKey:     "1000",
 				partnerIDKey: "random partner",
@@ -90,21 +88,21 @@ func TestMultipleParse(t *testing.T) {
 				randomKey:    "random",
 			},
 		},
-		wrp.Message{
+		message.Event{
 			Metadata: map[string]string{
 				trustKey:     "1000",
 				partnerIDKey: "random partner",
 			},
 		},
-		wrp.Message{
+		message.Event{
 			Metadata: map[string]string{
 				trustKey: "1000",
 			},
 		},
-		wrp.Message{
+		message.Event{
 			Metadata: map[string]string{},
 		},
-		wrp.Message{
+		message.Event{
 			Metadata: map[string]string{},
 		},
 	}
@@ -118,7 +116,7 @@ func TestMultipleParse(t *testing.T) {
 	}
 
 	for _, msg := range messages {
-		mp.Parse(queue.WrpWithTime{Message: msg, Beginning: time.Now()})
+		mp.Parse(msg)
 	}
 
 	p.Assert(t, "metadata_keys", MetadataKeyLabel, trustKey)(xmetricstest.Value(3.0))

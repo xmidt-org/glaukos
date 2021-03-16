@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/message"
 )
 
@@ -21,23 +20,13 @@ type mockEventValidation struct {
 	mock.Mock
 }
 
-func (m *mockEventValidation) IsEventValid(e message.Event) (bool, error) {
+func (m *mockEventValidation) ValidateEvent(e message.Event) (bool, error) {
 	args := m.Called(e)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *mockEventValidation) IsWRPValid(msg queue.WrpWithTime) (bool, error) {
-	args := m.Called(msg)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *mockEventValidation) GetEventCompareTime(e message.Event) (time.Time, error) {
+func (m *mockEventValidation) GetCompareTime(e message.Event) (time.Time, error) {
 	args := m.Called(e)
-	return args.Get(0).(time.Time), args.Error(1)
-}
-
-func (m *mockEventValidation) GetWRPCompareTime(msg queue.WrpWithTime) (time.Time, error) {
-	args := m.Called(msg)
 	return args.Get(0).(time.Time), args.Error(1)
 }
 
