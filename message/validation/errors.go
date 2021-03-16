@@ -12,6 +12,8 @@ const (
 	invalidBirthdateLabel = "invalid_birthdate"
 )
 
+// MetricsLogError is an optional interface for errors to implement if the error should be
+// logged by prometheus metrics with a certain label.
 type MetricsLogError interface {
 	ErrorLabel() string
 }
