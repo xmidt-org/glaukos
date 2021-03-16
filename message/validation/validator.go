@@ -1,10 +1,20 @@
 package validation
 
 import (
+	"errors"
 	"regexp"
 	"time"
 
 	"github.com/xmidt-org/glaukos/message"
+)
+
+var (
+	ErrInvalidEventType = errors.New("event type doesn't match")
+	ErrInvalidBootTime  = errors.New("invalid boot-time")
+	ErrInvalidBirthdate = errors.New("invalid birthdate")
+	ErrTimeParse        = errors.New("parsing error")
+
+	errInvalidRegex = errors.New("invalid regex")
 )
 
 // Validator validates an event, returning false and an error if the event is not valid
@@ -34,6 +44,31 @@ func (v Validators) Valid(e message.Event) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// ValidatorConfig is the config struct holding information to create validators for an event.
+type ValidatorConfig struct {
+	Regex          string
+	CalculateUsing string
+	ValidFrom      time.Duration
+}
+
+// NewEventValidators creates a set of validators from a ValidatorConfig
+func NewEventValidators(config ValidatorConfig, validTo time.Duration, currentTime func() time.Time) (Validators, error) {
+	regex, err := regexp.Compile(config.Regex)
+	if err != nil {
+		return nil, errInvalidRegex
+	}
+
+	validators := make(Validators, 0, 3)
+	tv := TimeValidator{ValidFrom: config.ValidFrom, ValidTo: validTo, Current: currentTime}
+
+	if ParseTimeLocation(config.CalculateUsing) == Birthdate {
+		validators = append(validators, BirthdateValidator(tv))
+	}
+	validators = append(validators, BootTimeValidator(tv), DestinationValidator(regex))
+
+	return validators, nil
 }
 
 // BootTimeValidator returns a ValidatorFunc that checks if an
