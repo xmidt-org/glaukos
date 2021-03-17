@@ -32,7 +32,7 @@ func LastSessionFinder(validators Validators, destRegex *regexp.Regexp) FinderFu
 		for _, event := range events {
 			// check if currentEvent is still valid
 			if valid, err := fatalValidators.Valid(event); !valid {
-				return message.Event{}, err
+				return event, err
 			}
 
 			// Get the bootTime from the event we are checking. If boot-time
