@@ -1,21 +1,24 @@
 package validation
 
 import (
-	"time"
-
 	"github.com/stretchr/testify/mock"
 )
 
-type mockTimeValidation struct {
+type mockError struct {
 	mock.Mock
 }
 
-func (m *mockTimeValidation) IsTimeValid(t time.Time) (bool, error) {
-	args := m.Called(t)
-	return args.Bool(0), args.Error(1)
+func (m *mockError) Error() string {
+	args := m.Called()
+	return args.String(0)
 }
 
-func (m *mockTimeValidation) CurrentTime() time.Time {
+func (m *mockError) ErrorLabel() string {
 	args := m.Called()
-	return args.Get(0).(time.Time)
+	return args.String(0)
+}
+
+func (m *mockError) Unwrap() error {
+	args := m.Called()
+	return args.Error(0)
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsTimeValid(t *testing.T) {
+func TestValid(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
 	currFunc := func() time.Time { return now }
@@ -104,45 +104,9 @@ func TestIsTimeValid(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 			tv := TimeValidator{Current: tc.currTime, ValidFrom: tc.validFrom, ValidTo: tc.validTo}
-			valid, err := tv.IsTimeValid(tc.testTime)
+			valid, err := tv.Valid(tc.testTime)
 			assert.Equal(tc.expectedErr, err)
 			assert.Equal(tc.expectedRes, valid)
-		})
-	}
-}
-
-func TestParseTimeLocation(t *testing.T) {
-	tests := []struct {
-		testLocation     string
-		expectedLocation TimeLocation
-	}{
-		{
-			testLocation:     "Birthdate",
-			expectedLocation: Birthdate,
-		},
-		{
-			testLocation:     "Boot-time",
-			expectedLocation: Boottime,
-		},
-		{
-			testLocation:     "birthdate",
-			expectedLocation: Birthdate,
-		},
-		{
-			testLocation:     "boot-time",
-			expectedLocation: Boottime,
-		},
-		{
-			testLocation:     "random",
-			expectedLocation: Birthdate,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.testLocation, func(t *testing.T) {
-			assert := assert.New(t)
-			res := ParseTimeLocation(tc.testLocation)
-			assert.Equal(tc.expectedLocation, res)
 		})
 	}
 }
