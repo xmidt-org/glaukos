@@ -58,7 +58,7 @@ func BootTimeValidator(tv TimeValidation) ValidatorFunc {
 			}
 		}
 
-		if valid, err := tv.ValidTime(time.Unix(bootTime, 0)); !valid {
+		if valid, err := tv.Valid(time.Unix(bootTime, 0)); !valid {
 			return false, InvalidEventErr{
 				OriginalErr: InvalidBootTimeErr{
 					OriginalErr: err,
@@ -82,7 +82,7 @@ func BirthdateValidator(tv TimeValidation) ValidatorFunc {
 			}
 		}
 
-		if valid, err := tv.ValidTime(time.Unix(0, e.Birthdate)); !valid {
+		if valid, err := tv.Valid(time.Unix(0, e.Birthdate)); !valid {
 			return false, InvalidEventErr{
 				OriginalErr: InvalidBirthdateErr{
 					OriginalErr: err,

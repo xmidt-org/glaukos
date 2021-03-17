@@ -13,18 +13,18 @@ var (
 
 // TimeValidation sees if a given time is within the time frame it is set to validate
 type TimeValidation interface {
-	ValidTime(time.Time) (bool, error)
+	Valid(time.Time) (bool, error)
 }
 
 // TimeValidator implements the TimeValidation interface
 type TimeValidator struct {
 	Current   func() time.Time
-	ValidFrom time.Duration // should be a negative duration. If not, it will be changed to negative once ValidTime is called
+	ValidFrom time.Duration // should be a negative duration. If not, it will be changed to negative once Valid is called
 	ValidTo   time.Duration
 }
 
-// ValidTime sees if a date is within a time validator's allowed time frame.
-func (t TimeValidator) ValidTime(date time.Time) (bool, error) {
+// Valid sees if a date is within a time validator's allowed time frame.
+func (t TimeValidator) Valid(date time.Time) (bool, error) {
 	if t.Current == nil {
 		return false, ErrNilTimeFunc
 	}
