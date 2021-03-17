@@ -79,3 +79,14 @@ func (e InvalidBirthdateErr) Unwrap() error {
 func (e InvalidBirthdateErr) ErrorLabel() string {
 	return invalidBirthdateLabel
 }
+
+type EventNotFoundErr struct {
+	EventType string
+}
+
+func (e EventNotFoundErr) Error() string {
+	if len(e.EventType) > 0 {
+		return fmt.Sprintf("event not found; type: %s", e.EventType)
+	}
+	return "event not found"
+}

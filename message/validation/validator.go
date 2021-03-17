@@ -10,9 +10,9 @@ import (
 
 var (
 	ErrInvalidEventType = errors.New("event type doesn't match")
-	ErrInvalidBootTime  = errors.New("invalid boot-time")
-	ErrInvalidBirthdate = errors.New("invalid birthdate")
-	ErrTimeParse        = errors.New("parsing error")
+
+	errNewerBootTime  = errors.New("newer boot-time found")
+	errDuplicateEvent = errors.New("duplicate event found")
 )
 
 // Validator validates an event, returning false and an error if the event is not valid
@@ -101,6 +101,62 @@ func DestinationValidator(regex *regexp.Regexp) ValidatorFunc {
 		if !regex.MatchString(e.Destination) {
 			return false, InvalidEventErr{OriginalErr: ErrInvalidEventType}
 		}
+		return true, nil
+	}
+}
+
+// NewestBootTimeValidator returns a ValidatorFunc to check and see if an event's boot-time is
+// less than or equal to the latestEvent's boot-time. NewestBootTimeValidator assumes that latestEvent
+// has a valid boot-time and does not do any error-checking of latestEvent's boot-time.
+func NewestBootTimeValidator(latestEvent message.Event) ValidatorFunc {
+	latestBootTime, _ := latestEvent.BootTime()
+	return func(e message.Event) (bool, error) {
+		// event is latestEvent, no need to compare boot-times
+		if e.TransactionUUID == latestEvent.TransactionUUID {
+			return true, nil
+		}
+
+		bootTime, err := e.BootTime()
+		if err != nil || bootTime <= 0 {
+			return true, nil
+		}
+
+		// if this event has a boot-time more recent than the latest one, return an error
+		if bootTime > latestBootTime {
+			return false, InvalidEventErr{OriginalErr: InvalidBootTimeErr{OriginalErr: errNewerBootTime}}
+		}
+
+		return true, nil
+	}
+}
+
+// UniqueEventValidator returns a ValidatorFunc to check and see if an event is unique, meaning that
+// an event with the same destination type and boot-time is not saved in the history of events.
+// UniqueEventValidator assumes that latestEvent has a valid boot-time
+// and does not do any error-checking of latestEvent's boot-time.
+func UniqueEventValidator(latestEvent message.Event, destRegex *regexp.Regexp) ValidatorFunc {
+	destValidator := DestinationValidator(destRegex)
+	latestBootTime, _ := latestEvent.BootTime()
+	return func(e message.Event) (bool, error) {
+		// event is latestEvent, no need to compare boot-times
+		if e.TransactionUUID == latestEvent.TransactionUUID {
+			return true, nil
+		}
+
+		// see if event is the type we are looking for
+		if destMatch, _ := destValidator.Valid(e); destMatch {
+			bootTime, err := e.BootTime()
+			if err != nil || bootTime <= 0 {
+				return true, nil
+			}
+
+			// If the boot-time is the same as the latestBootTime and the birthdate is older or equal,
+			// this means that latestEvent is a duplicate.
+			if bootTime == latestBootTime && e.Birthdate <= latestEvent.Birthdate {
+				return false, InvalidEventErr{OriginalErr: errDuplicateEvent}
+			}
+		}
+
 		return true, nil
 	}
 }
