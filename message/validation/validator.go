@@ -10,9 +10,6 @@ import (
 
 var (
 	ErrInvalidEventType = errors.New("event type doesn't match")
-	ErrInvalidBootTime  = errors.New("invalid boot-time")
-	ErrInvalidBirthdate = errors.New("invalid birthdate")
-	ErrTimeParse        = errors.New("parsing error")
 )
 
 // Validator validates an event, returning false and an error if the event is not valid
@@ -58,7 +55,7 @@ func BootTimeValidator(tv TimeValidation) ValidatorFunc {
 			}
 		}
 
-		if valid, err := tv.ValidTime(time.Unix(bootTime, 0)); !valid {
+		if valid, err := tv.Valid(time.Unix(bootTime, 0)); !valid {
 			return false, InvalidEventErr{
 				OriginalErr: InvalidBootTimeErr{
 					OriginalErr: err,
@@ -82,7 +79,7 @@ func BirthdateValidator(tv TimeValidation) ValidatorFunc {
 			}
 		}
 
-		if valid, err := tv.ValidTime(time.Unix(0, e.Birthdate)); !valid {
+		if valid, err := tv.Valid(time.Unix(0, e.Birthdate)); !valid {
 			return false, InvalidEventErr{
 				OriginalErr: InvalidBirthdateErr{
 					OriginalErr: err,

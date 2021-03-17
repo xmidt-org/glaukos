@@ -50,7 +50,7 @@ func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, l
 				return nil, errors.New("invalid request info: unable to convert to Event")
 			}
 
-			if valid, err := validator.ValidTime(time.Unix(0, v.Birthdate)); !valid {
+			if valid, err := validator.Valid(time.Unix(0, v.Birthdate)); !valid {
 				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "invalid birthdate", "birthdate", v.Birthdate)
 				v.Birthdate = time.Now().UnixNano()
 			}
