@@ -56,11 +56,32 @@ func TestSameEventFinder(t *testing.T) {
 			description: "valid",
 			events: []testEvent{
 				testEvent{
+					event: latestEvent,
+					valid: true,
+				},
+				testEvent{
 					event: message.Event{
 						Destination: "mac:112233445566/online",
 						Metadata:    map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(-1 * time.Hour).Unix())},
 						Birthdate:   now.Add(-30 * time.Minute).UnixNano(),
 					},
+					valid: true,
+				},
+			},
+			latestEvent:   latestEvent,
+			expectedEvent: latestEvent,
+		},
+		{
+			description:   "no events",
+			events:        []testEvent{},
+			latestEvent:   latestEvent,
+			expectedEvent: latestEvent,
+		},
+		{
+			description: "same event",
+			events: []testEvent{
+				testEvent{
+					event: latestEvent,
 					valid: true,
 				},
 			},
