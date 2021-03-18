@@ -130,16 +130,16 @@ func NewestBootTimeValidator(latestEvent message.Event) ValidatorFunc {
 	}
 }
 
-// UniqueEventValidator returns a ValidatorFunc to check and see if an event is unique, meaning that
-// an event with the same destination type and boot-time is not saved in the history of events.
-// UniqueEventValidator assumes that latestEvent has a valid boot-time
-// and does not do any error-checking of latestEvent's boot-time.
-func UniqueEventValidator(latestEvent message.Event, destRegex *regexp.Regexp) ValidatorFunc {
-	destValidator := DestinationValidator(destRegex)
-	latestBootTime, _ := latestEvent.BootTime()
+// UniqueEventValidator returns a ValidatorFunc to check and see if compareEvent is unique, meaning that
+// it does not share the same destination type and boot-time as another event.
+// UniqueEventValidator assumes that compareEvent has a valid boot-time
+// and does not do any error-checking of compareEvent's boot-time.
+func UniqueEventValidator(compareEvent message.Event, eventType *regexp.Regexp) ValidatorFunc {
+	destValidator := DestinationValidator(eventType)
+	latestBootTime, _ := compareEvent.BootTime()
 	return func(e message.Event) (bool, error) {
 		// event is latestEvent, no need to compare boot-times
-		if e.TransactionUUID == latestEvent.TransactionUUID {
+		if e.TransactionUUID == compareEvent.TransactionUUID {
 			return true, nil
 		}
 
@@ -150,9 +150,9 @@ func UniqueEventValidator(latestEvent message.Event, destRegex *regexp.Regexp) V
 				return true, nil
 			}
 
-			// If the boot-time is the same as the latestBootTime and the birthdate is older or equal,
-			// this means that latestEvent is a duplicate.
-			if bootTime == latestBootTime && e.Birthdate <= latestEvent.Birthdate {
+			// If the boot-time is the same as the latestBootTime, and the birthdate is older or equal,
+			// this means that compareEvent is a duplicate.
+			if bootTime == latestBootTime && e.Birthdate <= compareEvent.Birthdate {
 				return false, InvalidEventErr{OriginalErr: errDuplicateEvent}
 			}
 		}
