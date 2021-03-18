@@ -7,11 +7,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type testError struct {
+	err   error
+	label string
+}
+
+func (t testError) Error() string {
+	return t.err.Error()
+}
+
+func (t testError) ErrorLabel() string {
+	return t.label
+}
+
+func (t testError) Unwrap() error {
+	return t.err
+}
+
 func TestInvalidEventErr(t *testing.T) {
-	mockErr := new(mockError)
-	mockErr.On("Error").Return("test error")
-	mockErr.On("ErrorLabel").Return("test error")
-	mockErr.On("Unwrap").Return(errors.New("test error"))
+	testErr := testError{
+		err:   errors.New("test error"),
+		label: "test error",
+	}
 	tests := []struct {
 		description   string
 		msg           string
@@ -29,7 +46,7 @@ func TestInvalidEventErr(t *testing.T) {
 		},
 		{
 			description:   "Underlying error label",
-			underlyingErr: mockErr,
+			underlyingErr: testErr,
 			expectedLabel: "test_error",
 		},
 	}
