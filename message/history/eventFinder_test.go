@@ -531,3 +531,232 @@ func testSuccess(t *testing.T, past bool) {
 	assert.Nil(err)
 
 }
+
+func TestGetPreviousBootTime(t *testing.T) {
+	tests := []struct {
+		description    string
+		currentTime    int64
+		defaultTime    int64
+		latestBootTime int64
+		expectedTime   int64
+	}{
+		{
+			description:    "New boot-time returned",
+			currentTime:    60,
+			defaultTime:    50,
+			latestBootTime: 70,
+			expectedTime:   60,
+		},
+		{
+			description:    "Default boot-time returned",
+			currentTime:    40,
+			defaultTime:    50,
+			latestBootTime: 70,
+			expectedTime:   50,
+		},
+		{
+			description:    "New boot-time > latest",
+			currentTime:    80,
+			defaultTime:    50,
+			latestBootTime: 70,
+			expectedTime:   50,
+		},
+		{
+			description:    "New boot-time = latest",
+			currentTime:    70,
+			defaultTime:    50,
+			latestBootTime: 70,
+			expectedTime:   50,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			event := message.Event{
+				Metadata: map[string]string{message.BootTimeKey: fmt.Sprint(tc.currentTime)},
+			}
+			bootTime := getPreviousBootTime(event, tc.defaultTime, tc.latestBootTime)
+			assert.Equal(tc.expectedTime, bootTime)
+		})
+	}
+}
+
+func TestCompareEvents(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	tests := []struct {
+		description    string
+		newEvent       message.Event
+		defaultEvent   message.Event
+		newEventValid  bool
+		targetBootTime int64
+		expectedEvent  message.Event
+	}{
+		{
+			description: "new event returned",
+			newEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+			defaultEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(time.Hour).Unix())},
+				Birthdate: now.Add(time.Hour).UnixNano(),
+			},
+			newEventValid:  true,
+			targetBootTime: now.Unix(),
+			expectedEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+		},
+		{
+			description: "target boot-time mismatch",
+			newEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(2 * time.Hour).Unix())},
+				Birthdate: now.Add(2 * time.Hour).UnixNano(),
+			},
+			defaultEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(time.Hour).Unix())},
+				Birthdate: now.Add(time.Hour).UnixNano(),
+			},
+			newEventValid:  true,
+			targetBootTime: now.Unix(),
+			expectedEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(time.Hour).Unix())},
+				Birthdate: now.Add(time.Hour).UnixNano(),
+			},
+		},
+		{
+			description: "event invalid",
+			newEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+			defaultEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(time.Hour).Unix())},
+				Birthdate: now.Add(time.Hour).UnixNano(),
+			},
+			newEventValid:  false,
+			targetBootTime: now.Unix(),
+			expectedEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(time.Hour).Unix())},
+				Birthdate: now.Add(time.Hour).UnixNano(),
+			},
+		},
+		{
+			description: "both event boot-times match",
+			newEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.Add(time.Minute).UnixNano(),
+			},
+			defaultEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+			newEventValid:  true,
+			targetBootTime: now.Unix(),
+			expectedEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+		},
+		{
+			description: "both event boot-times match",
+			newEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+			defaultEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.Add(time.Minute).UnixNano(),
+			},
+			newEventValid:  true,
+			targetBootTime: now.Unix(),
+			expectedEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			val := new(mockValidator)
+			val.On("Valid", tc.newEvent).Return(tc.newEventValid, nil)
+			event := compareEvents(tc.newEvent, tc.defaultEvent, val, tc.targetBootTime)
+			assert.Equal(tc.expectedEvent, event)
+		})
+	}
+}
+
+func TestCheckEvent(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	tests := []struct {
+		description   string
+		event         message.Event
+		targetTime    int64
+		expectedEvent message.Event
+		expectedErr   error
+	}{
+		{
+			description: "valid event",
+			event: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+			targetTime: now.Unix(),
+			expectedEvent: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				Birthdate: now.UnixNano(),
+			},
+		},
+		{
+			description: "invalid boot-time",
+			event: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: "-1"},
+				Birthdate: now.UnixNano(),
+			},
+			targetTime:    now.Unix(),
+			expectedEvent: message.Event{},
+			expectedErr:   EventNotFoundErr,
+		},
+		{
+			description: "missing boot-time",
+			event: message.Event{
+				Birthdate: now.UnixNano(),
+			},
+			targetTime:    now.Unix(),
+			expectedEvent: message.Event{},
+			expectedErr:   EventNotFoundErr,
+		},
+		{
+			description: "target boot-time mismatch",
+			event: message.Event{
+				Metadata:  map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(time.Hour).Unix())},
+				Birthdate: now.UnixNano(),
+			},
+			targetTime:    now.Unix(),
+			expectedEvent: message.Event{},
+			expectedErr:   EventNotFoundErr,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			event, err := checkEvent(tc.event, tc.targetTime)
+			assert.Equal(tc.expectedEvent, event)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
+			} else {
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			}
+		})
+	}
+}

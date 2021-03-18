@@ -27,7 +27,7 @@ func LastSessionFinder(validators validation.Validator, fatalValidators validati
 	return func(events []message.Event, currentEvent message.Event) (message.Event, error) {
 		// verify that the current event has a boot-time
 		currentBootTime, err := currentEvent.BootTime()
-		if err != nil || currentBootTime <= 0 {
+		if currentBootTime <= 0 {
 			return message.Event{}, validation.InvalidBootTimeErr{OriginalErr: err}
 		}
 
@@ -35,10 +35,12 @@ func LastSessionFinder(validators validation.Validator, fatalValidators validati
 		var prevBootTime int64
 
 		for _, event := range events {
+
 			// if transaction UUIDs are the same, continue onto next event
 			if event.TransactionUUID == currentEvent.TransactionUUID {
 				continue
 			}
+
 			// if any fatalValidators return false, it means we should stop looking for an event
 			// because there is something wrong with currentEvent, and we should not
 			// perform calculations using it.
@@ -46,38 +48,14 @@ func LastSessionFinder(validators validation.Validator, fatalValidators validati
 				return event, validation.InvalidEventErr{OriginalErr: err}
 			}
 
-			// Get the bootTime from the event we are checking. If boot-time
-			// doesn't exist, move on to the next event.
-			bootTime, err := event.BootTime()
-			if err != nil || bootTime <= 0 {
-				continue
-			}
-
-			// if boot-time is greater than any we've found so far but less than the current boot-time,
-			// save the boot-time.
-			if bootTime > prevBootTime && bootTime < currentBootTime {
-				prevBootTime = bootTime
-			}
-
-			// see if the event could be the event we are looking for.
-			if valid, _ := validators.Valid(event); valid {
-				latestBootTime, err := latestEvent.BootTime()
-				if err != nil || bootTime > latestBootTime {
-					latestEvent = event
-				} else if bootTime == latestBootTime && event.Birthdate < latestEvent.Birthdate {
-					latestEvent = event
-				}
-			}
+			// figure out the latest previous boot-time
+			prevBootTime = getPreviousBootTime(event, prevBootTime, currentBootTime)
+			// if event does not match validators, continue onto next event.
+			latestEvent = compareEvents(event, latestEvent, validators, prevBootTime)
 		}
 
-		// Compare the boot-time of the event found to the most recent previous boot-time we found.
-		// If it doesn't match, then we haven't found a valid event that is a part of the previous session.
-		latestEventBootTime, err := latestEvent.BootTime()
-		if err != nil || latestEventBootTime <= 0 || latestEventBootTime != prevBootTime {
-			return message.Event{}, EventNotFoundErr
-		}
-
-		return latestEvent, nil
+		// final check to make sure that we actually found an event
+		return checkEvent(latestEvent, prevBootTime)
 	}
 
 }
@@ -90,11 +68,11 @@ func CurrentSessionFinder(validators validation.Validator, fatalValidators valid
 	return func(events []message.Event, currentEvent message.Event) (message.Event, error) {
 		// verify that the current event has a boot-time
 		currentBootTime, err := currentEvent.BootTime()
-		if err != nil || currentBootTime <= 0 {
+		if currentBootTime <= 0 {
 			return message.Event{}, validation.InvalidBootTimeErr{OriginalErr: err}
 		}
 
-		var oldEvent message.Event
+		var latestEvent message.Event
 		for _, event := range events {
 			// if transaction UUIDs are the same, continue onto next event
 			if event.TransactionUUID == currentEvent.TransactionUUID {
@@ -110,28 +88,16 @@ func CurrentSessionFinder(validators validation.Validator, fatalValidators valid
 
 			// Get the bootTime from the event we are checking. If boot-time
 			// doesn't exist, move on to the next event.
-			bootTime, err := event.BootTime()
-			if err != nil || bootTime <= 0 {
+			bootTime, _ := event.BootTime()
+			if bootTime <= 0 {
 				continue
 			}
 
-			// See if event is a valid event based on what we are looking for.
-			// Also check event's boot-time to see if it is part of the current session.
-			if valid, _ := validators.Valid(event); valid && bootTime == currentBootTime {
-				// if there has not been another valid event from the current session found or
-				// if event's birthdate is older than the current one tracked, track this event instead.
-				if oldEvent.Birthdate == 0 || event.Birthdate < oldEvent.Birthdate {
-					oldEvent = event
-				}
-			}
+			latestEvent = compareEvents(event, latestEvent, validators, currentBootTime)
 		}
 
-		eventBootTime, err := oldEvent.BootTime()
-		if err != nil || eventBootTime <= 0 {
-			return message.Event{}, EventNotFoundErr
-		}
-
-		return oldEvent, nil
+		// final check to make sure that we actually found an event
+		return checkEvent(latestEvent, currentBootTime)
 	}
 }
 
@@ -144,7 +110,7 @@ func SameEventFinder(fatalValidators validation.Validator) FinderFunc {
 	return func(events []message.Event, currentEvent message.Event) (message.Event, error) {
 		// verify that the current event has a boot-time
 		currentBootTime, err := currentEvent.BootTime()
-		if err != nil || currentBootTime <= 0 {
+		if currentBootTime <= 0 {
 			return message.Event{}, validation.InvalidBootTimeErr{OriginalErr: err}
 		}
 
@@ -163,4 +129,54 @@ func SameEventFinder(fatalValidators validation.Validator) FinderFunc {
 
 		return currentEvent, nil
 	}
+}
+
+// See if event has a boot-time that has greater than the one we are currently tracking but less than
+// the latestBootTime.
+func getPreviousBootTime(event message.Event, currentPrevTime int64, latestBootTime int64) int64 {
+	// Get the bootTime from the event we are checking. If boot-time
+	// doesn't exist, return currentPrevTime, which is the latest previous time currently found.
+	bootTime, _ := event.BootTime()
+	if bootTime <= 0 {
+		return currentPrevTime
+	}
+
+	// if boot-time is greater than any we've found so far but less than the current boot-time,
+	// return bootTime
+	if bootTime > currentPrevTime && bootTime < latestBootTime {
+		return bootTime
+	}
+	return currentPrevTime
+}
+
+// Sees if an event is valid based on the validators passed in and whether it has the targetBootTime.
+// If not, returns defaultEvent.
+func compareEvents(newEvent message.Event, defaultEvent message.Event, validators validation.Validator, targetBootTime int64) message.Event {
+	bootTime, _ := newEvent.BootTime()
+	currentPrevBootTime, _ := defaultEvent.BootTime()
+
+	// if boot-time doesn't match target boot-time, return previous event
+	if bootTime != targetBootTime {
+		return defaultEvent
+	}
+
+	// if event does not match validators, return previous event
+	if valid, _ := validators.Valid(newEvent); !valid {
+		return defaultEvent
+	}
+
+	if currentPrevBootTime != targetBootTime || newEvent.Birthdate < defaultEvent.Birthdate {
+		return newEvent
+	}
+
+	return defaultEvent
+}
+
+// checks that an event is not empty and matches the target boot-time
+func checkEvent(event message.Event, targetBootTime int64) (message.Event, error) {
+	bootTime, err := event.BootTime()
+	if err != nil || bootTime <= 0 || bootTime != targetBootTime {
+		return message.Event{}, EventNotFoundErr
+	}
+	return event, nil
 }
