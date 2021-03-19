@@ -7,23 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type testError struct {
-	err   error
-	label string
-}
-
-func (t testError) Error() string {
-	return t.err.Error()
-}
-
-func (t testError) ErrorLabel() string {
-	return t.label
-}
-
-func (t testError) Unwrap() error {
-	return t.err
-}
-
 func TestInvalidEventErr(t *testing.T) {
 	testErr := testError{
 		err:   errors.New("test error"),
