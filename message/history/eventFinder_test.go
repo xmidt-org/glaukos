@@ -168,7 +168,7 @@ func TestSameEventFinder(t *testing.T) {
 				events = append(events, te.event)
 			}
 
-			finder := EventHistoryValidator(fatalValidators)
+			finder := EventHistoryIterator(fatalValidators)
 			event, err := finder.Find(events, tc.latestEvent)
 			assert.Equal(tc.expectedEvent, event)
 			if tc.expectedErr == nil || err == nil {
@@ -694,7 +694,7 @@ func TestNewValidEvent(t *testing.T) {
 			assert := assert.New(t)
 			val := new(mockValidator)
 			val.On("Valid", tc.newEvent).Return(tc.newEventValid, nil)
-			newEventFound := newValidEvent(tc.newEvent, tc.defaultEvent, val, tc.targetBootTime)
+			newEventFound := newEventValid(tc.newEvent, tc.defaultEvent, val, tc.targetBootTime)
 			assert.Equal(tc.expectedRes, newEventFound)
 		})
 	}
