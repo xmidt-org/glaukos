@@ -251,12 +251,8 @@ func testError(t *testing.T, past bool) {
 				Birthdate:       now.UnixNano(),
 				TransactionUUID: "latest",
 			},
-			expectedEvent: message.Event{
-				Destination: "mac:112233445566/online",
-				Metadata:    map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(1 * time.Hour).Unix())},
-				Birthdate:   now.Add(1 * time.Hour).UnixNano(),
-			},
-			expectedErr: fatalError,
+			expectedEvent: message.Event{},
+			expectedErr:   fatalError,
 		},
 	}
 
@@ -313,13 +309,9 @@ func testDuplicateAndNewer(t *testing.T, past bool) {
 					Birthdate:   now.Add(-30 * time.Minute).UnixNano(),
 				},
 			},
-			latestEvent: latestEvent,
-			expectedEvent: message.Event{
-				Destination: "mac:112233445566/online",
-				Metadata:    map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(1 * time.Hour).Unix())},
-				Birthdate:   now.Add(-1 * time.Hour).UnixNano(),
-			},
-			expectedErr: validation.InvalidEventErr{},
+			latestEvent:   latestEvent,
+			expectedEvent: message.Event{},
+			expectedErr:   validation.InvalidEventErr{},
 		},
 		{
 			description: "Duplicate event found",
@@ -335,13 +327,9 @@ func testDuplicateAndNewer(t *testing.T, past bool) {
 					Birthdate:   now.Add(-30 * time.Minute).UnixNano(),
 				},
 			},
-			latestEvent: latestEvent,
-			expectedEvent: message.Event{
-				Destination: "mac:112233445566/online",
-				Metadata:    map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
-				Birthdate:   now.UnixNano(),
-			},
-			expectedErr: validation.InvalidEventErr{},
+			latestEvent:   latestEvent,
+			expectedEvent: message.Event{},
+			expectedErr:   validation.InvalidEventErr{},
 		},
 	}
 

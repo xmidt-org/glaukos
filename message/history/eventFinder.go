@@ -51,7 +51,7 @@ func LastSessionFinder(validator validation.Validator, fatalValidator validation
 		event, found, err := lastSessionFinder(events, currentEvent, validator, fatalValidator)
 
 		if err != nil {
-			return event, err
+			return message.Event{}, err
 		}
 
 		// final check to make sure that we actually found an event
@@ -114,7 +114,7 @@ func CurrentSessionFinder(validator validation.Validator, fatalValidator validat
 
 		event, found, err := currentSessionFinder(events, currentEvent, validator, fatalValidator)
 		if err != nil {
-			return event, err
+			return message.Event{}, err
 		}
 
 		// final check to make sure that we actually found an event
