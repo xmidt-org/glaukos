@@ -1,24 +1,18 @@
 package validation
 
-import (
-	"github.com/stretchr/testify/mock"
-)
-
-type mockError struct {
-	mock.Mock
+type testError struct {
+	err   error
+	label string
 }
 
-func (m *mockError) Error() string {
-	args := m.Called()
-	return args.String(0)
+func (t testError) Error() string {
+	return t.err.Error()
 }
 
-func (m *mockError) ErrorLabel() string {
-	args := m.Called()
-	return args.String(0)
+func (t testError) ErrorLabel() string {
+	return t.label
 }
 
-func (m *mockError) Unwrap() error {
-	args := m.Called()
-	return args.Error(0)
+func (t testError) Unwrap() error {
+	return t.err
 }

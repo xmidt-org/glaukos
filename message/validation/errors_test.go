@@ -8,10 +8,10 @@ import (
 )
 
 func TestInvalidEventErr(t *testing.T) {
-	mockErr := new(mockError)
-	mockErr.On("Error").Return("test error")
-	mockErr.On("ErrorLabel").Return("test error")
-	mockErr.On("Unwrap").Return(errors.New("test error"))
+	testErr := testError{
+		err:   errors.New("test error"),
+		label: "test error",
+	}
 	tests := []struct {
 		description   string
 		msg           string
@@ -29,7 +29,7 @@ func TestInvalidEventErr(t *testing.T) {
 		},
 		{
 			description:   "Underlying error label",
-			underlyingErr: mockErr,
+			underlyingErr: testErr,
 			expectedLabel: "test_error",
 		},
 	}

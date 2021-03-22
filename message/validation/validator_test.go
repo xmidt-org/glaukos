@@ -11,6 +11,30 @@ import (
 	"github.com/xmidt-org/glaukos/message"
 )
 
+func TestValidators(t *testing.T) {
+	assert := assert.New(t)
+	testEvent := message.Event{}
+	validators := Validators([]Validator{testValidator(true, nil), testValidator(true, nil)})
+	valid, err := validators.Valid(testEvent)
+	assert.True(valid)
+	assert.Nil(err)
+
+	validators = Validators([]Validator{
+		testValidator(true, nil),
+		testValidator(false, errors.New("invalid event")),
+		testValidator(false, errors.New("another invalid event")),
+	})
+	valid, err = validators.Valid(testEvent)
+	assert.False(valid)
+	assert.Equal(errors.New("invalid event"), err)
+}
+
+func testValidator(returnBool bool, returnErr error) ValidatorFunc {
+	return func(e message.Event) (bool, error) {
+		return returnBool, returnErr
+	}
+}
+
 func TestBootTimeValidator(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
@@ -189,26 +213,225 @@ func TestDestinationValidator(t *testing.T) {
 
 }
 
-func TestValidators(t *testing.T) {
-	assert := assert.New(t)
-	testEvent := message.Event{}
-	validators := Validators([]Validator{testValidator(true, nil), testValidator(true, nil)})
-	valid, err := validators.Valid(testEvent)
-	assert.True(valid)
-	assert.Nil(err)
+func TestNewestBootTimeValidator(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	latestEvent := message.Event{
+		Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+		TransactionUUID: "123",
+	}
 
-	validators = Validators([]Validator{
-		testValidator(true, nil),
-		testValidator(false, errors.New("invalid event")),
-		testValidator(false, errors.New("another invalid event")),
-	})
-	valid, err = validators.Valid(testEvent)
-	assert.False(valid)
-	assert.Equal(errors.New("invalid event"), err)
+	validator := NewestBootTimeValidator(latestEvent)
+	tests := []struct {
+		description string
+		event       message.Event
+		valid       bool
+		validator   Validator
+		expectedErr error
+	}{
+		{
+			description: "valid event",
+			event: message.Event{
+				Metadata: map[string]string{
+					message.BootTimeKey: fmt.Sprint(now.Add(-30 * time.Minute).Unix()),
+				},
+				TransactionUUID: "abc",
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "same event uuid",
+			event: message.Event{
+				Metadata: map[string]string{
+					message.BootTimeKey: fmt.Sprint(now.Add(30 * time.Minute).Unix()),
+				},
+				TransactionUUID: "123",
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "boot-time not present",
+			event: message.Event{
+				Metadata:        map[string]string{},
+				TransactionUUID: "abc",
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "newer boot-time",
+			event: message.Event{
+				Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(30 * time.Minute).Unix())},
+				TransactionUUID: "abc",
+			},
+			validator:   validator,
+			valid:       false,
+			expectedErr: errNewerBootTime,
+		},
+		{
+			description: "latest boot-time invalid",
+			event: message.Event{
+				Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Add(-30 * time.Minute).Unix())},
+				TransactionUUID: "abc",
+			},
+			validator: NewestBootTimeValidator(message.Event{
+				TransactionUUID: "123",
+			}),
+			valid:       false,
+			expectedErr: errNewerBootTime,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			valid, err := tc.validator.Valid(tc.event)
+			assert.Equal(tc.valid, valid)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
+			} else {
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			}
+		})
+	}
 }
 
-func testValidator(returnBool bool, returnErr error) ValidatorFunc {
-	return func(e message.Event) (bool, error) {
-		return returnBool, returnErr
+func TestUniqueEventValidator(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	destRegex := regexp.MustCompile(".*/online")
+	latestEvent := message.Event{
+		Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+		TransactionUUID: "test",
+		Birthdate:       now.UnixNano(),
+	}
+
+	validator := UniqueEventValidator(latestEvent, destRegex)
+	tests := []struct {
+		description string
+		event       message.Event
+		valid       bool
+		validator   Validator
+		expectedErr error
+	}{
+		{
+			description: "valid event",
+			event: message.Event{
+				Destination: "mac:112233445566/online",
+				Metadata: map[string]string{
+					message.BootTimeKey: fmt.Sprint(now.Add(-30 * time.Minute).Unix()),
+				},
+				TransactionUUID: "abc",
+				Birthdate:       now.Add(-30 * time.Minute).UnixNano(),
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "same event uuid",
+			event: message.Event{
+				Destination: "mac:112233445566/online",
+				Metadata: map[string]string{
+					message.BootTimeKey: fmt.Sprint(now.Unix()),
+				},
+				TransactionUUID: "test",
+				Birthdate:       now.UnixNano(),
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "event type mismatch",
+			event: message.Event{
+				Destination: "mac:112233445566/offline",
+				Metadata: map[string]string{
+					message.BootTimeKey: fmt.Sprint(now.Unix()),
+				},
+				TransactionUUID: "abc",
+				Birthdate:       now.UnixNano(),
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "boot-time missing",
+			event: message.Event{
+				Destination:     "mac:112233445566/online",
+				Metadata:        map[string]string{},
+				TransactionUUID: "abc",
+				Birthdate:       now.UnixNano(),
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "duplicate found, older birthdate",
+			event: message.Event{
+				Destination:     "mac:112233445566/online",
+				Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				TransactionUUID: "abc",
+				Birthdate:       now.Add(-1 * time.Minute).UnixNano(),
+			},
+			validator:   validator,
+			valid:       false,
+			expectedErr: errDuplicateEvent,
+		},
+		{
+			description: "duplicate found, same birthdate",
+			event: message.Event{
+				Destination:     "mac:112233445566/online",
+				Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				TransactionUUID: "abc",
+				Birthdate:       now.UnixNano(),
+			},
+			validator:   validator,
+			valid:       false,
+			expectedErr: errDuplicateEvent,
+		},
+		{
+			description: "duplicate found, later birthdate",
+			event: message.Event{
+				Destination:     "mac:112233445566/online",
+				Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				TransactionUUID: "abc",
+				Birthdate:       now.Add(time.Minute).UnixNano(),
+			},
+			validator: validator,
+			valid:     true,
+		},
+		{
+			description: "latest boot-time invalid",
+			event: message.Event{
+				Metadata:        map[string]string{message.BootTimeKey: fmt.Sprint(now.Unix())},
+				TransactionUUID: "123",
+				Birthdate:       now.UnixNano(),
+			},
+			validator: UniqueEventValidator(message.Event{
+				TransactionUUID: "test",
+				Birthdate:       now.UnixNano(),
+			}, destRegex),
+			valid: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			valid, err := tc.validator.Valid(tc.event)
+			assert.Equal(tc.valid, valid)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
+			} else {
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			}
+		})
 	}
 }
