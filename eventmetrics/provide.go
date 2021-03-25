@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/xmidt-org/arrange"
-	"github.com/xmidt-org/glaukos/message/validation"
+	"github.com/xmidt-org/interpreter/validation"
 
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/glaukos/eventmetrics/parsers"

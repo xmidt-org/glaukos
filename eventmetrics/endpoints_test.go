@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/glaukos/message"
-	"github.com/xmidt-org/glaukos/message/validation"
+	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/interpreter/validation"
 	"github.com/xmidt-org/wrp-go/v3"
 
 	"github.com/go-kit/kit/log"
@@ -58,13 +58,13 @@ func TestNewEndpoints(t *testing.T) {
 		},
 		{
 			description: "Invalid Birthdate",
-			event: message.Event{
+			event: interpreter.Event{
 				Birthdate: now.Add(-4 * time.Hour).UnixNano(),
 			},
 		},
 		{
 			description: "Queue Error",
-			event: message.Event{
+			event: interpreter.Event{
 				Birthdate: now.Add(-1 * time.Hour).UnixNano(),
 			},
 			queueErr:    errors.New("queue error"),

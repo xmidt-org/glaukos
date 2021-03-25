@@ -8,7 +8,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 )
 
 const (
@@ -24,7 +24,7 @@ type MetadataParser struct {
 }
 
 // Parse gathers metrics for each metadata key.
-func (m MetadataParser) Parse(event message.Event) error {
+func (m MetadataParser) Parse(event interpreter.Event) error {
 	if len(event.Metadata) < 1 {
 		m.Measures.UnparsableEventsCount.With(ParserLabel, metadataParserLabel, ReasonLabel, noMetadataFoundErr).Add(1.0)
 		return errors.New("no metadata found")

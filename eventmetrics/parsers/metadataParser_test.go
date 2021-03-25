@@ -3,7 +3,7 @@ package parsers
 import (
 	"testing"
 
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
@@ -20,13 +20,13 @@ func TestParse(t *testing.T) {
 
 	tests := []struct {
 		description        string
-		message            message.Event
+		message            interpreter.Event
 		expectedCount      map[string]float64
 		expectedUnparsable float64
 	}{
 		{
 			description: "Success",
-			message: message.Event{
+			message: interpreter.Event{
 				Metadata: map[string]string{
 					trustKey:     "1000",
 					partnerIDKey: "random partner",
@@ -43,7 +43,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			description: "No metadata",
-			message: message.Event{
+			message: interpreter.Event{
 				Metadata: map[string]string{},
 			},
 			expectedUnparsable: 1,
@@ -79,8 +79,8 @@ func TestMultipleParse(t *testing.T) {
 	)
 
 	p := xmetricstest.NewProvider(&xmetrics.Options{})
-	messages := []message.Event{
-		message.Event{
+	messages := []interpreter.Event{
+		interpreter.Event{
 			Metadata: map[string]string{
 				trustKey:     "1000",
 				partnerIDKey: "random partner",
@@ -88,21 +88,21 @@ func TestMultipleParse(t *testing.T) {
 				randomKey:    "random",
 			},
 		},
-		message.Event{
+		interpreter.Event{
 			Metadata: map[string]string{
 				trustKey:     "1000",
 				partnerIDKey: "random partner",
 			},
 		},
-		message.Event{
+		interpreter.Event{
 			Metadata: map[string]string{
 				trustKey: "1000",
 			},
 		},
-		message.Event{
+		interpreter.Event{
 			Metadata: map[string]string{},
 		},
-		message.Event{
+		interpreter.Event{
 			Metadata: map[string]string{},
 		},
 	}

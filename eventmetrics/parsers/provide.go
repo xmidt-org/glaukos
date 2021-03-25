@@ -2,7 +2,7 @@ package parsers
 
 import (
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
-	"github.com/xmidt-org/glaukos/message/history"
+	"github.com/xmidt-org/glaukos/events"
 	"go.uber.org/fx"
 )
 
@@ -11,7 +11,7 @@ import (
 func Provide() fx.Option {
 	return fx.Options(
 		ProvideEventMetrics(),
-		history.Provide(),
+		events.Provide(),
 		provideParsers(),
 	)
 }

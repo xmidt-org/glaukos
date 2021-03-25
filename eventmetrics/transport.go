@@ -14,7 +14,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -68,6 +68,6 @@ func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 		return nil, BadRequestErr{Message: fmt.Sprintf("could not decode request body: %v", err)}
 	}
 
-	event, _ := message.NewEvent(msg)
+	event, _ := interpreter.NewEvent(msg)
 	return event, nil
 }

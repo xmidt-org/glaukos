@@ -5,13 +5,13 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/arrange"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 	"go.uber.org/fx"
 )
 
 // Queue is the type that processes incoming events
 type Queue interface {
-	Queue(message.Event) error
+	Queue(interpreter.Event) error
 }
 
 // ParsersIn brings together all of the different types of parsers that glaukos uses.

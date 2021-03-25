@@ -1,4 +1,4 @@
-package validation
+package parsers
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 )
 
 func TestParseTimeLocation(t *testing.T) {
@@ -50,10 +50,10 @@ func TestParseTime(t *testing.T) {
 	assert.Nil(t, err)
 	bootTime, err := time.Parse(time.RFC3339Nano, "2021-03-01T18:00:01Z")
 	assert.Nil(t, err)
-	event := message.Event{
+	event := interpreter.Event{
 		Birthdate: birthdate.UnixNano(),
 		Metadata: map[string]string{
-			message.BootTimeKey: fmt.Sprint(bootTime.Unix()),
+			interpreter.BootTimeKey: fmt.Sprint(bootTime.Unix()),
 		},
 	}
 
