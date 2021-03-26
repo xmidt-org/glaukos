@@ -8,7 +8,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/themis/xlog/xlogtest"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/xmetrics"
@@ -97,7 +97,7 @@ func TestNewEventParser(t *testing.T) {
 
 func TestParseEvent(t *testing.T) {
 	p := xmetricstest.NewProvider(&xmetrics.Options{})
-	event := message.Event{
+	event := interpreter.Event{
 		Source:          "test source",
 		Destination:     "device-status/mac:some_address/an-event/some_timestamp",
 		MsgType:         int(wrp.SimpleEventMessageType),
@@ -194,11 +194,11 @@ func TestQueue(t *testing.T) {
 				logger:  xlogtest.New(t),
 				workers: semaphore.New(2),
 				metrics: metrics,
-				queue:   make(chan message.Event, tc.queueSize),
+				queue:   make(chan interpreter.Event, tc.queueSize),
 			}
 
 			for i := 0; i < tc.numEvents; i++ {
-				q.Queue(message.Event{})
+				q.Queue(interpreter.Event{})
 			}
 
 			p.Assert(t, "depth")(xmetricstest.Value(tc.eventsMetricCount))

@@ -12,7 +12,7 @@ import (
 
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -78,7 +78,7 @@ func TestDecodeEvent(t *testing.T) {
 		PartnerIDs:      []string{"partner1", "partner2"},
 	}
 
-	goodEvent := message.Event{
+	goodEvent := interpreter.Event{
 		MsgType:     int(wrp.SimpleEventMessageType),
 		Source:      "test",
 		Destination: "test",
@@ -95,7 +95,7 @@ func TestDecodeEvent(t *testing.T) {
 	tests := []struct {
 		description   string
 		request       interface{}
-		expectedEvent message.Event
+		expectedEvent interpreter.Event
 		expectedErr   bool
 	}{
 		{

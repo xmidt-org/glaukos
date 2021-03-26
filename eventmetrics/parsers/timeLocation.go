@@ -1,9 +1,9 @@
-package validation
+package parsers
 
 import (
 	"strings"
 
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 )
 
 // TimeLocation is an enum to determine what should be used in timeElapsed calculations
@@ -31,7 +31,7 @@ func ParseTimeLocation(location string) TimeLocation {
 }
 
 // ParseTime gets the timestamp from the proper location of an Event
-func ParseTime(e message.Event, locationStr string) (int64, error) {
+func ParseTime(e interpreter.Event, locationStr string) (int64, error) {
 	location := ParseTimeLocation(locationStr)
 
 	if location == Birthdate {

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
-	"github.com/xmidt-org/glaukos/message/validation"
+	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/interpreter/validation"
 
-	"github.com/xmidt-org/glaukos/message"
 	"github.com/xmidt-org/themis/xlog"
 
 	"github.com/go-kit/kit/endpoint"
@@ -45,7 +45,7 @@ type EndpointsDecodeIn struct {
 func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
-			v, ok := request.(message.Event)
+			v, ok := request.(interpreter.Event)
 			if !ok {
 				return nil, errors.New("invalid request info: unable to convert to Event")
 			}

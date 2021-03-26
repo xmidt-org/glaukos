@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
@@ -30,7 +30,7 @@ type Config struct {
 }
 
 type EventQueue struct {
-	queue   chan message.Event
+	queue   chan interpreter.Event
 	workers semaphore.Interface
 	wg      sync.WaitGroup
 	logger  log.Logger
@@ -41,7 +41,7 @@ type EventQueue struct {
 
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
-	Parse(message.Event) error
+	Parse(interpreter.Event) error
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
@@ -61,7 +61,7 @@ func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log
 		logger = defaultLogger
 	}
 
-	queue := make(chan message.Event, config.QueueSize)
+	queue := make(chan interpreter.Event, config.QueueSize)
 	workers := semaphore.New(config.MaxWorkers)
 
 	e := EventQueue{
@@ -87,7 +87,7 @@ func (e *EventQueue) Stop() {
 }
 
 // Queue attempts to add a message to the queue and returns an error if the queue is full.
-func (e *EventQueue) Queue(event message.Event) (err error) {
+func (e *EventQueue) Queue(event interpreter.Event) (err error) {
 	select {
 	case e.queue <- event:
 		if e.metrics.EventsQueueDepth != nil {
@@ -116,7 +116,7 @@ func (e *EventQueue) ParseEvents() {
 }
 
 // ParseEvent parses the metadata and boot-time of each event and generates metrics.
-func (e *EventQueue) ParseEvent(event message.Event) {
+func (e *EventQueue) ParseEvent(event interpreter.Event) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
 		partnerID := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
