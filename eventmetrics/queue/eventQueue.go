@@ -5,9 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
 )
@@ -41,7 +39,8 @@ type EventQueue struct {
 
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
-	Parse(interpreter.Event) error
+	Parse(interpreter.Event)
+	Name() string
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
@@ -124,8 +123,6 @@ func (e *EventQueue) ParseEvent(event interpreter.Event) {
 	}
 
 	for _, p := range e.parsers {
-		if err := p.Parse(event); err != nil {
-			level.Error(e.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to parse")
-		}
+		p.Parse(event)
 	}
 }
