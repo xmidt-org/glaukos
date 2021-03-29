@@ -1,13 +1,13 @@
 ---
 primary:
-  address: ":5010"
+  address: ":5020"
 health:
-  port: ":5011"
+  port: ":5021"
   endpoint: "/health"
 pprof:
-  address: ":5012"
+  address: ":5022"
 metric:
-  address: ":5013"
+  address: ":5023"
   metricsOptions:
     namespace: xmidt
     subsystem: caduceator
@@ -27,10 +27,10 @@ vegetaConfig:
   postURL: "http://caduceus:6000/api/v3/notify"
   sleepTime: "0s"
   clientTimeout: "15s"
-  wrpMessageDest: "event:device-status/mac:112233445566/fully-manageable/1614265173"
+  wrpMessageDest: "event:device-status/mac:112233445566/operational/1616576732"
   TransactionId: "123"
   BootTimeDuration: "-10m" # needs to be within 12 hours prior and one hour in the future for successful events
-  BirthdateDuration: "-2m" # needs to be within 12 hours prior and one hour in the future for successful events
+  BirthdateDuration: "-4m" # needs to be within 12 hours prior and one hour in the future for successful events
 
   # simulates talaria rehash
   vegetaRehash:
