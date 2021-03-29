@@ -236,3 +236,27 @@ eventMetrics:
   # A birthdate is deemed valid if it is between (current time - birthdateValidFrom) and (current time + birthdateValidTo).
   # If a birthdate is deemed invalid, it will be replaced with the current time.
   birthdateValidTo: "1h"
+
+timeElapsedParsers:
+  defaultTimeValidation: "2h"
+  parsers:
+    - name: "boot_to_online"
+      incomingEvent:
+        regex: ".*/online$"
+        calculateUsing: "birthdate"
+    - name: "boot_to_operational"
+      incomingEvent:
+        regex: ".*/operational/"
+        calculateUsing: "birthdate"
+    - name: "boot_to_manageable"
+      incomingEvent:
+        regex: ".*/fully-manageable/"
+        calculateUsing: "birthdate"
+    - name: "reboot_to_manageable"
+      incomingEvent:
+        regex: ".*/fully-manageable/"
+        calculateUsing: "birthdate"
+      searchedEvent:
+        regex: ".*/reboot-pending/.*"
+        calculateUsing: "birthdate"
+      searchedSession: "past"
