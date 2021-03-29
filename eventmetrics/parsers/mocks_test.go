@@ -1,4 +1,4 @@
-package events
+package parsers
 
 import (
 	"github.com/stretchr/testify/mock"
@@ -12,4 +12,13 @@ type mockValidator struct {
 func (m *mockValidator) Valid(e interpreter.Event) (bool, error) {
 	args := m.Called(e)
 	return args.Bool(0), args.Error(1)
+}
+
+type mockEventClient struct {
+	mock.Mock
+}
+
+func (m *mockEventClient) GetEvents(deviceID string) []interpreter.Event {
+	args := m.Called(deviceID)
+	return args.Get(0).([]interpreter.Event)
 }
