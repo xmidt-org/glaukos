@@ -137,15 +137,15 @@ func (t *TimeElapsedParser) Name() string {
 	return t.name
 }
 
-func fixConfig(config TimeElapsedConfig, defaultTimeValidation time.Duration) TimeElapsedConfig {
+func fixConfig(config TimeElapsedConfig, defaultValidFrom time.Duration) TimeElapsedConfig {
 	name := strings.ReplaceAll(strings.TrimSpace(config.Name), " ", "_")
 	config.Name = fmt.Sprintf("TEP_%s", name)
 	if config.IncomingEvent.ValidFrom == 0 {
-		config.IncomingEvent.ValidFrom = defaultTimeValidation
+		config.IncomingEvent.ValidFrom = defaultValidFrom
 	}
 
 	if config.SearchedEvent.ValidFrom == 0 {
-		config.SearchedEvent.ValidFrom = defaultTimeValidation
+		config.SearchedEvent.ValidFrom = defaultValidFrom
 	}
 
 	return config
@@ -153,7 +153,7 @@ func fixConfig(config TimeElapsedConfig, defaultTimeValidation time.Duration) Ti
 
 func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
 	if valid, err := t.incomingEvent.Valid(incomingEvent); !valid {
-		if errors.Is(validation.ErrInvalidEventType, err) {
+		if errors.Is(err, validation.ErrInvalidEventType) {
 			level.Info(t.logger).Log(xlog.MessageKey(), err, "event destination", incomingEvent.Destination)
 		} else {
 			level.Error(t.logger).Log(xlog.ErrorKey(), err, "event destination", incomingEvent.Destination)

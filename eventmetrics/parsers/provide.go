@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,9 +14,13 @@ import (
 	"go.uber.org/fx"
 )
 
+var (
+	errInvalidName = errors.New("invalid parser name")
+)
+
 type TimeElapsedParsersConfig struct {
-	DefaultTimeValidation time.Duration
-	Parsers               []TimeElapsedConfig
+	DefaultValidFrom time.Duration
+	Parsers          []TimeElapsedConfig
 }
 
 type TimeElapsedParsersIn struct {
@@ -62,13 +67,17 @@ func provideParsers() fx.Option {
 
 // TimeElapsedParsers creates a list of TimeElapsedParsers from the config.
 func TimeElapsedParsers(parsers TimeElapsedParsersIn) ([]queue.Parser, error) {
-	if valid, name := validNames(parsers.Config); !valid {
-		return nil, fmt.Errorf("invalid name: %s is already used by another parser", name)
+	if valid, err := validNames(parsers.Config.Parsers); !valid {
+		return nil, err
+	}
+
+	if parsers.Config.DefaultValidFrom == 0 {
+		parsers.Config.DefaultValidFrom = -1 * time.Hour
 	}
 
 	parsersList := make([]queue.Parser, 0, len(parsers.Config.Parsers))
 	for _, parserConfig := range parsers.Config.Parsers {
-		parserConfig = fixConfig(parserConfig, parsers.Config.DefaultTimeValidation)
+		parserConfig = fixConfig(parserConfig, parsers.Config.DefaultValidFrom)
 		o := prometheus.HistogramOpts{
 			Name:    parserConfig.Name,
 			Help:    fmt.Sprintf("tracks %s durations in s", parserConfig.Name),
@@ -92,16 +101,19 @@ func TimeElapsedParsers(parsers TimeElapsedParsersIn) ([]queue.Parser, error) {
 }
 
 // validNames checks that all of the time elapsed parsers have unique names.
-func validNames(config TimeElapsedParsersConfig) (bool, string) {
+func validNames(parsers []TimeElapsedConfig) (bool, error) {
 	names := make(map[string]bool)
-	for _, parser := range config.Parsers {
+	for _, parser := range parsers {
+		if len(parser.Name) == 0 {
+			return false, fmt.Errorf("%w: name cannot be blank", errInvalidName)
+		}
 		if names[parser.Name] {
-			return false, parser.Name
+			return false, fmt.Errorf("%w: %s is already used by another parser", errInvalidName, parser.Name)
 		}
 		names[parser.Name] = true
 	}
 
-	return true, ""
+	return true, nil
 }
 
 // ParserLogger pulls the logger from the context and adds the parser name to it.

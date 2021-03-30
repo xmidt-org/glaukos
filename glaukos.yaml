@@ -237,9 +237,38 @@ eventMetrics:
   # If a birthdate is deemed invalid, it will be replaced with the current time.
   birthdateValidTo: "1h"
 
+# timeElapsedParsers details the configuration for all of the time-elapsed parsers
 timeElapsedParsers:
-  defaultTimeValidation: "2h"
+  # defaultValidFrom is the default past time duration used to validate timestamps if one is not provided
+  # in the specific event config. If omitted, this will default to -1h.
+  defaultValidFrom: "-2h"
+  # parsers contains the list of configurations for each time elapsed parser
   parsers:
+    # # name (required) is the name of the parser. The eventual name will have the format TEP_<name>. If multiple
+    # # time-elapsed parsers have the same name, an error will be thrown when starting the application.
+    # - name: ""
+    #   # incomingEvent (required) contains the event configuration for the event received from caduceus.
+    #   # This event triggers the glaukos calculations.
+    #   incomingEvent:
+    #       # regex is the regex string for the event destination. This must be a valid regex.
+    #       regex: ""
+    #       # calculateUsing (optional) is a string that tells glaukos where to find the timestamp to use in the calculations.
+    #       # The options are "birthdate" or "boot-time". If omitted, the default is "birthdate".
+    #       calculateUsing: ""
+    #       # validFrom (optional) is the past time duration used to validate timestamps. If omitted, it will default
+    #       # to the duration provided in defaultValidFrom.
+    #       validFrom: "-2h"
+    #   # searchedEvent (optional) contains the event configuration for the event to look for in the device's history.
+    #   # If this is omitted, glaukos understands that all calculations should be done with the incoming event,
+    #   # which amounts to incomingEvent's birthdate - incomingEvent's boot-time.
+    #   searchedEvent:
+    #     regex: ""
+    #     calculateUsing: ""
+    #     validFrom: ""
+    #   # searchedSession is the session to use when searching for the searchedEvent in the device's history.
+    #   # This options are "previous" and "current". If omitted, it defaults to "previous". This field is disregarded
+    #   # if searchedEvent is left blank.
+    #   searchedSession: "previous"
     - name: "boot_to_online"
       incomingEvent:
         regex: ".*/online$"
@@ -259,4 +288,4 @@ timeElapsedParsers:
       searchedEvent:
         regex: ".*/reboot-pending/.*"
         calculateUsing: "birthdate"
-      searchedSession: "past"
+      searchedSession: "previous"

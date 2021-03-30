@@ -2,6 +2,7 @@ package parsers
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 	"time"
 
@@ -13,79 +14,145 @@ import (
 )
 
 func TestValidNames(t *testing.T) {
-	assert := assert.New(t)
-	validParsers := TimeElapsedParsersConfig{
-		Parsers: []TimeElapsedConfig{
-			TimeElapsedConfig{Name: "test"},
-			TimeElapsedConfig{Name: "test1"},
-			TimeElapsedConfig{Name: "random_parser"},
+	tests := []struct {
+		description   string
+		parsers       []TimeElapsedConfig
+		expectedErr   error
+		expectedValid bool
+	}{
+		{
+			description: "valid",
+			parsers: []TimeElapsedConfig{
+				TimeElapsedConfig{Name: "test"},
+				TimeElapsedConfig{Name: "test1"},
+				TimeElapsedConfig{Name: "random_parser"},
+			},
+			expectedValid: true,
+		},
+		{
+			description: "repeated names",
+			parsers: []TimeElapsedConfig{
+				TimeElapsedConfig{Name: "test"},
+				TimeElapsedConfig{Name: "test1"},
+				TimeElapsedConfig{Name: "test"},
+				TimeElapsedConfig{Name: "test1"},
+			},
+			expectedValid: false,
+			expectedErr:   errors.New("test"),
+		},
+		{
+			description: "blank name",
+			parsers: []TimeElapsedConfig{
+				TimeElapsedConfig{Name: "test"},
+				TimeElapsedConfig{Name: ""},
+				TimeElapsedConfig{Name: "test"},
+				TimeElapsedConfig{Name: "test1"},
+			},
+			expectedValid: false,
+			expectedErr:   errInvalidName,
 		},
 	}
 
-	valid, errName := validNames(validParsers)
-	assert.True(valid)
-	assert.Empty(errName)
-
-	invalidParsers := TimeElapsedParsersConfig{
-		Parsers: []TimeElapsedConfig{
-			TimeElapsedConfig{Name: "test"},
-			TimeElapsedConfig{Name: "test1"},
-			TimeElapsedConfig{Name: "test"},
-			TimeElapsedConfig{Name: "test1"},
-		},
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			valid, err := validNames(tc.parsers)
+			assert.Equal(tc.expectedValid, valid)
+			if tc.expectedErr == nil || err == nil {
+				assert.Equal(tc.expectedErr, err)
+			} else {
+				assert.Contains(err.Error(), tc.expectedErr.Error())
+			}
+		})
 	}
 
-	valid, errName = validNames(invalidParsers)
-	assert.False(valid)
-	assert.Equal("test", errName)
 }
 
 func TestTimeElapsedParsersSuccess(t *testing.T) {
-	assert := assert.New(t)
-	config := TimeElapsedParsersConfig{
-		DefaultTimeValidation: -2 * time.Hour,
-		Parsers: []TimeElapsedConfig{
-			TimeElapsedConfig{
-				Name: "test",
-				IncomingEvent: EventConfig{
-					Regex: ".*/online$",
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/offline$",
+	tests := []struct {
+		description string
+		config      TimeElapsedParsersConfig
+	}{
+		{
+			description: "success",
+			config: TimeElapsedParsersConfig{
+				DefaultValidFrom: -2 * time.Hour,
+				Parsers: []TimeElapsedConfig{
+					TimeElapsedConfig{
+						Name: "test",
+						IncomingEvent: EventConfig{
+							Regex:     ".*/online$",
+							ValidFrom: -1 * time.Hour,
+						},
+						SearchedEvent: EventConfig{
+							Regex:     ".*/offline$",
+							ValidFrom: -1 * time.Hour,
+						},
+					},
+					TimeElapsedConfig{
+						Name: "test2",
+						IncomingEvent: EventConfig{
+							Regex: ".*/some-event/",
+						},
+						SearchedEvent: EventConfig{
+							Regex: ".*/some-event-2/",
+						},
+					},
 				},
 			},
-			TimeElapsedConfig{
-				Name: "test2",
-				IncomingEvent: EventConfig{
-					Regex: ".*/some-event/",
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/some-event-2/",
+		},
+		{
+			description: "success with defaults",
+			config: TimeElapsedParsersConfig{
+				Parsers: []TimeElapsedConfig{
+					TimeElapsedConfig{
+						Name: "test",
+						IncomingEvent: EventConfig{
+							Regex: ".*/online$",
+						},
+						SearchedEvent: EventConfig{
+							Regex: ".*/offline$",
+						},
+					},
+					TimeElapsedConfig{
+						Name: "test2",
+						IncomingEvent: EventConfig{
+							Regex: ".*/some-event/",
+						},
+						SearchedEvent: EventConfig{
+							Regex: ".*/some-event-2/",
+						},
+					},
 				},
 			},
 		},
 	}
 
-	testFactory, err := xmetrics.New(xmetrics.Options{})
-	assert.Nil(err)
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			testFactory, err := xmetrics.New(xmetrics.Options{})
+			assert.Nil(err)
 
-	testMeasures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
-	timeElapsedParsersIn := TimeElapsedParsersIn{
-		Config:      config,
-		Logger:      log.NewNopLogger(),
-		Measures:    testMeasures,
-		CodexClient: &events.CodexClient{},
-		Factory:     testFactory,
-	}
+			testMeasures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
+			timeElapsedParsersIn := TimeElapsedParsersIn{
+				Config:      tc.config,
+				Logger:      log.NewNopLogger(),
+				Measures:    testMeasures,
+				CodexClient: &events.CodexClient{},
+				Factory:     testFactory,
+			}
 
-	timeElapsedParsers, err := TimeElapsedParsers(timeElapsedParsersIn)
-	assert.Len(timeElapsedParsers, len(config.Parsers))
-	assert.Nil(err)
+			timeElapsedParsers, err := TimeElapsedParsers(timeElapsedParsersIn)
+			assert.Len(timeElapsedParsers, len(tc.config.Parsers))
+			assert.Nil(err)
 
-	for _, parser := range timeElapsedParsers {
-		histogram, found := testMeasures.TimeElapsedHistograms[parser.Name()]
-		assert.True(found)
-		assert.NotNil(histogram)
+			for _, parser := range timeElapsedParsers {
+				histogram, found := testMeasures.TimeElapsedHistograms[parser.Name()]
+				assert.True(found)
+				assert.NotNil(histogram)
+			}
+		})
 	}
 }
 
@@ -112,7 +179,7 @@ func TestParserLogger(t *testing.T) {
 func testHistogramError(t *testing.T) {
 	assert := assert.New(t)
 	config := TimeElapsedParsersConfig{
-		DefaultTimeValidation: -2 * time.Hour,
+		DefaultValidFrom: -2 * time.Hour,
 		Parsers: []TimeElapsedConfig{
 			TimeElapsedConfig{
 				Name: "test1",
@@ -141,7 +208,7 @@ func testHistogramError(t *testing.T) {
 func testParserError(t *testing.T) {
 	assert := assert.New(t)
 	config := TimeElapsedParsersConfig{
-		DefaultTimeValidation: -2 * time.Hour,
+		DefaultValidFrom: -2 * time.Hour,
 		Parsers: []TimeElapsedConfig{
 			TimeElapsedConfig{
 				Name: "test1",
@@ -182,7 +249,7 @@ func testParserError(t *testing.T) {
 func testRepeatedNamesError(t *testing.T) {
 	assert := assert.New(t)
 	config := TimeElapsedParsersConfig{
-		DefaultTimeValidation: -2 * time.Hour,
+		DefaultValidFrom: -2 * time.Hour,
 		Parsers: []TimeElapsedConfig{
 			TimeElapsedConfig{
 				Name: "test1",

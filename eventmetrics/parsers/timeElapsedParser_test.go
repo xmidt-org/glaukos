@@ -283,8 +283,7 @@ func TestCalculateTimeElapsed(t *testing.T) {
 	t.Run("finder err", testFinderErr)
 	t.Run("test calculations", testCalculations)
 }
-
-func TestTimeElapsedParse(t *testing.T) {
+func TestTimeElapsedParseErr(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
 	logger := log.NewNopLogger()
@@ -362,8 +361,6 @@ func TestTimeElapsedParse(t *testing.T) {
 				measures:      m,
 				name:          "TEP_test",
 			}
-			// TODO: compare histogram data
-			m.TimeElapsedHistograms[parser.name] = p.NewHistogram(parser.name, 18)
 
 			parser.Parse(tc.incomingEvent)
 			p.Assert(t, "unparsable_events", ParserLabel, parser.name, ReasonLabel, errNoFwHwLabel)(xmetricstest.Value(tc.expectedUnparsable))
