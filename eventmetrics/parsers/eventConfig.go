@@ -16,12 +16,14 @@ var (
 
 type TimeFunc func() time.Time
 
+// EventInfo contains the information for an event that a time-elapsed parser is configured for.
 type EventInfo struct {
 	Regex          *regexp.Regexp
 	CalculateUsing TimeLocation
 	Validator      validation.Validator
 }
 
+// EventConfig contains the configurable features for an event. Used as part of the time-elapsed parser config.
 type EventConfig struct {
 	Regex          string
 	CalculateUsing string

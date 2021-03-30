@@ -36,7 +36,9 @@ type Finder interface {
 	Find(events []interpreter.Event, incomingEvent interpreter.Event) (interpreter.Event, error)
 }
 
-type ErrorEvent interface {
+// ErrorWithEvent is an optional interface that errors can implement if the error contains an event that is related
+// to the error.
+type ErrorWithEvent interface {
 	Event() interpreter.Event
 }
 
@@ -103,20 +105,6 @@ func NewTimeElapsedParser(config TimeElapsedConfig, client EventClient, logger l
 	}, nil
 }
 
-func fixConfig(config TimeElapsedConfig, defaultTimeValidation time.Duration) TimeElapsedConfig {
-	name := strings.ReplaceAll(strings.TrimSpace(config.Name), " ", "_")
-	config.Name = fmt.Sprintf("TEP_%s", name)
-	if config.IncomingEvent.ValidFrom == 0 {
-		config.IncomingEvent.ValidFrom = defaultTimeValidation
-	}
-
-	if config.SearchedEvent.ValidFrom == 0 {
-		config.SearchedEvent.ValidFrom = defaultTimeValidation
-	}
-
-	return config
-}
-
 // Parse implements the Parser interface.
 func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	restartTime, err := t.calculateTimeElapsed(event)
@@ -149,8 +137,21 @@ func (t *TimeElapsedParser) Name() string {
 	return t.name
 }
 
-func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
+func fixConfig(config TimeElapsedConfig, defaultTimeValidation time.Duration) TimeElapsedConfig {
+	name := strings.ReplaceAll(strings.TrimSpace(config.Name), " ", "_")
+	config.Name = fmt.Sprintf("TEP_%s", name)
+	if config.IncomingEvent.ValidFrom == 0 {
+		config.IncomingEvent.ValidFrom = defaultTimeValidation
+	}
 
+	if config.SearchedEvent.ValidFrom == 0 {
+		config.SearchedEvent.ValidFrom = defaultTimeValidation
+	}
+
+	return config
+}
+
+func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
 	if valid, err := t.incomingEvent.Valid(incomingEvent); !valid {
 		if errors.Is(validation.ErrInvalidEventType, err) {
 			level.Info(t.logger).Log(xlog.MessageKey(), err, "event destination", incomingEvent.Destination)
@@ -162,7 +163,7 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 
 	deviceID, err := incomingEvent.DeviceID()
 	if err != nil {
-		level.Error(t.logger).Log(xlog.ErrorKey(), "unable to parse deviceID")
+		level.Error(t.logger).Log(xlog.ErrorKey(), err)
 		return -1, err
 	}
 
@@ -191,7 +192,7 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 
 func (t *TimeElapsedParser) logErrWithEventDetails(err error, incomingEvent interpreter.Event) {
 	deviceID, _ := incomingEvent.DeviceID()
-	var eventErr ErrorEvent
+	var eventErr ErrorWithEvent
 	if errors.As(err, &eventErr) {
 		if len(eventErr.Event().TransactionUUID) > 0 {
 			level.Error(t.logger).Log(xlog.ErrorKey(), err, "deviceID", deviceID, "incoming event", incomingEvent.TransactionUUID, "old event", eventErr.Event().TransactionUUID)
