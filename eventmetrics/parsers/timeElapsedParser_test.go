@@ -317,7 +317,7 @@ func TestTimeElapsedParseErr(t *testing.T) {
 			description: "no hardware key",
 			incomingEvent: interpreter.Event{
 				Destination: "event:device-status/mac:112233445566/some-event/1614265173",
-				Metadata:    map[string]string{hardwareKey: "hardware"},
+				Metadata:    map[string]string{hardwareMetadataKey: "hardware"},
 				Birthdate:   now.UnixNano(),
 			},
 			oldEvent: interpreter.Event{
@@ -331,7 +331,7 @@ func TestTimeElapsedParseErr(t *testing.T) {
 			description: "no firmware key",
 			incomingEvent: interpreter.Event{
 				Destination: "event:device-status/mac:112233445566/some-event/1614265173",
-				Metadata:    map[string]string{firmwareKey: "firmware"},
+				Metadata:    map[string]string{firmwareMetadataKey: "firmware"},
 				Birthdate:   now.UnixNano(),
 			},
 			oldEvent: interpreter.Event{

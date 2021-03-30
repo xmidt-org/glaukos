@@ -16,14 +16,14 @@ import (
 )
 
 const (
-	FirmwareLabel     = "firmware"
-	HardwareLabel     = "hardware"
-	RebootReasonLabel = "reboot_reason"
+	firmwareLabel     = "firmware"
+	hardwareLabel     = "hardware"
+	rebootReasonLabel = "reboot_reason"
 	errNoFwHwLabel    = "err_no_firmware_or_hardware"
 
-	hardwareKey     = "/hw-model"
-	firmwareKey     = "/fw-name"
-	rebootReasonKey = "/hw-last-reboot-reason"
+	hardwareMetadataKey     = "/hw-model"
+	firmwareMetadataKey     = "/fw-name"
+	rebootReasonMetadataKey = "/hw-last-reboot-reason"
 )
 
 // EventClient is an interface that provides a list of events related to a device.
@@ -105,19 +105,19 @@ func NewTimeElapsedParser(config TimeElapsedConfig, client EventClient, logger l
 	}, nil
 }
 
-// Parse implements the Parser interface.
+// Parse implements the Parser interface. Calculates the time-elapsed and then adds to prometheus metrics if possible.
 func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	restartTime, err := t.calculateTimeElapsed(event)
 	if err != nil || restartTime <= 0 {
 		return
 	}
 
-	hardwareVal, hardwareFound := event.GetMetadataValue(hardwareKey)
-	firmwareVal, firmwareFound := event.GetMetadataValue(firmwareKey)
-	rebootReason, reasonFound := event.GetMetadataValue(rebootReasonKey)
+	hardwareVal, hardwareFound := event.GetMetadataValue(hardwareMetadataKey)
+	firmwareVal, firmwareFound := event.GetMetadataValue(firmwareMetadataKey)
+	rebootReason, reasonFound := event.GetMetadataValue(rebootReasonMetadataKey)
 
 	if !hardwareFound || !firmwareFound {
-		t.measures.UnparsableEventsCount.With(ParserLabel, t.name, ReasonLabel, errNoFwHwLabel).Add(1.0)
+		t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, errNoFwHwLabel).Add(1.0)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	}
 
 	if histogram, ok := t.measures.TimeElapsedHistograms[t.name]; ok {
-		histogram.With(HardwareLabel, hardwareVal, FirmwareLabel, firmwareVal, RebootReasonLabel, rebootReason).Observe(restartTime)
+		histogram.With(hardwareLabel, hardwareVal, firmwareLabel, firmwareVal, rebootReasonLabel, rebootReason).Observe(restartTime)
 	} else {
 		level.Error(t.logger).Log(xlog.ErrorKey(), "No histogram found for this time elapsed parser")
 	}
@@ -137,6 +137,7 @@ func (t *TimeElapsedParser) Name() string {
 	return t.name
 }
 
+// fixConfig takes in a TimeElapsedConfig and sets the names and default time validation for parser configs if needed.
 func fixConfig(config TimeElapsedConfig, defaultValidFrom time.Duration) TimeElapsedConfig {
 	name := strings.ReplaceAll(strings.TrimSpace(config.Name), " ", "_")
 	config.Name = fmt.Sprintf("TEP_%s", name)
@@ -151,6 +152,7 @@ func fixConfig(config TimeElapsedConfig, defaultValidFrom time.Duration) TimeEla
 	return config
 }
 
+// calculateTimeElapsed is the function that does the main time-elapsed calculations.
 func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
 	if valid, err := t.incomingEvent.Valid(incomingEvent); !valid {
 		if errors.Is(err, validation.ErrInvalidEventType) {
@@ -190,6 +192,7 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 	return timeElapsed, nil
 }
 
+// logs errors with events' transaction uuids.
 func (t *TimeElapsedParser) logErrWithEventDetails(err error, incomingEvent interpreter.Event) {
 	deviceID, _ := incomingEvent.DeviceID()
 	var eventErr ErrorWithEvent

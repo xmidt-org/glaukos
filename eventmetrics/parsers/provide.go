@@ -84,7 +84,7 @@ func TimeElapsedParsers(parsers TimeElapsedParsersIn) ([]queue.Parser, error) {
 			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 		}
 
-		if added, err := parsers.Measures.addTimeElapsedHistogram(parsers.Factory, o, FirmwareLabel, HardwareLabel, RebootReasonLabel); !added {
+		if added, err := parsers.Measures.addTimeElapsedHistogram(parsers.Factory, o, firmwareLabel, hardwareLabel, rebootReasonLabel); !added {
 			return nil, err
 		}
 

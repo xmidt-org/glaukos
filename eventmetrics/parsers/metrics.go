@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	ParserLabel = "parser_type"
-	ReasonLabel = "reason"
+	parserLabel = "parser_type"
+	reasonLabel = "reason"
 )
 
 var (
@@ -58,15 +58,15 @@ func ProvideEventMetrics() fx.Option {
 				Name: "metadata_fields",
 				Help: "the metadata fields coming from each event received",
 			},
-			MetadataKeyLabel,
+			metadataKeyLabel,
 		),
 		xmetrics.ProvideCounter(
 			prometheus.CounterOpts{
 				Name: "unparsable_events_count",
 				Help: "events that are unparsable, labelled by type of parser and the reason why they failed",
 			},
-			ParserLabel,
-			ReasonLabel,
+			parserLabel,
+			reasonLabel,
 		),
 		fx.Annotated{
 			Name:   "time_elapsed_histograms",

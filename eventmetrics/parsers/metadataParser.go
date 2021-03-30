@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	MetadataKeyLabel = "metadata_key"
+	metadataKeyLabel = "metadata_key"
 
 	noMetadataFoundErr = "no_metadata_found"
 )
@@ -35,17 +35,18 @@ type MetadataParser struct {
 // Parse gathers metrics for each metadata key.
 func (m *MetadataParser) Parse(event interpreter.Event) {
 	if len(event.Metadata) < 1 {
-		m.measures.UnparsableEventsCount.With(ParserLabel, m.name, ReasonLabel, noMetadataFoundErr).Add(1.0)
+		m.measures.UnparsableEventsCount.With(parserLabel, m.name, reasonLabel, noMetadataFoundErr).Add(1.0)
 		level.Error(m.logger).Log(xlog.ErrorKey(), errNoMetadata)
 		return
 	}
 
 	for key := range event.Metadata {
 		trimmedKey := strings.Trim(key, "/")
-		m.measures.MetadataFields.With(MetadataKeyLabel, trimmedKey).Add(1.0)
+		m.measures.MetadataFields.With(metadataKeyLabel, trimmedKey).Add(1.0)
 	}
 }
 
+// Name returns the name of the parser. Implements the Parser interface.
 func (m *MetadataParser) Name() string {
 	return m.name
 }
