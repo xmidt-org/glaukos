@@ -29,8 +29,8 @@ vegetaConfig:
   clientTimeout: "15s"
   wrpMessageDest: "event:device-status/mac:112233445566/reboot-pending/1612424775/2s"
   TransactionId: "abc"
-  BootTimeDuration: "-13m" # needs to be within 12 hours prior and one hour in the future for successful events
-  BirthdateDuration: "-15m" # needs to be within 12 hours prior and one hour in the future for successful events
+  BootTimeDuration: "-13m" # needs to be within the time frame configured in glaukos.yaml and one hour in the future for successful events
+  BirthdateDuration: "-15m" # needs to be within the time frame configured in glaukos.yaml for successful events
 
   # simulates talaria rehash
   vegetaRehash:
