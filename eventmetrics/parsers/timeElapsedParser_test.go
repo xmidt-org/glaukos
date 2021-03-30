@@ -51,6 +51,20 @@ func TestNewTimeElapsedParser(t *testing.T) {
 			expectedErr: errInvalidRegex,
 		},
 		{
+			description: "invalid regex in searched event",
+			config: TimeElapsedConfig{
+				IncomingEvent: EventConfig{
+					Regex:          ".*/some-event/",
+					CalculateUsing: "boot-time",
+					ValidFrom:      -2 * time.Hour,
+				},
+				SearchedEvent: EventConfig{
+					Regex: "[",
+				},
+			},
+			expectedErr: errInvalidRegex,
+		},
+		{
 			description: "no searched event in config",
 			config: TimeElapsedConfig{
 				IncomingEvent: EventConfig{

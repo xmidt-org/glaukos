@@ -4,10 +4,16 @@ import (
 	"testing"
 
 	"github.com/go-kit/kit/log"
+	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
+
+func TestName(t *testing.T) {
+	metadataParser := MetadataParser{name: "test_parser"}
+	assert.Equal(t, "test_parser", metadataParser.Name())
+}
 
 func TestParse(t *testing.T) {
 	const (
