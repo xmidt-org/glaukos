@@ -363,7 +363,7 @@ func TestTimeElapsedParseErr(t *testing.T) {
 			}
 
 			parser.Parse(tc.incomingEvent)
-			p.Assert(t, "unparsable_events", ParserLabel, parser.name, ReasonLabel, errNoFwHwLabel)(xmetricstest.Value(tc.expectedUnparsable))
+			p.Assert(t, "unparsable_events", parserLabel, parser.name, reasonLabel, errNoFwHwLabel)(xmetricstest.Value(tc.expectedUnparsable))
 		})
 	}
 }

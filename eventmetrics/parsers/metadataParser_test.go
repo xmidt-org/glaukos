@@ -65,10 +65,10 @@ func TestParse(t *testing.T) {
 
 			mp.Parse(tc.message)
 			for key, val := range tc.expectedCount {
-				p.Assert(t, "metadata_keys", MetadataKeyLabel, key)(xmetricstest.Value(val))
+				p.Assert(t, "metadata_keys", metadataKeyLabel, key)(xmetricstest.Value(val))
 			}
 
-			p.Assert(t, "unparsable_events", ParserLabel, "metadata_parser", ReasonLabel, noMetadataFoundErr)(xmetricstest.Value(tc.expectedUnparsable))
+			p.Assert(t, "unparsable_events", parserLabel, "metadata_parser", reasonLabel, noMetadataFoundErr)(xmetricstest.Value(tc.expectedUnparsable))
 		})
 	}
 }
@@ -125,9 +125,9 @@ func TestMultipleParse(t *testing.T) {
 		mp.Parse(msg)
 	}
 
-	p.Assert(t, "metadata_keys", MetadataKeyLabel, trustKey)(xmetricstest.Value(3.0))
-	p.Assert(t, "metadata_keys", MetadataKeyLabel, partnerIDKey)(xmetricstest.Value(2.0))
-	p.Assert(t, "metadata_keys", MetadataKeyLabel, bootTimeKey)(xmetricstest.Value(1.0))
-	p.Assert(t, "metadata_keys", MetadataKeyLabel, randomKey)(xmetricstest.Value(1.0))
-	p.Assert(t, "unparsable_events", ParserLabel, "metadata_parser", ReasonLabel, noMetadataFoundErr)(xmetricstest.Value(2.0))
+	p.Assert(t, "metadata_keys", metadataKeyLabel, trustKey)(xmetricstest.Value(3.0))
+	p.Assert(t, "metadata_keys", metadataKeyLabel, partnerIDKey)(xmetricstest.Value(2.0))
+	p.Assert(t, "metadata_keys", metadataKeyLabel, bootTimeKey)(xmetricstest.Value(1.0))
+	p.Assert(t, "metadata_keys", metadataKeyLabel, randomKey)(xmetricstest.Value(1.0))
+	p.Assert(t, "unparsable_events", parserLabel, "metadata_parser", reasonLabel, noMetadataFoundErr)(xmetricstest.Value(2.0))
 }
