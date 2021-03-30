@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -21,6 +22,7 @@ func TestTimeElapsedCalculationErr(t *testing.T) {
 		},
 		{
 			description: "underlying err not nil",
+			err:         errors.New("test error"),
 			timeElapsed: 5.0,
 		},
 		{
