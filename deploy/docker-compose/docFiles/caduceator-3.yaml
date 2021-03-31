@@ -27,10 +27,18 @@ vegetaConfig:
   postURL: "http://caduceus:6000/api/v3/notify"
   sleepTime: "0s"
   clientTimeout: "15s"
-  wrpMessageDest: "event:device-status/mac:112233445566/online"
-  TransactionId: "123"
-  BootTimeDuration: "-10m" # needs to be within the time frame configured in glaukos.yaml and one hour in the future for successful events
-  BirthdateDuration: "-6m" # needs to be within the time frame configured in glaukos.yaml for successful events
+  messageDetails:
+    wrp:
+      source: "mac:112233445566"
+      destination: "event:device-status/mac:112233445566/online"
+      metadata:
+        - "/hw-model": "hardware3"
+        - "/fw-name": "firmware3"
+        - "/hw-last-reboot-reason": "reboot-reason-3"
+      transactionUUID: "123"
+    bootTimeDuration: "-10m"
+    birthdateDuration: "-6m"
+    fixedCurrentTime: true
 
   # simulates talaria rehash
   vegetaRehash:
@@ -74,7 +82,7 @@ webhook:
     webhookConfig:
       url: ""
       # failureURL: "http://caduceator:5010/cutoff"
-      secret: "secret1234"
+      secret: ""
       maxRetryCount: 3
       #AlternativeURLs: []
     events: "device-status.*"
