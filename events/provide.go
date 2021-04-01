@@ -9,8 +9,8 @@ import (
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/httpaux/retry"
 	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"go.uber.org/fx"
 )
 
@@ -35,24 +35,18 @@ func Provide() fx.Option {
 		determineCodexTokenAcquirer,
 		createCircuitBreaker,
 		func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) *CodexClient {
-			if config.MaxRetryCount < 0 {
-				config.MaxRetryCount = 3
-			}
-			retryOptions := xhttp.RetryOptions{
-				Logger:   logger,
+			retryConfig := retry.Config{
 				Retries:  config.MaxRetryCount,
 				Interval: time.Second * 30,
-				// Always retry on failures up to the max count.
-				ShouldRetry:       func(error) bool { return true },
-				ShouldRetryStatus: func(code int) bool { return false },
 			}
+
+			client := retry.New(retryConfig, new(http.Client))
 			return &CodexClient{
-				Address:      config.Address,
-				Auth:         codexAuth,
-				RetryOptions: retryOptions,
-				Client:       http.DefaultClient,
-				Logger:       logger,
-				CB:           cb,
+				Address: config.Address,
+				Auth:    codexAuth,
+				Client:  client,
+				Logger:  logger,
+				CB:      cb,
 			}
 		},
 	)

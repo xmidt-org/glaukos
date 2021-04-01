@@ -36,8 +36,8 @@ vegetaConfig:
         - "/fw-name": "firmware2"
         - "/hw-last-reboot-reason": "reboot-reason-2"
       transactionUUID: "abc"
-    bootTimeDuration: "-13m"
-    birthdateDuration: "-15m"
+    bootTimeOffset: "-13m"
+    birthdateOffset: "-15m"
     fixedCurrentTime: true
 
   # simulates talaria rehash

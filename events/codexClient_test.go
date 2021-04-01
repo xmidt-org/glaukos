@@ -1,137 +1,230 @@
 package events
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/go-kit/kit/log"
 	"github.com/sony/gobreaker"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/bascule/acquire"
+	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/interpreter"
 )
 
-func TestBuildGetRequest(t *testing.T) {
+func TestGetEvents(t *testing.T) {
+	t.Run("client error", testClientErr)
+	t.Run("unmarshal error", testUnmarshalErr)
+	t.Run("success", testSuccess)
+}
+
+func testUnmarshalErr(t *testing.T) {
 	assert := assert.New(t)
-	fixedAuth, _ := acquire.NewFixedAuthAcquirer("test")
+	client := new(mockClient)
+	auth := new(mockAcquirer)
+	auth.On("Acquire").Return("test", nil)
+
+	resp := httptest.NewRecorder()
+	resp.WriteString(`{"some key": "some-value"}`)
+	client.On("Do", mock.Anything).Return(resp.Result(), nil)
+	c := CodexClient{
+		Logger: log.NewNopLogger(),
+		Client: client,
+		CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:   auth,
+	}
+	eventsList := c.GetEvents("some-deviceID")
+	assert.NotNil(eventsList)
+	assert.Empty(eventsList)
+}
+
+func testClientErr(t *testing.T) {
+	assert := assert.New(t)
+	client := new(mockClient)
+	auth := new(mockAcquirer)
+	auth.On("Acquire").Return("test", nil)
+	client.On("Do", mock.Anything).Return(httptest.NewRecorder().Result(), errors.New("test error"))
+	c := CodexClient{
+		Logger: log.NewNopLogger(),
+		Client: client,
+		CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:   auth,
+	}
+	eventsList := c.GetEvents("some-deviceID")
+	assert.NotNil(eventsList)
+	assert.Empty(eventsList)
+}
+
+func testSuccess(t *testing.T) {
+	assert := assert.New(t)
+	client := new(mockClient)
+	auth := new(mockAcquirer)
+	auth.On("Acquire").Return("test", nil)
+
+	events := []interpreter.Event{
+		interpreter.Event{
+			MsgType:         4,
+			Source:          "source",
+			Destination:     "destination",
+			TransactionUUID: "112233445566",
+			Birthdate:       1617152053278595600,
+		},
+		interpreter.Event{
+			MsgType:         4,
+			Destination:     "destination",
+			TransactionUUID: "abcd",
+			Metadata: map[string]string{
+				"test-key": "test-value",
+			},
+			Birthdate: 1617152053278595600,
+		},
+	}
+	resp := httptest.NewRecorder()
+
+	jsonEvents, err := json.Marshal(events)
+	assert.Nil(err)
+	resp.WriteString(string(jsonEvents))
+	client.On("Do", mock.Anything).Return(resp.Result(), nil)
+	c := CodexClient{
+		Logger: log.NewNopLogger(),
+		Client: client,
+		CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:   auth,
+	}
+	eventsList := c.GetEvents("some-deviceID")
+	assert.Equal(events, eventsList)
+}
+
+func TestDoRequest(t *testing.T) {
+	request, _ := http.NewRequest(http.MethodGet, "test-codex/test", nil)
 	tests := []struct {
-		description string
-		address     string
-		auth        acquire.Acquirer
-		errExpected bool
+		description  string
+		client       *mockClient
+		expectedBody []byte
+		clientErr    error
+		expectedErr  error
 	}{
 		{
-			description: "Success",
-			address:     "http://foo.com/test",
-			auth:        fixedAuth,
+			description:  "success",
+			client:       new(mockClient),
+			expectedBody: []byte("test body"),
 		},
 		{
-			description: "Nil Auth",
-			address:     "http://foo.com/test",
-			auth:        nil,
-			errExpected: true,
+			description: "client error",
+			client:      new(mockClient),
+			clientErr:   errors.New("test"),
+			expectedErr: errors.New("test"),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			req, err := buildGetRequest(tc.address, tc.auth)
-
-			if tc.errExpected {
-				assert.Nil(req)
+			assert := assert.New(t)
+			resp := httptest.NewRecorder()
+			resp.Write(tc.expectedBody)
+			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr)
+			body, err := doRequest(tc.client, request)
+			if tc.expectedErr != nil {
 				assert.NotNil(err)
+				assert.Contains(err.Error(), tc.expectedErr.Error())
 			} else {
+				assert.Nil(err)
+				assert.NotNil(body)
+				assert.Equal(string(tc.expectedBody), string(body.([]byte)))
+			}
+
+		})
+	}
+}
+
+func TestBuildGETRequest(t *testing.T) {
+	tests := []struct {
+		description        string
+		address            string
+		auth               *mockAcquirer
+		expectedAuthString string
+		expectedAuthErr    error
+		errExpected        error
+	}{
+		{
+			description:        "Success",
+			address:            "codex-test/test",
+			auth:               new(mockAcquirer),
+			expectedAuthString: "test",
+		},
+		{
+			description:     "err with auth",
+			address:         "codex-test/test",
+			auth:            new(mockAcquirer),
+			expectedAuthErr: errors.New("unable to create auth"),
+			errExpected:     errors.New("unable to create auth"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			if tc.auth != nil {
+				tc.auth.On("Acquire").Return(tc.expectedAuthString, tc.expectedAuthErr)
+			}
+			req, err := buildGETRequest(tc.address, tc.auth)
+			if tc.errExpected == nil {
 				assert.Equal(http.MethodGet, req.Method)
-				assert.NotEmpty(req.Header.Get("Authorization"))
+				assert.Equal(req.Header.Get("Authorization"), tc.expectedAuthString)
+				assert.Equal(req.URL.Path, tc.address)
+			} else {
+				assert.NotNil(err)
+				assert.Contains(err.Error(), tc.errExpected.Error())
+			}
+		})
+	}
+}
+
+func TestExecuteRequest(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		logger = log.NewNopLogger()
+	)
+
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+
+	tests := []struct {
+		description  string
+		expectedBody []byte
+		clientErr    error
+	}{
+		{
+			description:  "success",
+			expectedBody: []byte("test body"),
+		},
+		{
+			description: "client err",
+			clientErr:   errors.New("test error"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			client := new(mockClient)
+			resp := httptest.NewRecorder()
+			resp.Write(tc.expectedBody)
+			client.On("Do", req).Return(resp.Result(), tc.clientErr)
+			c := CodexClient{
+				Logger: logger,
+				Client: client,
+				CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+			}
+			body, err := c.executeRequest(req)
+			if tc.clientErr != nil {
+				assert.Equal(tc.clientErr, err)
+				assert.Nil(body)
+			} else {
+				assert.Equal(string(tc.expectedBody), string(body))
 				assert.Nil(err)
 			}
 
 		})
 	}
-}
-
-func TestDoRequest(t *testing.T) {
-	var (
-		assert = assert.New(t)
-		c      = CodexClient{
-			Logger: log.NewNopLogger(),
-			Client: http.DefaultClient,
-			CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
-		}
-	)
-	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-
-	code, data, err := c.doRequest(req)
-	assert.Equal(0, code)
-	assert.Equal(0, len(data))
-	assert.NotNil(err)
-}
-
-func TestGetEvents(t *testing.T) {
-	assert := assert.New(t)
-	auth, _ := acquire.NewFixedAuthAcquirer("test")
-
-	tests := []struct {
-		description string
-		address     string
-		auth        acquire.Acquirer
-		errExpected bool
-	}{
-		{
-			description: "Problem building request",
-			address:     "test",
-			auth:        nil,
-		},
-		{
-			description: "Invalid URL",
-			address:     "test",
-			auth:        auth,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			c := CodexClient{
-				Logger:  log.NewNopLogger(),
-				Client:  http.DefaultClient,
-				Address: tc.address,
-				Auth:    auth,
-				CB:      gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
-			}
-
-			events := c.GetEvents("test-device")
-			assert.Empty(events)
-		})
-	}
-
-}
-
-func TestCircuitBreakerRequestFunc(t *testing.T) {
-	const (
-		failuresAllowed = 3
-	)
-
-	settings := gobreaker.Settings{
-		Name:        "Codex Circuit Breaker",
-		MaxRequests: 0,
-		Interval:    0,
-		ReadyToTrip: func(count gobreaker.Counts) bool {
-			return count.ConsecutiveFailures >= failuresAllowed
-		},
-	}
-	testCodexClient := &CodexClient{
-		CB:     gobreaker.NewCircuitBreaker(settings),
-		Client: &http.Client{},
-	}
-
-	f := circuitBreakerRequestFunc(testCodexClient)
-	req, _ := http.NewRequest(http.MethodGet, "foo.com/test", nil)
-
-	for i := 0; i < failuresAllowed; i++ {
-		f(req)
-	}
-
-	resp, err := f(req)
-	assert.Nil(t, resp)
-	assert.True(t, errors.Is(err, gobreaker.ErrOpenState))
 }

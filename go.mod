@@ -21,9 +21,10 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/objx v0.3.0 // indirect
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/xmidt-org/arrange v0.1.6
 	github.com/xmidt-org/bascule v0.8.1
+	github.com/xmidt-org/httpaux v0.1.6
 	github.com/xmidt-org/interpreter v0.0.2
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/webpa-common v1.11.0
@@ -34,5 +35,4 @@ require (
 	golang.org/x/sys v0.0.0-20200915084602-288bc346aa39 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.61.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
