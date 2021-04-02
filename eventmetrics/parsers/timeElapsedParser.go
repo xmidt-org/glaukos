@@ -36,9 +36,7 @@ const (
 	firmwareLabel               = "firmware"
 	hardwareLabel               = "hardware"
 	rebootReasonLabel           = "reboot_reason"
-	noFwHwReason                = "err_no_firmware_or_hardware"
-	invalidEvent                = "err_invalid_event"
-	eventMismatchReason         = "event_mismatch"
+	noFwHwReason                = "no_firmware_or_hardware_key"
 	idParseReason               = "device_ID_unparseable"
 	invalidTimeCalculatedReason = "invalid_time_calculated"
 
