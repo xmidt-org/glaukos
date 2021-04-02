@@ -36,3 +36,5 @@ require (
 	gopkg.in/ini.v1 v1.61.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
+
+replace github.com/xmidt-org/interpreter v0.0.2 => github.com/xmidt-org/interpreter v0.0.3-0.20210402001448-5d7b642cb9e7

@@ -377,7 +377,7 @@ func TestTimeElapsedParseErr(t *testing.T) {
 			}
 
 			parser.Parse(tc.incomingEvent)
-			p.Assert(t, "unparsable_events", parserLabel, parser.name, reasonLabel, errNoFwHwLabel)(xmetricstest.Value(tc.expectedUnparsable))
+			p.Assert(t, "unparsable_events", parserLabel, parser.name, reasonLabel, noFwHwReason)(xmetricstest.Value(tc.expectedUnparsable))
 		})
 	}
 }
@@ -466,7 +466,8 @@ func testDeviceIDErr(t *testing.T) {
 	mockVal.On("Valid", incomingEvent).Return(true, nil).Once()
 	timeElapsed, err := parser.calculateTimeElapsed(incomingEvent)
 	assert.Equal(-1.0, timeElapsed)
-	assert.Equal(interpreter.ErrParseDeviceID, err)
+	fmt.Println(err)
+	assert.True(errors.Is(err, interpreter.ErrParseDeviceID))
 }
 
 func testFinderErr(t *testing.T) {

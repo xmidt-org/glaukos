@@ -19,15 +19,18 @@ package parsers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/xmidt-org/interpreter"
 )
 
-// TimeElapsedCalculationErr is an error thrown when the time elapsed calculations result in an invalid number.
-// Contains the comparison event found in the events history.
+// TimeElapsedCalculationErr is an error thrown when the time elapsed calculations result in an error.
+// Contains the comparison event found in the events history (if calculations have progressed that far),
+// the timeElapsed (if calculations have progressed that far), the prometheus reason label associated with the error.
 type TimeElapsedCalculationErr struct {
 	err         error
 	timeElapsed float64
+	errLabel    string
 	oldEvent    interpreter.Event
 }
 
@@ -36,6 +39,18 @@ func (t TimeElapsedCalculationErr) Error() string {
 		return fmt.Sprintf("invalid time elapsed: %v. time calculated: %f", t.err, t.timeElapsed)
 	}
 	return fmt.Sprintf("invalid time elapsed. time calculated: %f", t.timeElapsed)
+}
+
+func (t TimeElapsedCalculationErr) Unwrap() error {
+	return t.err
+}
+
+// ErrorLabel returns the prometheus error label associated with this error
+func (t TimeElapsedCalculationErr) ErrorLabel() string {
+	if len(t.errLabel) > 0 {
+		return strings.ReplaceAll(t.errLabel, " ", "_")
+	}
+	return "unknown"
 }
 
 // Event implements the ErrorWithEvent interface and returns the event found in the history that caused the error.
