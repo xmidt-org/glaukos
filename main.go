@@ -23,7 +23,6 @@ import (
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/glaukos/eventmetrics"
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/themis/config"
 	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
@@ -89,7 +88,6 @@ func main() {
 			provideServerChainFactory,
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
-			arrange.UnmarshalKey("queue", queue.Config{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
 				return secretGetter.NewConstantSecret(config.Request.Config.Secret)
 			},

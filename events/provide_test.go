@@ -1,4 +1,4 @@
-package history
+package events
 
 import (
 	"testing"

@@ -1,24 +1,36 @@
+/**
+ * Copyright 2021 Comcast Cable Communications Management, LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package queue
 
 import (
 	"errors"
-	"net/http"
 	"sync"
-	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/themis/xlog"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
-	"github.com/xmidt-org/wrp-go/v3"
 )
 
 var (
 	defaultLogger = log.NewNopLogger()
 
 	errNoParsers = errors.New("No parsers")
-	errQueueFull = errors.New("Queue Full")
 )
 
 const (
@@ -33,7 +45,7 @@ type Config struct {
 }
 
 type EventQueue struct {
-	queue   chan WrpWithTime
+	queue   chan interpreter.Event
 	workers semaphore.Interface
 	wg      sync.WaitGroup
 	logger  log.Logger
@@ -42,14 +54,10 @@ type EventQueue struct {
 	metrics Measures
 }
 
-type WrpWithTime struct {
-	Message   wrp.Message
-	Beginning time.Time
-}
-
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
-	Parse(WrpWithTime) error
+	Parse(interpreter.Event)
+	Name() string
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
@@ -69,7 +77,7 @@ func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log
 		logger = defaultLogger
 	}
 
-	queue := make(chan WrpWithTime, config.QueueSize)
+	queue := make(chan interpreter.Event, config.QueueSize)
 	workers := semaphore.New(config.MaxWorkers)
 
 	e := EventQueue{
@@ -95,9 +103,9 @@ func (e *EventQueue) Stop() {
 }
 
 // Queue attempts to add a message to the queue and returns an error if the queue is full.
-func (e *EventQueue) Queue(message WrpWithTime) (err error) {
+func (e *EventQueue) Queue(event interpreter.Event) (err error) {
 	select {
-	case e.queue <- message:
+	case e.queue <- event:
 		if e.metrics.EventsQueueDepth != nil {
 			e.metrics.EventsQueueDepth.Add(1.0)
 		}
@@ -105,7 +113,7 @@ func (e *EventQueue) Queue(message WrpWithTime) (err error) {
 		if e.metrics.DroppedEventsCount != nil {
 			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
 		}
-		err = NewErrorCode(http.StatusTooManyRequests, errQueueFull)
+		err = TooManyRequestsErr{Message: "Queue Full"}
 	}
 
 	return
@@ -124,16 +132,14 @@ func (e *EventQueue) ParseEvents() {
 }
 
 // ParseEvent parses the metadata and boot-time of each event and generates metrics.
-func (e *EventQueue) ParseEvent(wrpWithTime WrpWithTime) {
+func (e *EventQueue) ParseEvent(event interpreter.Event) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
-		partnerID := basculechecks.DeterminePartnerMetric(wrpWithTime.Message.PartnerIDs)
+		partnerID := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
 		e.metrics.EventsCount.With(partnerIDLabel, partnerID).Add(1.0)
 	}
 
 	for _, p := range e.parsers {
-		if err := p.Parse(wrpWithTime); err != nil {
-			level.Error(e.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to parse")
-		}
+		p.Parse(event)
 	}
 }

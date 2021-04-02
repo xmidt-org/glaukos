@@ -1,5 +1,18 @@
 /**
- *  Copyright (c) 2021  Comcast Cable Communications Management, LLC
+ * Copyright 2021 Comcast Cable Communications Management, LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
 
 package parsers
@@ -8,30 +21,45 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
+	"github.com/xmidt-org/themis/xlog"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/interpreter"
 )
 
 const (
-	MetadataKeyLabel = "metadata_key"
+	metadataKeyLabel = "metadata_key"
 
-	metadataParserLabel = "metadata_parser"
-	noMetadataFoundErr  = "no_metadata_found"
+	noMetadataFoundErr = "no_metadata_found"
+)
+
+var (
+	errNoMetadata = errors.New("no metadata found")
 )
 
 // MetadataParser parses messages coming in and counts the various metadata keys of each request.
 type MetadataParser struct {
-	Measures Measures
+	measures Measures
+	name     string
+	logger   log.Logger
 }
 
 // Parse gathers metrics for each metadata key.
-func (m MetadataParser) Parse(wrpWithTime queue.WrpWithTime) error {
-	if len(wrpWithTime.Message.Metadata) < 1 {
-		m.Measures.UnparsableEventsCount.With(ParserLabel, metadataParserLabel, ReasonLabel, noMetadataFoundErr).Add(1.0)
-		return errors.New("no metadata found")
+func (m *MetadataParser) Parse(event interpreter.Event) {
+	if len(event.Metadata) < 1 {
+		m.measures.UnparsableEventsCount.With(parserLabel, m.name, reasonLabel, noMetadataFoundErr).Add(1.0)
+		level.Error(m.logger).Log(xlog.ErrorKey(), errNoMetadata)
+		return
 	}
-	for key := range wrpWithTime.Message.Metadata {
+
+	for key := range event.Metadata {
 		trimmedKey := strings.Trim(key, "/")
-		m.Measures.MetadataFields.With(MetadataKeyLabel, trimmedKey).Add(1.0)
+		m.measures.MetadataFields.With(metadataKeyLabel, trimmedKey).Add(1.0)
 	}
-	return nil
+}
+
+// Name returns the name of the parser. Implements the Parser interface.
+func (m *MetadataParser) Name() string {
+	return m.name
 }

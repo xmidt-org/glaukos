@@ -1,47 +1,46 @@
 package parsers
 
 import (
-	"time"
-
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/glaukos/eventmetrics/queue"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
 )
+
+type mockValidator struct {
+	mock.Mock
+}
+
+func (m *mockValidator) Valid(e interpreter.Event) (bool, error) {
+	args := m.Called(e)
+	return args.Bool(0), args.Error(1)
+}
 
 type mockEventClient struct {
 	mock.Mock
 }
 
-func (m *mockEventClient) GetEvents(device string) []message.Event {
-	args := m.Called(device)
-	return args.Get(0).([]message.Event)
+func (m *mockEventClient) GetEvents(deviceID string) []interpreter.Event {
+	args := m.Called(deviceID)
+	return args.Get(0).([]interpreter.Event)
 }
 
-type mockEventValidation struct {
+type mockFinder struct {
 	mock.Mock
 }
 
-func (m *mockEventValidation) IsEventValid(e message.Event) (bool, error) {
-	args := m.Called(e)
-	return args.Bool(0), args.Error(1)
+func (m *mockFinder) Find(events []interpreter.Event, incomingEvent interpreter.Event) (interpreter.Event, error) {
+	args := m.Called(events, incomingEvent)
+	return args.Get(0).(interpreter.Event), args.Error(1)
 }
 
-func (m *mockEventValidation) IsWRPValid(msg queue.WrpWithTime) (bool, error) {
-	args := m.Called(msg)
-	return args.Bool(0), args.Error(1)
+type testErrorWithEvent struct {
+	err   error
+	event interpreter.Event
 }
 
-func (m *mockEventValidation) GetEventCompareTime(e message.Event) (time.Time, error) {
-	args := m.Called(e)
-	return args.Get(0).(time.Time), args.Error(1)
+func (t testErrorWithEvent) Error() string {
+	return t.err.Error()
 }
 
-func (m *mockEventValidation) GetWRPCompareTime(msg queue.WrpWithTime) (time.Time, error) {
-	args := m.Called(msg)
-	return args.Get(0).(time.Time), args.Error(1)
-}
-
-func (m *mockEventValidation) ValidateType(dest string) bool {
-	args := m.Called(dest)
-	return args.Bool(0)
+func (t testErrorWithEvent) Event() interpreter.Event {
+	return t.event
 }

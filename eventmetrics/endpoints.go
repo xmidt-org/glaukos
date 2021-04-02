@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
-	"github.com/xmidt-org/glaukos/message"
+	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/interpreter/validation"
+
 	"github.com/xmidt-org/themis/xlog"
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/fx"
 )
 
@@ -41,21 +42,20 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(eventQueue *queue.EventQueue, logger log.Logger) Endpoints {
+func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
-			v, ok := request.(wrp.Message)
+			v, ok := request.(interpreter.Event)
 			if !ok {
-				return nil, errors.New("invalid request info")
+				return nil, errors.New("invalid request info: unable to convert to Event")
 			}
 
-			begin, err := message.GetValidBirthDate(time.Now, v.Payload)
-			if err != nil {
-				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to get valid birthdate from payload")
-				begin = time.Now()
+			if valid, err := validator.Valid(time.Unix(0, v.Birthdate)); !valid {
+				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "invalid birthdate", "birthdate", v.Birthdate)
+				v.Birthdate = time.Now().UnixNano()
 			}
 
-			if err := eventQueue.Queue(queue.WrpWithTime{Message: v, Beginning: begin}); err != nil {
+			if err := eventQueue.Queue(v); err != nil {
 				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to queue message")
 				return nil, err
 			}

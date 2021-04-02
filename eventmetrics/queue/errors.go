@@ -1,25 +1,15 @@
 package queue
 
-type ErrorCode struct {
-	code int
-	err  error
+import "net/http"
+
+type TooManyRequestsErr struct {
+	Message string
 }
 
-// NewErrorCode creates a new error code with the specified status code and error message.
-func NewErrorCode(code int, err error) ErrorCode {
-	return ErrorCode{
-		code: code,
-		err:  err,
-	}
+func (e TooManyRequestsErr) Error() string {
+	return e.Message
 }
 
-func (e ErrorCode) Error() string {
-	if e.err == nil {
-		return ""
-	}
-	return e.err.Error()
-}
-
-func (e ErrorCode) StatusCode() int {
-	return e.code
+func (e TooManyRequestsErr) StatusCode() int {
+	return http.StatusTooManyRequests
 }

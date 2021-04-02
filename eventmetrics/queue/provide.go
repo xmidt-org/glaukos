@@ -4,8 +4,15 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/arrange"
+	"github.com/xmidt-org/interpreter"
 	"go.uber.org/fx"
 )
+
+// Queue is the type that processes incoming events
+type Queue interface {
+	Queue(interpreter.Event) error
+}
 
 // ParsersIn brings together all of the different types of parsers that glaukos uses.
 type ParsersIn struct {
@@ -16,7 +23,8 @@ type ParsersIn struct {
 // Provide creates an uber/fx option and appends the queue start and stop into the fx lifecycle.
 func Provide() fx.Option {
 	return fx.Provide(
-		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, logger log.Logger) (*EventQueue, error) {
+		arrange.UnmarshalKey("queue", Config{}),
+		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, logger log.Logger) (Queue, error) {
 			e, err := newEventQueue(config, parsersIn.Parsers, metrics, logger)
 
 			if err != nil {
