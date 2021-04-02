@@ -50,36 +50,60 @@ func TestParseTime(t *testing.T) {
 	assert.Nil(t, err)
 	bootTime, err := time.Parse(time.RFC3339Nano, "2021-03-01T18:00:01Z")
 	assert.Nil(t, err)
-	event := interpreter.Event{
-		Birthdate: birthdate.UnixNano(),
-		Metadata: map[string]string{
-			interpreter.BootTimeKey: fmt.Sprint(bootTime.Unix()),
-		},
-	}
 
 	tests := []struct {
 		description  string
-		expectedTime int64
+		location     TimeLocation
+		expectedTime time.Time
+		event        interpreter.Event
 	}{
 		{
-			description:  "Birthdate",
-			expectedTime: birthdate.UnixNano(),
+			description:  "Valid Birthdate",
+			location:     Birthdate,
+			expectedTime: birthdate,
+			event: interpreter.Event{
+				Birthdate: birthdate.UnixNano(),
+				Metadata: map[string]string{
+					interpreter.BootTimeKey: fmt.Sprint(bootTime.Unix()),
+				},
+			},
 		},
 		{
-			description:  "Boot-time",
-			expectedTime: bootTime.Unix(),
+			description:  "Valid Boot-time",
+			location:     Boottime,
+			expectedTime: bootTime,
+			event: interpreter.Event{
+				Birthdate: birthdate.UnixNano(),
+				Metadata: map[string]string{
+					interpreter.BootTimeKey: fmt.Sprint(bootTime.Unix()),
+				},
+			},
 		},
 		{
-			description:  "Random",
-			expectedTime: birthdate.UnixNano(),
+			description:  "Invalid Birthdate",
+			location:     Birthdate,
+			expectedTime: time.Time{},
+			event: interpreter.Event{
+				Metadata: map[string]string{
+					interpreter.BootTimeKey: fmt.Sprint(bootTime.Unix()),
+				},
+			},
+		},
+		{
+			description:  "Invalid Boot-time",
+			location:     Boottime,
+			expectedTime: time.Time{},
+			event: interpreter.Event{
+				Birthdate: birthdate.UnixNano(),
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			time, err := ParseTime(event, tc.description)
-			assert.Equal(tc.expectedTime, time)
+			time := ParseTime(tc.event, tc.location)
+			assert.True(tc.expectedTime.Equal(time))
 			assert.Nil(err)
 		})
 	}

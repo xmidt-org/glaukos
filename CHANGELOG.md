@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Refactor to only use Events, remove use of wrp.Message beyond converting a wrp.Message to Event when a message is received through the webhook. [#47](https://github.com/xmidt-org/glaukos/pull/47)
 - Add validator interface to validate events. [#48](https://github.com/xmidt-org/glaukos/pull/48)
 - Add event finder to separate out searching through history of events from parsers. [#49](https://github.com/xmidt-org/glaukos/pull/49)
+- Refactor to use `interpreter` library. [#53](https://github.com/xmidt-org/glaukos/pull/53)
+- Implement `TimeElapsedParser`, modify `Parser` interface. [#55](https://github.com/xmidt-org/glaukos/pull/55)
 
 ## [v0.2.4]
 - Add more detailed logging for long durations. [#43](https://github.com/xmidt-org/glaukos/pull/43)

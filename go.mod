@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/xmidt-org/arrange v0.1.6
 	github.com/xmidt-org/bascule v0.8.1
-	github.com/xmidt-org/interpreter v0.0.2-0.20210323225912-b810f0acc1e1
+	github.com/xmidt-org/interpreter v0.0.3-0.20210402193409-647a5b85f70f
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/webpa-common v1.11.0
 	github.com/xmidt-org/wrp-go/v3 v3.0.2

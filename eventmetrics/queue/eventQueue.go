@@ -1,3 +1,20 @@
+/**
+ * Copyright 2021 Comcast Cable Communications Management, LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package queue
 
 import (
@@ -5,9 +22,7 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
 )
@@ -41,7 +56,8 @@ type EventQueue struct {
 
 // Parser is the interface that all glaukos parsers must implement.
 type Parser interface {
-	Parse(interpreter.Event) error
+	Parse(interpreter.Event)
+	Name() string
 }
 
 func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
@@ -124,8 +140,6 @@ func (e *EventQueue) ParseEvent(event interpreter.Event) {
 	}
 
 	for _, p := range e.parsers {
-		if err := p.Parse(event); err != nil {
-			level.Error(e.logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to parse")
-		}
+		p.Parse(event)
 	}
 }

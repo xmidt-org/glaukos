@@ -2,11 +2,12 @@ package parsers
 
 import (
 	"strings"
+	"time"
 
 	"github.com/xmidt-org/interpreter"
 )
 
-// TimeLocation is an enum to determine what should be used in timeElapsed calculations
+// TimeLocation is an enum to determine which timestamp should be used in timeElapsed calculations
 type TimeLocation int
 
 const (
@@ -30,12 +31,20 @@ func ParseTimeLocation(location string) TimeLocation {
 	return Birthdate
 }
 
-// ParseTime gets the timestamp from the proper location of an Event
-func ParseTime(e interpreter.Event, locationStr string) (int64, error) {
-	location := ParseTimeLocation(locationStr)
-
+// ParseTime gets the time from the proper location of an Event
+func ParseTime(e interpreter.Event, location TimeLocation) time.Time {
 	if location == Birthdate {
-		return e.Birthdate, nil
+		if e.Birthdate > 0 {
+			return time.Unix(0, e.Birthdate)
+		} else {
+			return time.Time{}
+		}
+
 	}
-	return e.BootTime()
+
+	if bootTime, err := e.BootTime(); err == nil {
+		return time.Unix(bootTime, 0)
+	} else {
+		return time.Time{}
+	}
 }

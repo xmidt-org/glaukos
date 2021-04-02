@@ -9,7 +9,11 @@ type mockParser struct {
 	mock.Mock
 }
 
-func (mp *mockParser) Parse(event interpreter.Event) error {
-	args := mp.Called(event)
-	return args.Error(0)
+func (mp *mockParser) Parse(event interpreter.Event) {
+	mp.Called(event)
+}
+
+func (mp *mockParser) Name() string {
+	args := mp.Called()
+	return args.String(0)
 }
