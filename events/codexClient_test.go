@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
+	"go.uber.org/ratelimit"
 )
 
 func TestGetEvents(t *testing.T) {
@@ -30,10 +31,11 @@ func testUnmarshalErr(t *testing.T) {
 	resp.WriteString(`{"some key": "some-value"}`)
 	client.On("Do", mock.Anything).Return(resp.Result(), nil)
 	c := CodexClient{
-		Logger: log.NewNopLogger(),
-		Client: client,
-		CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
-		Auth:   auth,
+		Logger:         log.NewNopLogger(),
+		Client:         client,
+		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:           auth,
+		RateLimiter:    ratelimit.NewUnlimited(),
 	}
 	eventsList := c.GetEvents("some-deviceID")
 	assert.NotNil(eventsList)
@@ -47,10 +49,11 @@ func testClientErr(t *testing.T) {
 	auth.On("Acquire").Return("test", nil)
 	client.On("Do", mock.Anything).Return(httptest.NewRecorder().Result(), errors.New("test error"))
 	c := CodexClient{
-		Logger: log.NewNopLogger(),
-		Client: client,
-		CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
-		Auth:   auth,
+		Logger:         log.NewNopLogger(),
+		Client:         client,
+		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:           auth,
+		RateLimiter:    ratelimit.NewUnlimited(),
 	}
 	eventsList := c.GetEvents("some-deviceID")
 	assert.NotNil(eventsList)
@@ -88,10 +91,11 @@ func testSuccess(t *testing.T) {
 	resp.WriteString(string(jsonEvents))
 	client.On("Do", mock.Anything).Return(resp.Result(), nil)
 	c := CodexClient{
-		Logger: log.NewNopLogger(),
-		Client: client,
-		CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
-		Auth:   auth,
+		Logger:         log.NewNopLogger(),
+		Client:         client,
+		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:           auth,
+		RateLimiter:    ratelimit.NewUnlimited(),
 	}
 	eventsList := c.GetEvents("some-deviceID")
 	assert.Equal(events, eventsList)
@@ -212,9 +216,10 @@ func TestExecuteRequest(t *testing.T) {
 			resp.Write(tc.expectedBody)
 			client.On("Do", req).Return(resp.Result(), tc.clientErr)
 			c := CodexClient{
-				Logger: logger,
-				Client: client,
-				CB:     gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+				Logger:         logger,
+				Client:         client,
+				CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+				RateLimiter:    ratelimit.NewUnlimited(),
 			}
 			body, err := c.executeRequest(req)
 			if tc.clientErr != nil {

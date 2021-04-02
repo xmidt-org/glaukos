@@ -32,6 +32,7 @@ require (
 	github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb
 	go.uber.org/fx v1.13.1
 	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/ratelimit v0.2.0
 	golang.org/x/sys v0.0.0-20200915084602-288bc346aa39 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.61.0 // indirect

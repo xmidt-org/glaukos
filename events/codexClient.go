@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -15,21 +14,17 @@ import (
 	"github.com/xmidt-org/httpaux"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/themis/xlog"
+	"go.uber.org/ratelimit"
 )
 
-type CircuitBreakerConfig struct {
-	MaxRequests                uint32
-	Interval                   time.Duration
-	Timeout                    time.Duration
-	ConsecutiveFailuresAllowed uint32
-}
-
+// CodexClient is the client used to get events from codex.
 type CodexClient struct {
-	Address string
-	Auth    acquire.Acquirer
-	Client  httpaux.Client
-	CB      *gobreaker.CircuitBreaker
-	Logger  log.Logger
+	Address        string
+	Auth           acquire.Acquirer
+	Client         httpaux.Client
+	CircuitBreaker *gobreaker.CircuitBreaker
+	RateLimiter    ratelimit.Limiter
+	Logger         log.Logger
 }
 
 // GetEvents queries codex for events related to a device.
@@ -57,7 +52,8 @@ func (c *CodexClient) GetEvents(device string) []interpreter.Event {
 }
 
 func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
-	response, err := c.CB.Execute(func() (interface{}, error) {
+	c.RateLimiter.Take()
+	response, err := c.CircuitBreaker.Execute(func() (interface{}, error) {
 		return doRequest(c.Client, request)
 	})
 

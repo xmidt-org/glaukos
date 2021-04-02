@@ -12,6 +12,7 @@ import (
 	"github.com/xmidt-org/httpaux/retry"
 	"github.com/xmidt-org/themis/xlog"
 	"go.uber.org/fx"
+	"go.uber.org/ratelimit"
 )
 
 // CodexConfig determines the auth and address for connecting to the codex cluster.
@@ -19,9 +20,25 @@ type CodexConfig struct {
 	Address        string
 	Auth           AuthAcquirerConfig
 	MaxRetryCount  int
+	RateLimit      RateLimitConfig
 	CircuitBreaker CircuitBreakerConfig
 }
 
+// CircuitBreakerConfig deals with configuration for the circuit breaker.
+type CircuitBreakerConfig struct {
+	MaxRequests                uint32
+	Interval                   time.Duration
+	Timeout                    time.Duration
+	ConsecutiveFailuresAllowed uint32
+}
+
+// RateLimitConfig is the configuration for the rate limiter.
+type RateLimitConfig struct {
+	MaxRequests int
+	Per         time.Duration
+}
+
+// AuthAcquirerConfig is the auth config for the client making requests to get a device's history of events.
 type AuthAcquirerConfig struct {
 	JWT   acquire.RemoteBearerTokenAcquirerOptions
 	Basic string
@@ -35,6 +52,16 @@ func Provide() fx.Option {
 		determineCodexTokenAcquirer,
 		createCircuitBreaker,
 		func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) *CodexClient {
+			var limiter ratelimit.Limiter
+			if config.RateLimit.MaxRequests <= 0 {
+				limiter = ratelimit.NewUnlimited()
+			} else {
+				if config.RateLimit.Per <= 0 {
+					config.RateLimit.Per = time.Second
+				}
+
+				limiter = ratelimit.New(config.RateLimit.MaxRequests, ratelimit.Per(config.RateLimit.Per))
+			}
 			retryConfig := retry.Config{
 				Retries:  config.MaxRetryCount,
 				Interval: time.Second * 30,
@@ -42,11 +69,12 @@ func Provide() fx.Option {
 
 			client := retry.New(retryConfig, new(http.Client))
 			return &CodexClient{
-				Address: config.Address,
-				Auth:    codexAuth,
-				Client:  client,
-				Logger:  logger,
-				CB:      cb,
+				Address:        config.Address,
+				Auth:           codexAuth,
+				Client:         client,
+				Logger:         logger,
+				RateLimiter:    limiter,
+				CircuitBreaker: cb,
 			}
 		},
 	)
