@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -25,6 +27,7 @@ type CodexClient struct {
 	CircuitBreaker *gobreaker.CircuitBreaker
 	RateLimiter    ratelimit.Limiter
 	Logger         log.Logger
+	Metrics        Measures
 }
 
 // GetEvents queries codex for events related to a device.
@@ -54,10 +57,13 @@ func (c *CodexClient) GetEvents(device string) []interpreter.Event {
 func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
 	c.RateLimiter.Take()
 	response, err := c.CircuitBreaker.Execute(func() (interface{}, error) {
-		return doRequest(c.Client, request)
+		return c.doRequest(request)
 	})
 
 	if err != nil {
+		if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
+			c.Metrics.CircuitBreakerRejectedCount.With(circuitBreakerLabel, c.CircuitBreaker.Name()).Add(1.0)
+		}
 		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to make request")
 		return nil, err
 	}
@@ -70,10 +76,18 @@ func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
 	return r, nil
 }
 
-func doRequest(client httpaux.Client, req *http.Request) (interface{}, error) {
-	resp, err := client.Do(req)
+func (c *CodexClient) doRequest(req *http.Request) (interface{}, error) {
+	if c.Metrics.RequestCount != nil {
+		c.Metrics.RequestCount.Add(1.0)
+	}
+
+	resp, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.Metrics.ResponseCount != nil {
+		c.Metrics.ResponseCount.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Add(1.0)
 	}
 
 	defer resp.Body.Close()
@@ -95,4 +109,17 @@ func buildGETRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 	}
 
 	return request, nil
+}
+
+func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
+	var start time.Time
+	return func(name string, from gobreaker.State, to gobreaker.State) {
+		if from == gobreaker.StateClosed && to == gobreaker.StateOpen && m.CircuitBreakerOpenCount != nil {
+			m.CircuitBreakerOpenCount.With(circuitBreakerLabel, name).Add(1.0)
+			start = time.Now()
+		} else if to == gobreaker.StateClosed {
+			openTime := time.Now().Sub(start).Seconds()
+			m.CircuitBreakerOpenTime.With(circuitBreakerLabel, name).Observe(openTime)
+		}
+	}
 }

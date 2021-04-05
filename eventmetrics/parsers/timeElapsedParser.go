@@ -33,10 +33,12 @@ import (
 )
 
 const (
-	firmwareLabel     = "firmware"
-	hardwareLabel     = "hardware"
-	rebootReasonLabel = "reboot_reason"
-	errNoFwHwLabel    = "err_no_firmware_or_hardware"
+	firmwareLabel               = "firmware"
+	hardwareLabel               = "hardware"
+	rebootReasonLabel           = "reboot_reason"
+	noFwHwReason                = "no_firmware_or_hardware_key"
+	idParseReason               = "device_ID_unparseable"
+	invalidTimeCalculatedReason = "invalid_time_calculated"
 
 	hardwareMetadataKey     = "/hw-model"
 	firmwareMetadataKey     = "/fw-name"
@@ -126,6 +128,12 @@ func NewTimeElapsedParser(config TimeElapsedConfig, client EventClient, logger l
 func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	restartTime, err := t.calculateTimeElapsed(event)
 	if err != nil || restartTime <= 0 {
+		var logError validation.MetricsLogError
+		if errors.As(err, &logError) {
+			t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, logError.ErrorLabel()).Add(1.0)
+		} else {
+			t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, "unknown_reason").Add(1.0)
+		}
 		return
 	}
 
@@ -134,7 +142,7 @@ func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	rebootReason, reasonFound := event.GetMetadataValue(rebootReasonMetadataKey)
 
 	if !hardwareFound || !firmwareFound {
-		t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, errNoFwHwLabel).Add(1.0)
+		t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, noFwHwReason).Add(1.0)
 		return
 	}
 
@@ -183,7 +191,7 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 	deviceID, err := incomingEvent.DeviceID()
 	if err != nil {
 		level.Error(t.logger).Log(xlog.ErrorKey(), err)
-		return -1, err
+		return -1, TimeElapsedCalculationErr{err: err, errLabel: idParseReason}
 	}
 
 	events := t.client.GetEvents(deviceID)
@@ -201,7 +209,7 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 	}
 
 	if timeElapsed <= 0 {
-		err = TimeElapsedCalculationErr{timeElapsed: timeElapsed, oldEvent: oldEvent}
+		err = TimeElapsedCalculationErr{timeElapsed: timeElapsed, oldEvent: oldEvent, errLabel: invalidTimeCalculatedReason}
 		t.logErrWithEventDetails(err, incomingEvent)
 		return -1, err
 	}

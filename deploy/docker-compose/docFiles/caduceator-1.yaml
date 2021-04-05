@@ -19,7 +19,7 @@ log:
   maxbackups: 10
   json: true
 vegetaConfig:
-  frequency: 1
+  frequency: 10
   period: "10s"
   connections: 500
   duration: 0

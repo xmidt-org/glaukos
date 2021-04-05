@@ -129,7 +129,10 @@ func TestDoRequest(t *testing.T) {
 			resp := httptest.NewRecorder()
 			resp.Write(tc.expectedBody)
 			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr)
-			body, err := doRequest(tc.client, request)
+			c := CodexClient{
+				Client: tc.client,
+			}
+			body, err := c.doRequest(request)
 			if tc.expectedErr != nil {
 				assert.NotNil(err)
 				assert.Contains(err.Error(), tc.expectedErr.Error())

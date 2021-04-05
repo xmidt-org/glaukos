@@ -163,8 +163,9 @@ codex:
   # maxRetryCount is the max number of retries when making the request to codex. Retries will be sent every 30 seconds.
   maxRetryCount: 0
   rateLimiter:
-    # maxRequests is the max number of requests per duration that glaukos should send to codex.
-    maxRequests: 1
+    # requests is the max number of requests per duration that glaukos should send to codex. If this is 0, then requests
+    # are not rate-limited.
+    requests: 1
     # per configures the limits for the time window of the rate limiter.
     per: "1s"
   # requeststhe max number of requests per second to send to codex
