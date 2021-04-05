@@ -69,6 +69,7 @@ type SecretConfig struct {
 	Delimiter string
 }
 
+// nolint:funlen // this is main provide function to hooks up all of the uberfx wiring
 func main() {
 	// setup command line options and configuration from file
 	f := pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
