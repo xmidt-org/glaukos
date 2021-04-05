@@ -54,36 +54,38 @@ func Provide() fx.Option {
 			determineCodexTokenAcquirer,
 			createCircuitBreaker,
 			onStateChanged,
-			func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, measures Measures, logger log.Logger) *CodexClient {
-				var limiter ratelimit.Limiter
-				if config.RateLimit.Requests <= 0 {
-					limiter = ratelimit.NewUnlimited()
-				} else {
-					if config.RateLimit.Per <= 0 {
-						config.RateLimit.Per = time.Second
-					}
-
-					limiter = ratelimit.New(config.RateLimit.Requests, ratelimit.Per(config.RateLimit.Per), ratelimit.WithoutSlack)
-				}
-				retryConfig := retry.Config{
-					Retries:  config.MaxRetryCount,
-					Interval: time.Second * 30,
-				}
-
-				client := retry.New(retryConfig, new(http.Client))
-				return &CodexClient{
-					Address:        config.Address,
-					Auth:           codexAuth,
-					Client:         client,
-					Logger:         logger,
-					RateLimiter:    limiter,
-					Metrics:        measures,
-					CircuitBreaker: cb,
-				}
-			},
+			createCodexClient,
 		),
 	)
 
+}
+
+func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, measures Measures, logger log.Logger) *CodexClient {
+	var limiter ratelimit.Limiter
+	if config.RateLimit.Requests <= 0 {
+		limiter = ratelimit.NewUnlimited()
+	} else {
+		if config.RateLimit.Per <= 0 {
+			config.RateLimit.Per = time.Second
+		}
+
+		limiter = ratelimit.New(config.RateLimit.Requests, ratelimit.Per(config.RateLimit.Per), ratelimit.WithoutSlack)
+	}
+	retryConfig := retry.Config{
+		Retries:  config.MaxRetryCount,
+		Interval: time.Second * 30,
+	}
+
+	client := retry.New(retryConfig, new(http.Client))
+	return &CodexClient{
+		Address:        config.Address,
+		Auth:           codexAuth,
+		Client:         client,
+		Logger:         logger,
+		RateLimiter:    limiter,
+		Metrics:        measures,
+		CircuitBreaker: cb,
+	}
 }
 
 func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire.Acquirer, error) {
