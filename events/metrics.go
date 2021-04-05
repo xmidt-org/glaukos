@@ -19,7 +19,7 @@ type Measures struct {
 	ResponseCount               metrics.Counter   `name:"client_response_count"`
 	CircuitBreakerOpenCount     metrics.Counter   `name:"circuit_breaker_open_count"`
 	CircuitBreakerRejectedCount metrics.Counter   `name:"circuit_breaker_rejected_count"`
-	CircuitBreakerOpenTime      metrics.Histogram `name:"circuit_breaker_open_duration"`
+	CircuitBreakerOpenDuration  metrics.Histogram `name:"circuit_breaker_open_duration"`
 }
 
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.

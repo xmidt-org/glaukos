@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/go-kit/kit/log"
@@ -12,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"go.uber.org/ratelimit"
 )
 
@@ -104,22 +107,25 @@ func testSuccess(t *testing.T) {
 func TestDoRequest(t *testing.T) {
 	request, _ := http.NewRequest(http.MethodGet, "test-codex/test", nil)
 	tests := []struct {
-		description  string
-		client       *mockClient
-		expectedBody []byte
-		clientErr    error
-		expectedErr  error
+		description        string
+		client             *mockClient
+		expectedBody       []byte
+		expectedStatusCode int
+		clientErr          error
+		expectedErr        error
 	}{
 		{
-			description:  "success",
-			client:       new(mockClient),
-			expectedBody: []byte("test body"),
+			description:        "success",
+			client:             new(mockClient),
+			expectedStatusCode: 209,
+			expectedBody:       []byte("test body"),
 		},
 		{
-			description: "client error",
-			client:      new(mockClient),
-			clientErr:   errors.New("test"),
-			expectedErr: errors.New("test"),
+			description:        "client error",
+			client:             new(mockClient),
+			expectedStatusCode: 500,
+			clientErr:          errors.New("test"),
+			expectedErr:        errors.New("test"),
 		},
 	}
 
@@ -127,10 +133,17 @@ func TestDoRequest(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 			resp := httptest.NewRecorder()
+			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			m := Measures{
+				RequestCount:  p.NewCounter("request_count"),
+				ResponseCount: p.NewCounter("response_count"),
+			}
 			resp.Write(tc.expectedBody)
+			resp.Code = tc.expectedStatusCode
 			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr)
 			c := CodexClient{
-				Client: tc.client,
+				Client:  tc.client,
+				Metrics: m,
 			}
 			body, err := c.doRequest(request)
 			if tc.expectedErr != nil {
@@ -141,6 +154,9 @@ func TestDoRequest(t *testing.T) {
 				assert.NotNil(body)
 				assert.Equal(string(tc.expectedBody), string(body.([]byte)))
 			}
+
+			p.Assert(t, "request_count")(xmetricstest.Value(1.0))
+			p.Assert(t, "response_count", responseCodeLabel, strconv.Itoa(tc.expectedStatusCode))(xmetricstest.Value(1.0))
 
 		})
 	}
@@ -235,4 +251,54 @@ func TestExecuteRequest(t *testing.T) {
 
 		})
 	}
+}
+
+func TestOnStateChanged(t *testing.T) {
+	tests := []struct {
+		description   string
+		name          string
+		from          gobreaker.State
+		to            gobreaker.State
+		expectedCount float64
+	}{
+		{
+			description:   "closed to open",
+			name:          "test",
+			from:          gobreaker.StateClosed,
+			to:            gobreaker.StateOpen,
+			expectedCount: 1.0,
+		},
+		{
+			description: "open to half-open",
+			name:        "test",
+			from:        gobreaker.StateOpen,
+			to:          gobreaker.StateHalfOpen,
+		},
+		{
+			description: "half-open to closed",
+			name:        "test",
+			from:        gobreaker.StateHalfOpen,
+			to:          gobreaker.StateClosed,
+		},
+		{
+			description: "half-open to open",
+			name:        "test",
+			from:        gobreaker.StateHalfOpen,
+			to:          gobreaker.StateOpen,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			m := Measures{
+				CircuitBreakerOpenCount: p.NewCounter("open_count"),
+			}
+			s := onStateChanged(m)
+			s(tc.name, tc.from, tc.to)
+			p.Assert(t, "open_count", circuitBreakerLabel, tc.name)(xmetricstest.Value(tc.expectedCount))
+
+		})
+	}
+
 }

@@ -82,12 +82,12 @@ func (c *CodexClient) doRequest(req *http.Request) (interface{}, error) {
 	}
 
 	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
+	if resp != nil && c.Metrics.ResponseCount != nil {
+		c.Metrics.ResponseCount.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Add(1.0)
 	}
 
-	if c.Metrics.ResponseCount != nil {
-		c.Metrics.ResponseCount.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Add(1.0)
+	if err != nil {
+		return nil, err
 	}
 
 	defer resp.Body.Close()
@@ -111,15 +111,16 @@ func buildGETRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 	return request, nil
 }
 
+// logs prometheus metrics when circuit breaker state changes
 func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
 	var start time.Time
 	return func(name string, from gobreaker.State, to gobreaker.State) {
 		if from == gobreaker.StateClosed && to == gobreaker.StateOpen && m.CircuitBreakerOpenCount != nil {
 			m.CircuitBreakerOpenCount.With(circuitBreakerLabel, name).Add(1.0)
 			start = time.Now()
-		} else if to == gobreaker.StateClosed {
+		} else if to == gobreaker.StateClosed && m.CircuitBreakerOpenDuration != nil {
 			openTime := time.Now().Sub(start).Seconds()
-			m.CircuitBreakerOpenTime.With(circuitBreakerLabel, name).Observe(openTime)
+			m.CircuitBreakerOpenDuration.With(circuitBreakerLabel, name).Observe(openTime)
 		}
 	}
 }
