@@ -18,7 +18,7 @@
 package main
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" // nolint:gosec
 	"errors"
 	"fmt"
 	"os"
