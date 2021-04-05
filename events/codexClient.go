@@ -119,7 +119,7 @@ func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
 			m.CircuitBreakerOpenCount.With(circuitBreakerLabel, name).Add(1.0)
 			start = time.Now()
 		} else if to == gobreaker.StateClosed && m.CircuitBreakerOpenDuration != nil {
-			openTime := time.Now().Sub(start).Seconds()
+			openTime := time.Since(start).Seconds()
 			m.CircuitBreakerOpenDuration.With(circuitBreakerLabel, name).Observe(openTime)
 		}
 	}

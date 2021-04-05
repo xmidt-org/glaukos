@@ -32,7 +32,7 @@ func testUnmarshalErr(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	resp.WriteString(`{"some key": "some-value"}`)
-	client.On("Do", mock.Anything).Return(resp.Result(), nil)
+	client.On("Do", mock.Anything).Return(resp.Result(), nil) // nolint:bodyclose
 	c := CodexClient{
 		Logger:         log.NewNopLogger(),
 		Client:         client,
@@ -50,7 +50,7 @@ func testClientErr(t *testing.T) {
 	client := new(mockClient)
 	auth := new(mockAcquirer)
 	auth.On("Acquire").Return("test", nil)
-	client.On("Do", mock.Anything).Return(httptest.NewRecorder().Result(), errors.New("test error"))
+	client.On("Do", mock.Anything).Return(httptest.NewRecorder().Result(), errors.New("test error")) // nolint:bodyclose
 	c := CodexClient{
 		Logger:         log.NewNopLogger(),
 		Client:         client,
@@ -92,7 +92,7 @@ func testSuccess(t *testing.T) {
 	jsonEvents, err := json.Marshal(events)
 	assert.Nil(err)
 	resp.WriteString(string(jsonEvents))
-	client.On("Do", mock.Anything).Return(resp.Result(), nil)
+	client.On("Do", mock.Anything).Return(resp.Result(), nil) // nolint:bodyclose
 	c := CodexClient{
 		Logger:         log.NewNopLogger(),
 		Client:         client,
@@ -140,7 +140,7 @@ func TestDoRequest(t *testing.T) {
 			}
 			resp.Write(tc.expectedBody)
 			resp.Code = tc.expectedStatusCode
-			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr)
+			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr) // nolint:bodyclose
 			c := CodexClient{
 				Client:  tc.client,
 				Metrics: m,
@@ -233,7 +233,7 @@ func TestExecuteRequest(t *testing.T) {
 			client := new(mockClient)
 			resp := httptest.NewRecorder()
 			resp.Write(tc.expectedBody)
-			client.On("Do", req).Return(resp.Result(), tc.clientErr)
+			client.On("Do", req).Return(resp.Result(), tc.clientErr) // nolint:bodyclose
 			c := CodexClient{
 				Logger:         logger,
 				Client:         client,
