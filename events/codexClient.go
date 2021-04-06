@@ -6,51 +6,43 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/httpaux"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"go.uber.org/ratelimit"
 )
 
-type CircuitBreakerConfig struct {
-	MaxRequests                uint32
-	Interval                   time.Duration
-	Timeout                    time.Duration
-	ConsecutiveFailuresAllowed uint32
-}
-
+// CodexClient is the client used to get events from codex.
 type CodexClient struct {
-	Address      string
-	Auth         acquire.Acquirer
-	RetryOptions xhttp.RetryOptions
-	Client       *http.Client
-	CB           *gobreaker.CircuitBreaker
-	Logger       log.Logger
+	Address        string
+	Auth           acquire.Acquirer
+	Client         httpaux.Client
+	CircuitBreaker *gobreaker.CircuitBreaker
+	RateLimiter    ratelimit.Limiter
+	Logger         log.Logger
+	Metrics        Measures
 }
 
 // GetEvents queries codex for events related to a device.
 func (c *CodexClient) GetEvents(device string) []interpreter.Event {
 	eventList := make([]interpreter.Event, 0)
 
-	request, err := buildGetRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
+	request, err := buildGETRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
 	if err != nil {
 		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to build request")
 		return eventList
 	}
 
-	status, data, err := c.doRequest(request)
+	data, err := c.executeRequest(request)
 	if err != nil {
 		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to complete request")
-		return eventList
-	}
-
-	if status != 200 {
-		level.Error(c.Logger).Log("status", status, xlog.MessageKey(), "non 200", "url", request.URL)
 		return eventList
 	}
 
@@ -62,25 +54,51 @@ func (c *CodexClient) GetEvents(device string) []interpreter.Event {
 	return eventList
 }
 
-func (c *CodexClient) doRequest(request *http.Request) (int, []byte, error) {
-	f := circuitBreakerRequestFunc(c)
-	response, err := xhttp.RetryTransactor(c.RetryOptions, f)(request)
+func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
+	c.RateLimiter.Take()
+	response, err := c.CircuitBreaker.Execute(func() (interface{}, error) {
+		return c.doRequest(request)
+	})
+
 	if err != nil {
-		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "RetryTransactor failed")
-		return 0, []byte{}, err
+		if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
+			c.Metrics.CircuitBreakerRejectedCount.With(circuitBreakerLabel, c.CircuitBreaker.Name()).Add(1.0)
+		}
+		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to make request")
+		return nil, err
 	}
 
-	data, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil {
-		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
-		return 0, []byte{}, err
+	r, ok := response.([]byte)
+	if !ok {
+		return nil, errors.New("failed to convert body to byte array")
 	}
 
-	return response.StatusCode, data, nil
+	return r, nil
 }
 
-func buildGetRequest(address string, auth acquire.Acquirer) (*http.Request, error) {
+func (c *CodexClient) doRequest(req *http.Request) (interface{}, error) {
+	requestBegin := time.Now()
+	resp, err := c.Client.Do(req)
+
+	if resp != nil && c.Metrics.ResponseDuration != nil {
+		c.Metrics.ResponseDuration.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Observe(time.Since(requestBegin).Seconds())
+	} else if resp == nil && c.Metrics.ResponseDuration != nil {
+		c.Metrics.ResponseDuration.With(responseCodeLabel, "-1").Observe(time.Since(requestBegin).Seconds())
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading body: %w", err)
+	}
+	return body, nil
+}
+
+func buildGETRequest(address string, auth acquire.Acquirer) (*http.Request, error) {
 	request, err := http.NewRequest(http.MethodGet, address, nil)
 	if err != nil {
 		return nil, err
@@ -93,21 +111,26 @@ func buildGetRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 	return request, nil
 }
 
-func circuitBreakerRequestFunc(c *CodexClient) func(req *http.Request) (*http.Response, error) {
-	return func(req *http.Request) (*http.Response, error) {
-		resp, err := c.CB.Execute(func() (interface{}, error) {
-			return c.Client.Do(req)
-		})
-
-		if err != nil {
-			return nil, err
+// logs prometheus metrics when circuit breaker state changes
+func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
+	var start time.Time
+	return func(name string, from gobreaker.State, to gobreaker.State) {
+		if m.CircuitBreakerStatus != nil {
+			switch to {
+			case gobreaker.StateClosed:
+				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(0.0)
+			case gobreaker.StateHalfOpen:
+				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(0.5)
+			case gobreaker.StateOpen:
+				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(1.0)
+			}
 		}
 
-		if b, ok := resp.(*http.Response); !ok {
-			return nil, errors.New("failed to convert response to a http response")
-		} else {
-			return b, nil
+		if from == gobreaker.StateClosed && to == gobreaker.StateOpen {
+			start = time.Now()
+		} else if to == gobreaker.StateClosed && m.CircuitBreakerOpenDuration != nil {
+			openTime := time.Since(start).Seconds()
+			m.CircuitBreakerOpenDuration.With(circuitBreakerLabel, name).Observe(openTime)
 		}
-
 	}
 }

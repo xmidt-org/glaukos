@@ -5,13 +5,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
 - Add time validation struct and interface. [#44](https://github.com/xmidt-org/glaukos/pull/45)
-- Rename packages and move files. [#46](https://github.com/xmidt-org/glaukos/pull/46)
-- Refactor to only use Events, remove use of wrp.Message beyond converting a wrp.Message to Event when a message is received through the webhook. [#47](https://github.com/xmidt-org/glaukos/pull/47)
 - Add validator interface to validate events. [#48](https://github.com/xmidt-org/glaukos/pull/48)
 - Add event finder to separate out searching through history of events from parsers. [#49](https://github.com/xmidt-org/glaukos/pull/49)
+- Add `TimeElapsedParser`. [#55](https://github.com/xmidt-org/glaukos/pull/55)
+- Add rate limiter and metrics for codex client. [#57](https://github.com/xmidt-org/glaukos/pull/57)
+
+### Changed
+- Rename packages and move files. [#46](https://github.com/xmidt-org/glaukos/pull/46)
+- Refactor to only use Events, remove use of wrp.Message beyond converting a wrp.Message to Event when a message is received through the webhook. [#47](https://github.com/xmidt-org/glaukos/pull/47)
 - Refactor to use `interpreter` library. [#53](https://github.com/xmidt-org/glaukos/pull/53)
-- Implement `TimeElapsedParser`, modify `Parser` interface. [#55](https://github.com/xmidt-org/glaukos/pull/55)
+- Modify `Parser` interface. [#55](https://github.com/xmidt-org/glaukos/pull/55)
+- Use `httpaux/retry` instead of `webpa-common/xhttp` library. [#57](https://github.com/xmidt-org/glaukos/pull/57)
+
+### Removed
+- Create `bootTimeParser` and `totalBootTimeParser` through configuration of time-elapsed parser and remove code files that implement these parsers. [#55](https://github.com/xmidt-org/glaukos/pull/55)
 
 ## [v0.2.4]
 - Add more detailed logging for long durations. [#43](https://github.com/xmidt-org/glaukos/pull/43)

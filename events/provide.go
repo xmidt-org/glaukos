@@ -9,9 +9,10 @@ import (
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/httpaux/retry"
 	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"go.uber.org/fx"
+	"go.uber.org/ratelimit"
 )
 
 // CodexConfig determines the auth and address for connecting to the codex cluster.
@@ -19,9 +20,25 @@ type CodexConfig struct {
 	Address        string
 	Auth           AuthAcquirerConfig
 	MaxRetryCount  int
+	RateLimit      RateLimitConfig
 	CircuitBreaker CircuitBreakerConfig
 }
 
+// CircuitBreakerConfig deals with configuration for the circuit breaker.
+type CircuitBreakerConfig struct {
+	MaxRequests                uint32
+	Interval                   time.Duration
+	Timeout                    time.Duration
+	ConsecutiveFailuresAllowed uint32
+}
+
+// RateLimitConfig is the configuration for the rate limiter.
+type RateLimitConfig struct {
+	Requests int
+	Tick     time.Duration
+}
+
+// AuthAcquirerConfig is the auth config for the client making requests to get a device's history of events.
 type AuthAcquirerConfig struct {
 	JWT   acquire.RemoteBearerTokenAcquirerOptions
 	Basic string
@@ -30,32 +47,50 @@ type AuthAcquirerConfig struct {
 // Provide bundles everything needed for setting up all of the event objects
 // for easier wiring into an uber fx application.
 func Provide() fx.Option {
-	return fx.Provide(
-		arrange.UnmarshalKey("codex", CodexConfig{}),
-		determineCodexTokenAcquirer,
-		createCircuitBreaker,
-		func(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, logger log.Logger) *CodexClient {
-			if config.MaxRetryCount < 0 {
-				config.MaxRetryCount = 3
-			}
-			retryOptions := xhttp.RetryOptions{
-				Logger:   logger,
-				Retries:  config.MaxRetryCount,
-				Interval: time.Second * 30,
-				// Always retry on failures up to the max count.
-				ShouldRetry:       func(error) bool { return true },
-				ShouldRetryStatus: func(code int) bool { return false },
-			}
-			return &CodexClient{
-				Address:      config.Address,
-				Auth:         codexAuth,
-				RetryOptions: retryOptions,
-				Client:       http.DefaultClient,
-				Logger:       logger,
-				CB:           cb,
-			}
-		},
+	return fx.Options(
+		ProvideMetrics(),
+		fx.Provide(
+			arrange.UnmarshalKey("codex", CodexConfig{}),
+			determineCodexTokenAcquirer,
+			createCircuitBreaker,
+			onStateChanged,
+			createCodexClient,
+		),
 	)
+
+}
+
+func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, measures Measures, logger log.Logger) *CodexClient {
+	var limiter ratelimit.Limiter
+	if config.RateLimit.Requests <= 0 {
+		limiter = ratelimit.NewUnlimited()
+	} else {
+		if config.RateLimit.Tick <= 0 {
+			config.RateLimit.Tick = time.Second
+		}
+
+		limiter = ratelimit.New(config.RateLimit.Requests, ratelimit.Per(config.RateLimit.Tick), ratelimit.WithoutSlack)
+	}
+	retryConfig := retry.Config{
+		Retries:  config.MaxRetryCount,
+		Interval: time.Second * 30,
+	}
+
+	client := retry.New(retryConfig, new(http.Client))
+
+	if measures.CircuitBreakerStatus != nil {
+		measures.CircuitBreakerStatus.With(circuitBreakerLabel, cb.Name()).Set(0.0)
+	}
+
+	return &CodexClient{
+		Address:        config.Address,
+		Auth:           codexAuth,
+		Client:         client,
+		Logger:         logger,
+		RateLimiter:    limiter,
+		Metrics:        measures,
+		CircuitBreaker: cb,
+	}
 }
 
 func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire.Acquirer, error) {
@@ -76,7 +111,7 @@ func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire
 
 }
 
-func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
+func createCircuitBreaker(config CodexConfig, onStateChange func(string, gobreaker.State, gobreaker.State)) *gobreaker.CircuitBreaker {
 	c := config.CircuitBreaker
 
 	if c.ConsecutiveFailuresAllowed == 0 {
@@ -91,6 +126,7 @@ func createCircuitBreaker(config CodexConfig) *gobreaker.CircuitBreaker {
 		ReadyToTrip: func(count gobreaker.Counts) bool {
 			return count.ConsecutiveFailures >= c.ConsecutiveFailuresAllowed
 		},
+		OnStateChange: onStateChange,
 	}
 
 	return gobreaker.NewCircuitBreaker(settings)

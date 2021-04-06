@@ -4,9 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sony/gobreaker"
+
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
 
 func TestCodexTokenAcquirer(t *testing.T) {
@@ -124,6 +128,71 @@ func TestCodexTokenAcquirer(t *testing.T) {
 				assert.Nil(err)
 			}
 
+		})
+	}
+}
+
+func TestCreateCodexClient(t *testing.T) {
+	tests := []struct {
+		description string
+		config      CodexConfig
+	}{
+		{
+			description: "0 rate limit req",
+			config: CodexConfig{
+				RateLimit: RateLimitConfig{
+					Requests: 0,
+				},
+			},
+		},
+		{
+			description: "negative rate limit req",
+			config: CodexConfig{
+				Address: "test",
+				RateLimit: RateLimitConfig{
+					Requests: -1,
+				},
+			},
+		},
+		{
+			description: "0 per for rate limiting",
+			config: CodexConfig{
+				Address: "random",
+				RateLimit: RateLimitConfig{
+					Requests: 10,
+					Tick:     0,
+				},
+			},
+		},
+		{
+			description: "negative per for rate limiting",
+			config: CodexConfig{
+				Address: "test",
+				RateLimit: RateLimitConfig{
+					Requests: 10,
+					Tick:     -1 * time.Second,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			m := Measures{
+				CircuitBreakerStatus: p.NewGauge("circuit_breaker_status"),
+			}
+			auth := &acquire.DefaultAcquirer{}
+			logger := log.NewNopLogger()
+			cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test"})
+			client := createCodexClient(tc.config, cb, auth, m, logger)
+			assert.NotNil(client)
+			assert.Equal(tc.config.Address, client.Address)
+			assert.Equal(auth, client.Auth)
+			assert.Equal(m, client.Metrics)
+			assert.Equal(cb, client.CircuitBreaker)
+			p.Assert(t, "circuit_breaker_status", circuitBreakerLabel, cb.Name())(xmetricstest.Value(0.0))
 		})
 	}
 }

@@ -195,6 +195,12 @@ webhook:
 codex:
   address: (( grab $CODEX_ADDRESS || "localhost:6000" ))
   maxRetryCount: (( grab $CODEX_MAX_RETRY_COUNT || 0 ))
+  rateLimit:
+    # requests is the number of requests per duration that glaukos can send to codex. If this is 0, then requests
+    # are not rate-limited.
+    requests: (( grab $LIMITER_REQUESTS || 1 ))
+    # tick configures the limits for the time window of the rate limiter.
+    tick: (( grab $LIMITER_TICK || "1s" ))
   # circuit breaker settings
   circuitBreaker:
     # The maximum number of requests allowed to pass through when the CircuitBreaker is half-open.

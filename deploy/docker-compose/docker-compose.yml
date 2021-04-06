@@ -12,6 +12,8 @@ services:
       - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
       - "LOG_LEVEL=DEBUG"
+      - LIMITER_REQUESTS=4
+      - LIMITER_TICK=30s
     ports:
       - 4200-4203:4200-4203
     depends_on:
