@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/go-kit/kit/log"
@@ -133,17 +132,11 @@ func TestDoRequest(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 			resp := httptest.NewRecorder()
-			p := xmetricstest.NewProvider(&xmetrics.Options{})
-			m := Measures{
-				RequestCount:  p.NewCounter("request_count"),
-				ResponseCount: p.NewCounter("response_count"),
-			}
 			resp.Write(tc.expectedBody)
 			resp.Code = tc.expectedStatusCode
 			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr) // nolint:bodyclose
 			c := CodexClient{
-				Client:  tc.client,
-				Metrics: m,
+				Client: tc.client,
 			}
 			body, err := c.doRequest(request)
 			if tc.expectedErr != nil {
@@ -154,9 +147,6 @@ func TestDoRequest(t *testing.T) {
 				assert.NotNil(body)
 				assert.Equal(string(tc.expectedBody), string(body.([]byte)))
 			}
-
-			p.Assert(t, "request_count")(xmetricstest.Value(1.0))
-			p.Assert(t, "response_count", responseCodeLabel, strconv.Itoa(tc.expectedStatusCode))(xmetricstest.Value(1.0))
 
 		})
 	}
@@ -255,36 +245,39 @@ func TestExecuteRequest(t *testing.T) {
 
 func TestOnStateChanged(t *testing.T) {
 	tests := []struct {
-		description   string
-		name          string
-		from          gobreaker.State
-		to            gobreaker.State
-		expectedCount float64
+		description    string
+		name           string
+		from           gobreaker.State
+		to             gobreaker.State
+		expectedStatus float64
 	}{
 		{
-			description:   "closed to open",
-			name:          "test",
-			from:          gobreaker.StateClosed,
-			to:            gobreaker.StateOpen,
-			expectedCount: 1.0,
+			description:    "closed to open",
+			name:           "test",
+			from:           gobreaker.StateClosed,
+			to:             gobreaker.StateOpen,
+			expectedStatus: 1.0,
 		},
 		{
-			description: "open to half-open",
-			name:        "test",
-			from:        gobreaker.StateOpen,
-			to:          gobreaker.StateHalfOpen,
+			description:    "open to half-open",
+			name:           "test",
+			from:           gobreaker.StateOpen,
+			to:             gobreaker.StateHalfOpen,
+			expectedStatus: 0.5,
 		},
 		{
-			description: "half-open to closed",
-			name:        "test",
-			from:        gobreaker.StateHalfOpen,
-			to:          gobreaker.StateClosed,
+			description:    "half-open to closed",
+			name:           "test",
+			from:           gobreaker.StateHalfOpen,
+			to:             gobreaker.StateClosed,
+			expectedStatus: 0.0,
 		},
 		{
-			description: "half-open to open",
-			name:        "test",
-			from:        gobreaker.StateHalfOpen,
-			to:          gobreaker.StateOpen,
+			description:    "half-open to open",
+			name:           "test",
+			from:           gobreaker.StateHalfOpen,
+			to:             gobreaker.StateOpen,
+			expectedStatus: 1.0,
 		},
 	}
 
@@ -292,11 +285,11 @@ func TestOnStateChanged(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			p := xmetricstest.NewProvider(&xmetrics.Options{})
 			m := Measures{
-				CircuitBreakerOpenCount: p.NewCounter("open_count"),
+				CircuitBreakerStatus: p.NewGauge("circuit_breaker_status"),
 			}
 			s := onStateChanged(m)
 			s(tc.name, tc.from, tc.to)
-			p.Assert(t, "open_count", circuitBreakerLabel, tc.name)(xmetricstest.Value(tc.expectedCount))
+			p.Assert(t, "circuit_breaker_status", circuitBreakerLabel, tc.name)(xmetricstest.Value(tc.expectedStatus))
 
 		})
 	}

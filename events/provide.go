@@ -35,7 +35,7 @@ type CircuitBreakerConfig struct {
 // RateLimitConfig is the configuration for the rate limiter.
 type RateLimitConfig struct {
 	Requests int
-	Per      time.Duration
+	Tick     time.Duration
 }
 
 // AuthAcquirerConfig is the auth config for the client making requests to get a device's history of events.
@@ -65,11 +65,11 @@ func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAu
 	if config.RateLimit.Requests <= 0 {
 		limiter = ratelimit.NewUnlimited()
 	} else {
-		if config.RateLimit.Per <= 0 {
-			config.RateLimit.Per = time.Second
+		if config.RateLimit.Tick <= 0 {
+			config.RateLimit.Tick = time.Second
 		}
 
-		limiter = ratelimit.New(config.RateLimit.Requests, ratelimit.Per(config.RateLimit.Per), ratelimit.WithoutSlack)
+		limiter = ratelimit.New(config.RateLimit.Requests, ratelimit.Per(config.RateLimit.Tick), ratelimit.WithoutSlack)
 	}
 	retryConfig := retry.Config{
 		Retries:  config.MaxRetryCount,
@@ -77,6 +77,11 @@ func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAu
 	}
 
 	client := retry.New(retryConfig, new(http.Client))
+
+	if measures.CircuitBreakerStatus != nil {
+		measures.CircuitBreakerStatus.With(circuitBreakerLabel, cb.Name()).Set(0.0)
+	}
+
 	return &CodexClient{
 		Address:        config.Address,
 		Auth:           codexAuth,
