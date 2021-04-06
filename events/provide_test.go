@@ -9,6 +9,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/bascule/acquire"
+	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
 
 func TestCodexTokenAcquirer(t *testing.T) {
@@ -158,7 +160,7 @@ func TestCreateCodexClient(t *testing.T) {
 				Address: "random",
 				RateLimit: RateLimitConfig{
 					Requests: 10,
-					Per:      0,
+					Tick:     0,
 				},
 			},
 		},
@@ -168,7 +170,7 @@ func TestCreateCodexClient(t *testing.T) {
 				Address: "test",
 				RateLimit: RateLimitConfig{
 					Requests: 10,
-					Per:      -1 * time.Second,
+					Tick:     -1 * time.Second,
 				},
 			},
 		},
@@ -177,16 +179,20 @@ func TestCreateCodexClient(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			m := Measures{}
+			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			m := Measures{
+				CircuitBreakerStatus: p.NewGauge("circuit_breaker_status"),
+			}
 			auth := &acquire.DefaultAcquirer{}
 			logger := log.NewNopLogger()
-			cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{})
+			cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test"})
 			client := createCodexClient(tc.config, cb, auth, m, logger)
 			assert.NotNil(client)
 			assert.Equal(tc.config.Address, client.Address)
 			assert.Equal(auth, client.Auth)
 			assert.Equal(m, client.Metrics)
 			assert.Equal(cb, client.CircuitBreaker)
+			p.Assert(t, "circuit_breaker_status", circuitBreakerLabel, cb.Name())(xmetricstest.Value(0.0))
 		})
 	}
 }

@@ -162,15 +162,12 @@ codex:
   address: localhost:7000
   # maxRetryCount is the max number of retries when making the request to codex. Retries will be sent every 30 seconds.
   maxRetryCount: 0
-  rateLimiter:
+  rateLimit:
     # requests is the max number of requests per duration that glaukos should send to codex. If this is 0, then requests
     # are not rate-limited.
     requests: 1
-    # per configures the limits for the time window of the rate limiter.
-    per: "1s"
-  # requeststhe max number of requests per second to send to codex
-  requestsPerSecond: 1
-
+    # tick configures the limits for the time window of the rate limiter.
+    tick: "1s"
   # circuit breaker settings
   circuitBreaker:
     # The maximum number of requests allowed to pass through when the CircuitBreaker is half-open.
@@ -186,7 +183,7 @@ codex:
 
     # Number of consecutive failures allowed per interval before circuit breaker switches to open state.
     # Must be at least 1
-    consecutiveFailuresAllowed: 0
+    consecutiveFailuresAllowed: 1
 
   auth:
     # basic provides a way to use Basic Authorization when registering to a

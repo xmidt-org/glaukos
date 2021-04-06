@@ -94,13 +94,14 @@ func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
 }
 
 func (c *CodexClient) doRequest(req *http.Request) (interface{}, error) {
-	if c.Metrics.RequestCount != nil {
-		c.Metrics.RequestCount.Add(1.0)
-	}
-
+	requestBegin := time.Now()
 	resp, err := c.Client.Do(req)
-	if resp != nil && c.Metrics.ResponseCount != nil {
-		c.Metrics.ResponseCount.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Add(1.0)
+
+	if resp != nil && c.Metrics.ResponseDuration != nil {
+		c.Metrics.ResponseDuration.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Observe(time.Since(requestBegin).Seconds())
+	} else if resp == nil && c.Metrics.ResponseDuration != nil {
+		responseTime := time.Since(requestBegin).Milliseconds()
+		c.Metrics.ResponseDuration.With(responseCodeLabel, "-1").Observe(float64(responseTime))
 	}
 
 	if err != nil {
@@ -132,8 +133,18 @@ func buildGETRequest(address string, auth acquire.Acquirer) (*http.Request, erro
 func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
 	var start time.Time
 	return func(name string, from gobreaker.State, to gobreaker.State) {
-		if from == gobreaker.StateClosed && to == gobreaker.StateOpen && m.CircuitBreakerOpenCount != nil {
-			m.CircuitBreakerOpenCount.With(circuitBreakerLabel, name).Add(1.0)
+		if m.CircuitBreakerStatus != nil {
+			switch to {
+			case gobreaker.StateClosed:
+				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(0.0)
+			case gobreaker.StateHalfOpen:
+				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(0.5)
+			case gobreaker.StateOpen:
+				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(1.0)
+			}
+		}
+
+		if from == gobreaker.StateClosed && to == gobreaker.StateOpen {
 			start = time.Now()
 		} else if to == gobreaker.StateClosed && m.CircuitBreakerOpenDuration != nil {
 			openTime := time.Since(start).Seconds()

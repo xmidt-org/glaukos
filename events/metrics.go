@@ -32,9 +32,8 @@ const (
 // Measures contains the various codex client related metrics.
 type Measures struct {
 	fx.In
-	RequestCount                metrics.Counter   `name:"client_request_count"`
-	ResponseCount               metrics.Counter   `name:"client_response_count"`
-	CircuitBreakerOpenCount     metrics.Counter   `name:"circuit_breaker_open_count"`
+	ResponseDuration            metrics.Histogram `name:"client_response_duration_ms"`
+	CircuitBreakerStatus        metrics.Gauge     `name:"circuit_breaker_status"`
 	CircuitBreakerRejectedCount metrics.Counter   `name:"circuit_breaker_rejected_count"`
 	CircuitBreakerOpenDuration  metrics.Histogram `name:"circuit_breaker_open_duration"`
 }
@@ -42,23 +41,18 @@ type Measures struct {
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.
 func ProvideMetrics() fx.Option {
 	return fx.Provide(
-		xmetrics.ProvideCounter(
-			prometheus.CounterOpts{
-				Name: "client_request_count",
-				Help: "Number of requests attempted",
-			},
-		),
-		xmetrics.ProvideCounter(
-			prometheus.CounterOpts{
-				Name: "client_response_count",
-				Help: "Number of responses, broken down by response code",
+		xmetrics.ProvideHistogram(
+			prometheus.HistogramOpts{
+				Name:    "client_response_duration_ms",
+				Help:    "The amount of time it takes for codex to respond in ms",
+				Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 			},
 			responseCodeLabel,
 		),
-		xmetrics.ProvideCounter(
-			prometheus.CounterOpts{
-				Name: "circuit_breaker_open_count",
-				Help: "Number of times the circuit breaker was activated",
+		xmetrics.ProvideGauge(
+			prometheus.GaugeOpts{
+				Name: "circuit_breaker_status",
+				Help: "The current status of the circuit breaker, with 1=open, 0.5=half-open, 0=closed",
 			},
 			circuitBreakerLabel,
 		),
@@ -72,7 +66,7 @@ func ProvideMetrics() fx.Option {
 		xmetrics.ProvideHistogram(
 			prometheus.HistogramOpts{
 				Name:    "circuit_breaker_open_duration",
-				Help:    "The amount of time the circuit breaker is open",
+				Help:    "The amount of time the circuit breaker is open in s",
 				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800},
 			},
 			circuitBreakerLabel,
