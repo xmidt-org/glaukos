@@ -83,8 +83,7 @@ func (c *CodexClient) doRequest(req *http.Request) (interface{}, error) {
 	if resp != nil && c.Metrics.ResponseDuration != nil {
 		c.Metrics.ResponseDuration.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Observe(time.Since(requestBegin).Seconds())
 	} else if resp == nil && c.Metrics.ResponseDuration != nil {
-		responseTime := time.Since(requestBegin).Milliseconds()
-		c.Metrics.ResponseDuration.With(responseCodeLabel, "-1").Observe(float64(responseTime))
+		c.Metrics.ResponseDuration.With(responseCodeLabel, "-1").Observe(time.Since(requestBegin).Seconds())
 	}
 
 	if err != nil {
