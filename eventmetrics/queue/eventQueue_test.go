@@ -99,7 +99,17 @@ func TestParseEvent(t *testing.T) {
 	p := xmetricstest.NewProvider(&xmetrics.Options{})
 	event := interpreter.Event{
 		Source:          "test source",
-		Destination:     "device-status/mac:some_address/an-event/some_timestamp",
+		Destination:     "event:device-status/mac:some_address/an-event/some_timestamp",
+		MsgType:         int(wrp.SimpleEventMessageType),
+		PartnerIDs:      []string{"test1"},
+		TransactionUUID: "transaction test uuid",
+		Payload:         `{"ts":"2019-02-13T21:19:02.614191735Z"}`,
+		Metadata:        map[string]string{"testkey": "testvalue"},
+	}
+
+	badDestEvent := interpreter.Event{
+		Source:          "test source",
+		Destination:     "some-event",
 		MsgType:         int(wrp.SimpleEventMessageType),
 		PartnerIDs:      []string{"test1"},
 		TransactionUUID: "transaction test uuid",
@@ -111,11 +121,15 @@ func TestParseEvent(t *testing.T) {
 		description         string
 		expectedEventsCount float64
 		metrics             Measures
+		event               interpreter.Event
+		expectedType        string
 	}{
 		{
 			description:         "Without metrics",
 			expectedEventsCount: 0,
 			metrics:             Measures{},
+			event:               event,
+			expectedType:        "an-event",
 		},
 		{
 			description:         "With metrics",
@@ -123,6 +137,17 @@ func TestParseEvent(t *testing.T) {
 			metrics: Measures{
 				EventsCount: p.NewCounter("depth"),
 			},
+			event:        event,
+			expectedType: "an-event",
+		},
+		{
+			description:         "Bad destination event",
+			expectedEventsCount: 1,
+			metrics: Measures{
+				EventsCount: p.NewCounter("depth"),
+			},
+			event:        badDestEvent,
+			expectedType: "unknown",
 		},
 	}
 
@@ -148,11 +173,11 @@ func TestParseEvent(t *testing.T) {
 			}
 
 			queue.workers.Acquire()
-			queue.ParseEvent(event)
+			queue.ParseEvent(tc.event)
 
-			mockMetadataParser.AssertCalled(t, "Parse", event)
-			mockBootTimeCalc.AssertCalled(t, "Parse", event)
-			p.Assert(t, "depth", partnerIDLabel, "test1")(xmetricstest.Value(tc.expectedEventsCount))
+			mockMetadataParser.AssertCalled(t, "Parse", tc.event)
+			mockBootTimeCalc.AssertCalled(t, "Parse", tc.event)
+			p.Assert(t, "depth", partnerIDLabel, "test1", eventDestLabel, tc.expectedType)(xmetricstest.Value(tc.expectedEventsCount))
 
 		})
 	}

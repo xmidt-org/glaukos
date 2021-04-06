@@ -21,7 +21,10 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/xmidt-org/themis/xlog"
+
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
@@ -136,7 +139,12 @@ func (e *EventQueue) ParseEvent(event interpreter.Event) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
 		partnerID := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
-		e.metrics.EventsCount.With(partnerIDLabel, partnerID).Add(1.0)
+		eventType, err := event.EventType()
+		if err != nil {
+			level.Error(e.logger).Log(xlog.ErrorKey())
+			eventType = "unknown"
+		}
+		e.metrics.EventsCount.With(partnerIDLabel, partnerID, eventDestLabel, eventType).Add(1.0)
 	}
 
 	for _, p := range e.parsers {

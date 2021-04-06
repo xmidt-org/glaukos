@@ -28,6 +28,7 @@ const (
 	partnerIDLabel  = "partner_id"
 	reasonLabel     = "reason"
 	queueFullReason = "queue_full"
+	eventDestLabel  = "event_destination"
 )
 
 // Measures contains the various queue-related metrics.
@@ -53,6 +54,7 @@ func ProvideMetrics() fx.Option {
 				Help: "Details of incoming events",
 			},
 			partnerIDLabel,
+			eventDestLabel,
 		),
 		xmetrics.ProvideCounter(
 			prometheus.CounterOpts{
