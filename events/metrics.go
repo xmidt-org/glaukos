@@ -32,7 +32,7 @@ const (
 // Measures contains the various codex client related metrics.
 type Measures struct {
 	fx.In
-	ResponseDuration            metrics.Histogram `name:"client_response_duration_ms"`
+	ResponseDuration            metrics.Histogram `name:"client_response_duration"`
 	CircuitBreakerStatus        metrics.Gauge     `name:"circuit_breaker_status"`
 	CircuitBreakerRejectedCount metrics.Counter   `name:"circuit_breaker_rejected_count"`
 	CircuitBreakerOpenDuration  metrics.Histogram `name:"circuit_breaker_open_duration"`
@@ -43,8 +43,8 @@ func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		xmetrics.ProvideHistogram(
 			prometheus.HistogramOpts{
-				Name:    "client_response_duration_ms",
-				Help:    "The amount of time it takes for codex to respond in ms",
+				Name:    "client_response_duration",
+				Help:    "The amount of time it takes for codex to respond in s",
 				Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 			},
 			responseCodeLabel,
