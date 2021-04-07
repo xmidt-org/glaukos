@@ -21,14 +21,15 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/arrange"
-	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/themis/xmetrics"
 	"go.uber.org/fx"
 )
 
 // Queue is the type that processes incoming events
 type Queue interface {
-	Queue(interpreter.Event) error
+	Queue(EventWithTime) error
 }
 
 // ParsersIn brings together all of the different types of parsers that glaukos uses.
@@ -41,8 +42,9 @@ type ParsersIn struct {
 func Provide() fx.Option {
 	return fx.Provide(
 		arrange.UnmarshalKey("queue", Config{}),
-		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, logger log.Logger) (Queue, error) {
-			e, err := newEventQueue(config, parsersIn.Parsers, metrics, logger)
+		newTimeTracker,
+		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, tracker TimeTracker, logger log.Logger) (Queue, error) {
+			e, err := newEventQueue(config, parsersIn.Parsers, metrics, tracker, logger)
 
 			if err != nil {
 				return nil, err
@@ -62,4 +64,21 @@ func Provide() fx.Option {
 			return e, nil
 		},
 	)
+}
+
+func newTimeTracker(f xmetrics.Factory) (TimeTracker, error) {
+	opts := prometheus.HistogramOpts{
+		Name: "time_in_memory",
+		Help: "the amount of time an event stays in memory",
+	}
+
+	histogram, err := f.NewHistogram(opts, []string{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &timeTracker{
+		TimeInMemory: histogram,
+	}, nil
 }

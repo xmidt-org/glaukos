@@ -18,6 +18,8 @@
 package queue
 
 import (
+	"time"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/themis/xmetrics"
@@ -64,4 +66,12 @@ func ProvideMetrics() fx.Option {
 			reasonLabel,
 		),
 	)
+}
+
+type timeTracker struct {
+	TimeInMemory metrics.Histogram
+}
+
+func (t *timeTracker) TrackTime(length time.Duration) {
+	t.TimeInMemory.Observe(length.Seconds())
 }

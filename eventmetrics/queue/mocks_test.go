@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"time"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
 )
@@ -16,4 +18,12 @@ func (mp *mockParser) Parse(event interpreter.Event) {
 func (mp *mockParser) Name() string {
 	args := mp.Called()
 	return args.String(0)
+}
+
+type mockTimeTracker struct {
+	mock.Mock
+}
+
+func (m *mockTimeTracker) TrackTime(length time.Duration) {
+	m.Called(length)
 }

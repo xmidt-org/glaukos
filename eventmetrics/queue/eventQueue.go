@@ -20,6 +20,7 @@ package queue
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/xmidt-org/themis/xlog"
 
@@ -37,24 +38,31 @@ var (
 )
 
 const (
-	defaultMinMaxWorkers = 5
-	defaultMinQueueSize  = 5
+	defaultMaxWorkers   = 5
+	defaultMinQueueSize = 5
 )
 
-// QueueConfig configures the glaukos queue used to parse incoming events from Caduceus
+// TimeTracker tracks the time an event is in memory.
+type TimeTracker interface {
+	TrackTime(time.Duration)
+}
+
+// Config configures the glaukos queue used to parse incoming events from Caduceus
 type Config struct {
 	QueueSize  int
 	MaxWorkers int
 }
 
+// EventQueue processes incoming events
 type EventQueue struct {
-	queue   chan interpreter.Event
-	workers semaphore.Interface
-	wg      sync.WaitGroup
-	logger  log.Logger
-	config  Config
-	parsers []Parser
-	metrics Measures
+	queue       chan EventWithTime
+	workers     semaphore.Interface
+	wg          sync.WaitGroup
+	logger      log.Logger
+	config      Config
+	parsers     []Parser
+	metrics     Measures
+	timeTracker TimeTracker
 }
 
 // Parser is the interface that all glaukos parsers must implement.
@@ -63,13 +71,19 @@ type Parser interface {
 	Name() string
 }
 
-func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log.Logger) (*EventQueue, error) {
+// EventWithTime allows for the tracking of how long an event stays in glaukos's memory.
+type EventWithTime struct {
+	Event     interpreter.Event
+	BeginTime time.Time
+}
+
+func newEventQueue(config Config, parsers []Parser, metrics Measures, tracker TimeTracker, logger log.Logger) (*EventQueue, error) {
 	if len(parsers) == 0 {
 		return nil, errNoParsers
 	}
 
-	if config.MaxWorkers < defaultMinMaxWorkers {
-		config.MaxWorkers = defaultMinMaxWorkers
+	if config.MaxWorkers < defaultMaxWorkers {
+		config.MaxWorkers = defaultMaxWorkers
 	}
 
 	if config.QueueSize < defaultMinQueueSize {
@@ -80,16 +94,17 @@ func newEventQueue(config Config, parsers []Parser, metrics Measures, logger log
 		logger = defaultLogger
 	}
 
-	queue := make(chan interpreter.Event, config.QueueSize)
+	queue := make(chan EventWithTime, config.QueueSize)
 	workers := semaphore.New(config.MaxWorkers)
 
 	e := EventQueue{
-		config:  config,
-		queue:   queue,
-		logger:  logger,
-		workers: workers,
-		parsers: parsers,
-		metrics: metrics,
+		config:      config,
+		queue:       queue,
+		logger:      logger,
+		workers:     workers,
+		parsers:     parsers,
+		metrics:     metrics,
+		timeTracker: tracker,
 	}
 
 	return &e, nil
@@ -106,9 +121,9 @@ func (e *EventQueue) Stop() {
 }
 
 // Queue attempts to add a message to the queue and returns an error if the queue is full.
-func (e *EventQueue) Queue(event interpreter.Event) (err error) {
+func (e *EventQueue) Queue(eventWithTime EventWithTime) (err error) {
 	select {
-	case e.queue <- event:
+	case e.queue <- eventWithTime:
 		if e.metrics.EventsQueueDepth != nil {
 			e.metrics.EventsQueueDepth.Add(1.0)
 		}
@@ -116,6 +131,7 @@ func (e *EventQueue) Queue(event interpreter.Event) (err error) {
 		if e.metrics.DroppedEventsCount != nil {
 			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
 		}
+		e.timeTracker.TrackTime(time.Since(eventWithTime.BeginTime))
 		err = TooManyRequestsErr{Message: "Queue Full"}
 	}
 
@@ -135,9 +151,10 @@ func (e *EventQueue) ParseEvents() {
 }
 
 // ParseEvent parses the metadata and boot-time of each event and generates metrics.
-func (e *EventQueue) ParseEvent(event interpreter.Event) {
+func (e *EventQueue) ParseEvent(eventWithTime EventWithTime) {
 	defer e.workers.Release()
 	if e.metrics.EventsCount != nil {
+		event := eventWithTime.Event
 		partnerID := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
 		eventType, err := event.EventType()
 		if err != nil {
@@ -148,6 +165,8 @@ func (e *EventQueue) ParseEvent(event interpreter.Event) {
 	}
 
 	for _, p := range e.parsers {
-		p.Parse(event)
+		p.Parse(eventWithTime.Event)
 	}
+
+	e.timeTracker.TrackTime(time.Since(eventWithTime.BeginTime))
 }

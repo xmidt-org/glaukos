@@ -49,12 +49,14 @@ func TestNewEndpoints(t *testing.T) {
 		description string
 		event       interface{}
 		expectedErr error
+		trackTime   bool
 		queueErr    error
 	}{
 		{
 			description: "Not an event",
 			event:       wrp.Message{},
 			expectedErr: errors.New("invalid request info"),
+			trackTime:   true,
 		},
 		{
 			description: "Invalid Birthdate",
@@ -77,7 +79,11 @@ func TestNewEndpoints(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockQueue)
 			m.On("Queue", mock.Anything).Return(tc.queueErr)
-			endpoints := NewEndpoints(m, tv, logger)
+			mockTimeTracker := new(mockTimeTracker)
+			if tc.trackTime {
+				mockTimeTracker.On("TrackTime", mock.Anything).Once()
+			}
+			endpoints := NewEndpoints(m, tv, mockTimeTracker, logger)
 			resp, err := endpoints.Event(context.Background(), tc.event)
 			assert.Nil(resp)
 			if tc.expectedErr == nil || err == nil {
@@ -85,6 +91,7 @@ func TestNewEndpoints(t *testing.T) {
 			} else {
 				assert.Contains(err.Error(), tc.expectedErr.Error())
 			}
+			mockTimeTracker.AssertExpectations(t)
 		})
 	}
 
