@@ -19,40 +19,38 @@ package main
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xmetrics"
-	"github.com/xmidt-org/themis/xmetrics/xmetricshttp"
+	"github.com/xmidt-org/touchstone"
+	"github.com/xmidt-org/touchstone/touchhttp"
 	"go.uber.org/fx"
 )
-
-const ServerLabel = "server"
 
 // provideMetrics builds the application metrics and makes them available to the container
 func provideMetrics() fx.Option {
 	return fx.Provide(
-		xmetrics.ProvideCounterVec(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "server_request_count",
 				Help: "total incoming HTTP requests",
 			},
-			xmetricshttp.DefaultCodeLabel,
-			xmetricshttp.DefaultMethodLabel,
-			ServerLabel,
+			touchhttp.CodeLabel,
+			touchhttp.MethodLabel,
+			touchhttp.ServerLabel,
 		),
-		xmetrics.ProvideHistogramVec(
+		touchstone.HistogramVec(
 			prometheus.HistogramOpts{
 				Name: "server_request_duration_ms",
 				Help: "tracks incoming request durations in ms",
 			},
-			xmetricshttp.DefaultCodeLabel,
-			xmetricshttp.DefaultMethodLabel,
-			ServerLabel,
+			touchhttp.CodeLabel,
+			touchhttp.MethodLabel,
+			touchhttp.ServerLabel,
 		),
-		xmetrics.ProvideGaugeVec(
+		touchstone.GaugeVec(
 			prometheus.GaugeOpts{
 				Name: "server_requests_in_flight",
 				Help: "tracks the current number of incoming requests being processed",
 			},
-			ServerLabel,
+			touchhttp.ServerLabel,
 		),
 	)
 }
