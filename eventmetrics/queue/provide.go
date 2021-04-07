@@ -68,8 +68,9 @@ func Provide() fx.Option {
 
 func newTimeTracker(f xmetrics.Factory) (TimeTracker, error) {
 	opts := prometheus.HistogramOpts{
-		Name: "time_in_memory",
-		Help: "the amount of time an event stays in memory",
+		Name:    "time_in_memory",
+		Help:    "the amount of time an event stays in memory in s",
+		Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 	}
 
 	histogram, err := f.NewHistogram(opts, []string{})
