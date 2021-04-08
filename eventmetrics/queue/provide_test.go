@@ -10,6 +10,7 @@ import (
 
 func TestNewTimeTrackerSuccess(t *testing.T) {
 	testFactory, err := xmetrics.New(xmetrics.Options{})
+	assert.Nil(t, err)
 	tracker, err := newTimeTracker(testFactory)
 	assert.NotNil(t, tracker)
 	assert.Nil(t, err)
@@ -17,6 +18,7 @@ func TestNewTimeTrackerSuccess(t *testing.T) {
 
 func TestNewTimeTrackerErr(t *testing.T) {
 	testFactory, err := xmetrics.New(xmetrics.Options{})
+	assert.Nil(t, err)
 	testFactory.NewHistogram(
 		prometheus.HistogramOpts{
 			Name: "time_in_memory",
