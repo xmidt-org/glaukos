@@ -27,7 +27,7 @@ import (
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/events"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 )
 
@@ -46,7 +46,7 @@ type TimeElapsedParsersIn struct {
 	Logger      log.Logger
 	Measures    Measures
 	CodexClient *events.CodexClient
-	Factory     xmetrics.Factory
+	Factory     *touchstone.Factory
 }
 
 // Provide bundles everything needed for setting up all of the event objects

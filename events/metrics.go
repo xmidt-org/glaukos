@@ -20,7 +20,7 @@ package events
 import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone/touchkit"
 	"go.uber.org/fx"
 )
 
@@ -40,8 +40,8 @@ type Measures struct {
 
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.
 func ProvideMetrics() fx.Option {
-	return fx.Provide(
-		xmetrics.ProvideHistogram(
+	return fx.Options(
+		touchkit.Histogram(
 			prometheus.HistogramOpts{
 				Name:    "client_response_duration_ms",
 				Help:    "The amount of time it takes for codex to respond in ms",
@@ -49,21 +49,21 @@ func ProvideMetrics() fx.Option {
 			},
 			responseCodeLabel,
 		),
-		xmetrics.ProvideGauge(
+		touchkit.Gauge(
 			prometheus.GaugeOpts{
 				Name: "circuit_breaker_status",
 				Help: "The current status of the circuit breaker, with 1=open, 0.5=half-open, 0=closed",
 			},
 			circuitBreakerLabel,
 		),
-		xmetrics.ProvideCounter(
+		touchkit.Counter(
 			prometheus.CounterOpts{
 				Name: "circuit_breaker_rejected_count",
 				Help: "Number of requests rejected by the circuit breaker",
 			},
 			circuitBreakerLabel,
 		),
-		xmetrics.ProvideHistogram(
+		touchkit.Histogram(
 			prometheus.HistogramOpts{
 				Name:    "circuit_breaker_open_duration",
 				Help:    "The amount of time the circuit breaker is open in s",

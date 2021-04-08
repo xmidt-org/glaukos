@@ -21,11 +21,11 @@ import (
 	"crypto/sha1" // nolint:gosec
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/justinas/alice"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
@@ -40,8 +40,8 @@ import (
 	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
 	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/themis/xlog/xloghttp"
-	"github.com/xmidt-org/themis/xmetrics/xmetricshttp"
+	"github.com/xmidt-org/touchstone"
+	"github.com/xmidt-org/touchstone/touchhttp"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/basculemetrics"
 	"github.com/xmidt-org/wrp-listener/hashTokenFactory"
@@ -84,22 +84,31 @@ func main() {
 	app := fx.New(
 		xlog.Logger(),
 		arrange.Supply(v),
-		provideMetrics(),
+		//provideMetrics(),
 		basculechecks.ProvideMetrics(),
 		basculemetrics.ProvideMetrics(),
 		fx.Supply(eventmetrics.GetLogger),
 		eventmetrics.Provide(),
+		touchhttp.Provide(),
+		touchstone.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
+			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
+			fx.Annotated{
+				Name: "server_metrics_middleware",
+				Target: func(sb touchhttp.ServerBundle) func(http.Handler) http.Handler {
+					return sb.ForServer("servers.primary").Then
+				},
+			},
 			xlog.Unmarshal("log"),
-			xloghttp.ProvideStandardBuilders,
-			xmetricshttp.Unmarshal("prometheus", promhttp.HandlerOpts{}),
+			// xloghttp.ProvideStandardBuilders,
+			//xmetricshttp.Unmarshal("prometheus", promhttp.HandlerOpts{}),
 			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.metrics", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.health", Optional: true}.Annotated(),
 			xhealth.Unmarshal("health"),
-			provideServerChainFactory,
+			// provideServerChainFactory,
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {

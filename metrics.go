@@ -17,40 +17,33 @@
 
 package main
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/touchstone"
-	"github.com/xmidt-org/touchstone/touchhttp"
-	"go.uber.org/fx"
-)
-
 // provideMetrics builds the application metrics and makes them available to the container
-func provideMetrics() fx.Option {
-	return fx.Provide(
-		touchstone.CounterVec(
-			prometheus.CounterOpts{
-				Name: "server_request_count",
-				Help: "total incoming HTTP requests",
-			},
-			touchhttp.CodeLabel,
-			touchhttp.MethodLabel,
-			touchhttp.ServerLabel,
-		),
-		touchstone.HistogramVec(
-			prometheus.HistogramOpts{
-				Name: "server_request_duration_ms",
-				Help: "tracks incoming request durations in ms",
-			},
-			touchhttp.CodeLabel,
-			touchhttp.MethodLabel,
-			touchhttp.ServerLabel,
-		),
-		touchstone.GaugeVec(
-			prometheus.GaugeOpts{
-				Name: "server_requests_in_flight",
-				Help: "tracks the current number of incoming requests being processed",
-			},
-			touchhttp.ServerLabel,
-		),
-	)
-}
+// func provideMetrics() fx.Option {
+// 	return fx.Provide(
+// 		touchstone.CounterVec(
+// 			prometheus.CounterOpts{
+// 				Name: "server_request_count",
+// 				Help: "total incoming HTTP requests",
+// 			},
+// 			touchhttp.CodeLabel,
+// 			touchhttp.MethodLabel,
+// 			touchhttp.ServerLabel,
+// 		),
+// 		touchstone.HistogramVec(
+// 			prometheus.HistogramOpts{
+// 				Name: "server_request_duration_ms",
+// 				Help: "tracks incoming request durations in ms",
+// 			},
+// 			touchhttp.CodeLabel,
+// 			touchhttp.MethodLabel,
+// 			touchhttp.ServerLabel,
+// 		),
+// 		touchstone.GaugeVec(
+// 			prometheus.GaugeOpts{
+// 				Name: "server_requests_in_flight",
+// 				Help: "tracks the current number of incoming requests being processed",
+// 			},
+// 			touchhttp.ServerLabel,
+// 		),
+// 	)
+// }

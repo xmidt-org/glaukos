@@ -22,8 +22,10 @@ import (
 	"fmt"
 
 	"github.com/go-kit/kit/metrics"
+	promkit "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone"
+	"github.com/xmidt-org/touchstone/touchkit"
 	"go.uber.org/fx"
 )
 
@@ -45,12 +47,8 @@ type Measures struct {
 	UnparsableEventsCount metrics.Counter              `name:"unparsable_events_count"`
 }
 
-func (m *Measures) addTimeElapsedHistogram(f xmetrics.Factory, o prometheus.HistogramOpts, labelNames ...string) (bool, error) {
-	if f == nil {
-		return false, errNilFactory
-	}
-
-	histogram, err := f.NewHistogram(o, labelNames)
+func (m *Measures) addTimeElapsedHistogram(f *touchstone.Factory, o prometheus.HistogramOpts, labelNames ...string) (bool, error) {
+	histogram, err := f.NewHistogramVec(o, labelNames...)
 	if err != nil {
 		return false, fmt.Errorf("%w: %v", errNewHistogram, err)
 	}
@@ -63,21 +61,21 @@ func (m *Measures) addTimeElapsedHistogram(f xmetrics.Factory, o prometheus.Hist
 		return false, fmt.Errorf("%w: histogram already exists", errNewHistogram)
 	}
 
-	m.TimeElapsedHistograms[o.Name] = histogram
+	m.TimeElapsedHistograms[o.Name] = promkit.NewHistogram(histogram.(*prometheus.HistogramVec))
 	return true, nil
 }
 
 // ProvideEventMetrics builds the event-related metrics and makes them available to the container.
 func ProvideEventMetrics() fx.Option {
-	return fx.Provide(
-		xmetrics.ProvideCounter(
+	return fx.Options(
+		touchkit.Counter(
 			prometheus.CounterOpts{
 				Name: "metadata_fields",
 				Help: "the metadata fields coming from each event received",
 			},
 			metadataKeyLabel,
 		),
-		xmetrics.ProvideCounter(
+		touchkit.Counter(
 			prometheus.CounterOpts{
 				Name: "unparsable_events_count",
 				Help: "events that are unparsable, labelled by type of parser and the reason why they failed",
@@ -85,9 +83,11 @@ func ProvideEventMetrics() fx.Option {
 			parserLabel,
 			reasonLabel,
 		),
-		fx.Annotated{
-			Name:   "time_elapsed_histograms",
-			Target: func() map[string]metrics.Histogram { return make(map[string]metrics.Histogram) },
-		},
+		fx.Provide(
+			fx.Annotated{
+				Name:   "time_elapsed_histograms",
+				Target: func() map[string]metrics.Histogram { return make(map[string]metrics.Histogram) },
+			},
+		),
 	)
 }

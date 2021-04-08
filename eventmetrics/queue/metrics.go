@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone/touchkit"
 	"go.uber.org/fx"
 )
 
@@ -41,16 +41,21 @@ type Measures struct {
 	DroppedEventsCount metrics.Counter `name:"dropped_events_count"`
 }
 
+type TimeTrackIn struct {
+	fx.In
+	TimeInMemory metrics.Histogram `name:"time_in_memory"`
+}
+
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.
 func ProvideMetrics() fx.Option {
-	return fx.Provide(
-		xmetrics.ProvideGauge(
+	return fx.Options(
+		touchkit.Gauge(
 			prometheus.GaugeOpts{
 				Name: "events_queue_depth",
 				Help: "The depth of the event queue",
 			},
 		),
-		xmetrics.ProvideCounter(
+		touchkit.Counter(
 			prometheus.CounterOpts{
 				Name: "events_count",
 				Help: "Details of incoming events",
@@ -58,14 +63,43 @@ func ProvideMetrics() fx.Option {
 			partnerIDLabel,
 			eventDestLabel,
 		),
-		xmetrics.ProvideCounter(
+		touchkit.Counter(
 			prometheus.CounterOpts{
 				Name: "dropped_events_count",
 				Help: "The total number of events dropped",
 			},
 			reasonLabel,
 		),
+		touchkit.Histogram(
+			prometheus.HistogramOpts{
+				Name: "time_in_memory",
+				Help: "The amount of time an event stays in memory",
+			},
+		),
 	)
+	// return fx.Provide(
+	// 	xmetrics.ProvideGauge(
+	// 		prometheus.GaugeOpts{
+	// 			Name: "events_queue_depth",
+	// 			Help: "The depth of the event queue",
+	// 		},
+	// 	),
+	// 	xmetrics.ProvideCounter(
+	// 		prometheus.CounterOpts{
+	// 			Name: "events_count",
+	// 			Help: "Details of incoming events",
+	// 		},
+	// 		partnerIDLabel,
+	// 		eventDestLabel,
+	// 	),
+	// 	xmetrics.ProvideCounter(
+	// 		prometheus.CounterOpts{
+	// 			Name: "dropped_events_count",
+	// 			Help: "The total number of events dropped",
+	// 		},
+	// 		reasonLabel,
+	// 	),
+	// )
 }
 
 type timeTracker struct {
