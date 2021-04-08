@@ -48,6 +48,10 @@ type Measures struct {
 }
 
 func (m *Measures) addTimeElapsedHistogram(f *touchstone.Factory, o prometheus.HistogramOpts, labelNames ...string) (bool, error) {
+	if f == nil {
+		return false, errNilFactory
+	}
+
 	histogram, err := f.NewHistogramVec(o, labelNames...)
 	if err != nil {
 		return false, fmt.Errorf("%w: %v", errNewHistogram, err)

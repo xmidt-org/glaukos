@@ -78,29 +78,6 @@ func ProvideMetrics() fx.Option {
 			},
 		),
 	)
-	// return fx.Provide(
-	// 	xmetrics.ProvideGauge(
-	// 		prometheus.GaugeOpts{
-	// 			Name: "events_queue_depth",
-	// 			Help: "The depth of the event queue",
-	// 		},
-	// 	),
-	// 	xmetrics.ProvideCounter(
-	// 		prometheus.CounterOpts{
-	// 			Name: "events_count",
-	// 			Help: "Details of incoming events",
-	// 		},
-	// 		partnerIDLabel,
-	// 		eventDestLabel,
-	// 	),
-	// 	xmetrics.ProvideCounter(
-	// 		prometheus.CounterOpts{
-	// 			Name: "dropped_events_count",
-	// 			Help: "The total number of events dropped",
-	// 		},
-	// 		reasonLabel,
-	// 	),
-	// )
 }
 
 type timeTracker struct {

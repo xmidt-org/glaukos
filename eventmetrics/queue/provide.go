@@ -67,20 +67,3 @@ func Provide() fx.Option {
 		},
 	)
 }
-
-// func newTimeTracker(f touchstone.Factory) (TimeTracker, error) {
-// 	opts := prometheus.HistogramOpts{
-// 		Name: "time_in_memory",
-// 		Help: "the amount of time an event stays in memory",
-// 	}
-
-// 	histogram, err := f.NewHistogram(opts)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &timeTracker{
-// 		TimeInMemory: histogram,
-// 	}, nil
-// }

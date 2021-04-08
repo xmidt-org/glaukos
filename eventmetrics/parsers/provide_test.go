@@ -3,14 +3,17 @@ package parsers
 import (
 	"bytes"
 	"errors"
+	"io/ioutil"
+	"log"
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
+	logging "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/glaukos/events"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone"
 )
 
 func TestValidNames(t *testing.T) {
@@ -131,13 +134,12 @@ func TestTimeElapsedParsersSuccess(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			testFactory, err := xmetrics.New(xmetrics.Options{})
-			assert.Nil(err)
+			testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 
 			testMeasures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
 			timeElapsedParsersIn := TimeElapsedParsersIn{
 				Config:      tc.config,
-				Logger:      log.NewNopLogger(),
+				Logger:      logging.NewNopLogger(),
 				Measures:    testMeasures,
 				CodexClient: &events.CodexClient{},
 				Factory:     testFactory,
@@ -164,7 +166,7 @@ func TestCreateTimeElapsedParsersErrors(t *testing.T) {
 
 func TestParserLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	logger := log.NewJSONLogger(buf)
+	logger := logging.NewJSONLogger(buf)
 
 	parserLogger := ParserLogger(logger, "test_parser")
 
@@ -194,7 +196,7 @@ func testHistogramError(t *testing.T) {
 	}
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      log.NewNopLogger(),
+		Logger:      logging.NewNopLogger(),
 		Measures:    Measures{},
 		CodexClient: &events.CodexClient{},
 		Factory:     nil,
@@ -231,11 +233,10 @@ func testParserError(t *testing.T) {
 		},
 	}
 
-	testFactory, err := xmetrics.New(xmetrics.Options{})
-	assert.Nil(err)
+	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      log.NewNopLogger(),
+		Logger:      logging.NewNopLogger(),
 		Measures:    Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,
@@ -272,11 +273,10 @@ func testRepeatedNamesError(t *testing.T) {
 		},
 	}
 
-	testFactory, err := xmetrics.New(xmetrics.Options{})
-	assert.Nil(err)
+	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      log.NewNopLogger(),
+		Logger:      logging.NewNopLogger(),
 		Measures:    Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,

@@ -40,6 +40,7 @@ import (
 	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
 	"github.com/xmidt-org/themis/xlog"
+	"github.com/xmidt-org/themis/xlog/xloghttp"
 	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchhttp"
 	"github.com/xmidt-org/webpa-common/basculechecks"
@@ -84,7 +85,6 @@ func main() {
 	app := fx.New(
 		xlog.Logger(),
 		arrange.Supply(v),
-		//provideMetrics(),
 		basculechecks.ProvideMetrics(),
 		basculemetrics.ProvideMetrics(),
 		fx.Supply(eventmetrics.GetLogger),
@@ -102,13 +102,11 @@ func main() {
 				},
 			},
 			xlog.Unmarshal("log"),
-			// xloghttp.ProvideStandardBuilders,
-			//xmetricshttp.Unmarshal("prometheus", promhttp.HandlerOpts{}),
+			xloghttp.ProvideStandardBuilders,
 			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.metrics", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.health", Optional: true}.Annotated(),
 			xhealth.Unmarshal("health"),
-			// provideServerChainFactory,
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
