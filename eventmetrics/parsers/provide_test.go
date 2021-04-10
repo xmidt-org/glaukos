@@ -9,7 +9,6 @@ import (
 	"time"
 
 	logging "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/glaukos/events"
@@ -136,7 +135,7 @@ func TestTimeElapsedParsersSuccess(t *testing.T) {
 			assert := assert.New(t)
 			testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 
-			testMeasures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
+			testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 			timeElapsedParsersIn := TimeElapsedParsersIn{
 				Config:      tc.config,
 				Logger:      logging.NewNopLogger(),
@@ -237,7 +236,7 @@ func testParserError(t *testing.T) {
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
 		Logger:      logging.NewNopLogger(),
-		Measures:    Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)},
+		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,
 	}
@@ -277,7 +276,7 @@ func testRepeatedNamesError(t *testing.T) {
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
 		Logger:      logging.NewNopLogger(),
-		Measures:    Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)},
+		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,
 	}

@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/themis/xlog/xlogtest"
+	"github.com/xmidt-org/touchstone/touchtest"
 	"github.com/xmidt-org/webpa-common/semaphore"
-	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -113,7 +114,13 @@ func TestStop(t *testing.T) {
 func TestParseEvents(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
-	p := xmetricstest.NewProvider(&xmetrics.Options{})
+	numEvents := 3.0
+	queueSize := 5
+
+	if queueSize < int(numEvents) {
+		queueSize = int(numEvents)
+	}
+
 	event := interpreter.Event{
 		Source:          "test source",
 		Destination:     "event:device-status/mac:some_address/an-event/some_timestamp",
@@ -134,8 +141,10 @@ func TestParseEvents(t *testing.T) {
 	mockTimeTracker := new(mockTimeTracker)
 	mockTimeTracker.On("TrackTime", mock.Anything)
 	metrics := Measures{
-		EventsCount:      p.NewCounter("events_count"),
-		EventsQueueDepth: p.NewGauge("depth"),
+		EventsQueueDepth: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "testEventsGauge",
+			Help: "testEventsGauge",
+		}),
 	}
 
 	queue := EventQueue{
@@ -144,25 +153,25 @@ func TestParseEvents(t *testing.T) {
 		workers:     semaphore.New(2),
 		metrics:     metrics,
 		timeTracker: mockTimeTracker,
-		queue:       make(chan EventWithTime, 5),
+		queue:       make(chan EventWithTime, queueSize),
 	}
 
 	queue.wg.Add(1)
+	metrics.EventsQueueDepth.Set(numEvents)
 	go func() {
-		for i := 0; i < 3; i++ {
+		for i := 0; i < int(numEvents); i++ {
 			queue.queue <- EventWithTime{BeginTime: now, Event: event}
 		}
 		close(queue.queue)
 	}()
 	queue.ParseEvents()
 	queue.wg.Wait()
-	p.Assert(t, "depth")(xmetricstest.Value(-3.0))
+	assert.Equal(t, 0.0, testutil.ToFloat64(metrics.EventsQueueDepth))
 }
 
 func TestParseEvent(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
-	p := xmetricstest.NewProvider(&xmetrics.Options{})
 	event := interpreter.Event{
 		Source:          "test source",
 		Destination:     "event:device-status/mac:some_address/an-event/some_timestamp",
@@ -201,7 +210,10 @@ func TestParseEvent(t *testing.T) {
 			description:         "With metrics",
 			expectedEventsCount: 1,
 			metrics: Measures{
-				EventsCount: p.NewCounter("depth"),
+				EventsCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+					Name: "testEventsCount",
+					Help: "testEventsCount",
+				}, []string{partnerIDLabel, eventDestLabel}),
 			},
 			event:        EventWithTime{Event: event, BeginTime: now},
 			expectedType: "an-event",
@@ -210,7 +222,10 @@ func TestParseEvent(t *testing.T) {
 			description:         "Bad destination event",
 			expectedEventsCount: 1,
 			metrics: Measures{
-				EventsCount: p.NewCounter("depth"),
+				EventsCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+					Name: "testEventsCount",
+					Help: "testEventsCount",
+				}, []string{partnerIDLabel, eventDestLabel}),
 			},
 			event:        EventWithTime{Event: badDestEvent, BeginTime: now},
 			expectedType: "unknown",
@@ -219,6 +234,12 @@ func TestParseEvent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
+			expectedRegistry := prometheus.NewPedanticRegistry()
+			expectedCount := prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "testEventsCount",
+				Help: "testEventsCount",
+			}, []string{partnerIDLabel, eventDestLabel})
+			expectedRegistry.Register(expectedCount)
 			mockParsers := []*mockParser{new(mockParser), new(mockParser)}
 			parsers := make([]Parser, 0, len(mockParsers))
 			for _, parser := range mockParsers {
@@ -243,13 +264,17 @@ func TestParseEvent(t *testing.T) {
 
 			queue.workers.Acquire()
 			queue.ParseEvent(tc.event)
+			expectedCount.WithLabelValues("test1", tc.expectedType).Inc()
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			if tc.metrics.EventsCount != nil {
+				assert.True(t, testAssert.CollectAndCompare(tc.metrics.EventsCount))
+			}
 
 			for _, parser := range mockParsers {
 				parser.AssertCalled(t, "Parse", tc.event.Event)
 			}
 			mockTimeTracker.AssertExpectations(t)
-			p.Assert(t, "depth", partnerIDLabel, "test1", eventDestLabel, tc.expectedType)(xmetricstest.Value(tc.expectedEventsCount))
-
 		})
 	}
 }
@@ -258,34 +283,48 @@ func TestQueue(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
 	tests := []struct {
-		description        string
-		errorExpected      error
-		queueSize          int
-		numEvents          int
-		eventsMetricCount  float64
-		droppedMetricCount float64
+		description          string
+		errorExpected        error
+		queueSize            int
+		numEvents            int
+		expectedQueueDepth   float64
+		expectedDroppedCount float64
 	}{
 		{
-			description:       "Queue not filled",
-			queueSize:         10,
-			numEvents:         7,
-			eventsMetricCount: 7,
+			description:        "Queue not filled",
+			queueSize:          10,
+			numEvents:          7,
+			expectedQueueDepth: 7,
 		},
 		{
-			description:        "Queue overflow",
-			queueSize:          10,
-			numEvents:          12,
-			eventsMetricCount:  10,
-			droppedMetricCount: 2,
+			description:          "Queue overflow",
+			queueSize:            10,
+			numEvents:            12,
+			expectedQueueDepth:   10,
+			expectedDroppedCount: 2,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			assert := assert.New(t)
+			expectedDepth := prometheus.NewGauge(prometheus.GaugeOpts{
+				Name: "testQueueDepth",
+				Help: "testQueueDepth",
+			})
+			expectedDroppedCount := prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "testEventsCount",
+				Help: "testEventsCount",
+			}, []string{reasonLabel})
 			metrics := Measures{
-				EventsQueueDepth:   p.NewGauge("depth"),
-				DroppedEventsCount: p.NewCounter("dropped"),
+				EventsQueueDepth: prometheus.NewGauge(prometheus.GaugeOpts{
+					Name: "testQueueDepth",
+					Help: "testQueueDepth",
+				}),
+				DroppedEventsCount: prometheus.NewCounterVec(prometheus.CounterOpts{
+					Name: "testEventsCount",
+					Help: "testEventsCount",
+				}, []string{reasonLabel}),
 			}
 
 			mockTimeTracker := new(mockTimeTracker)
@@ -305,8 +344,24 @@ func TestQueue(t *testing.T) {
 				q.Queue(EventWithTime{BeginTime: now})
 			}
 
-			p.Assert(t, "depth")(xmetricstest.Value(tc.eventsMetricCount))
-			p.Assert(t, "dropped", reasonLabel, queueFullReason)(xmetricstest.Value(tc.droppedMetricCount))
+			if tc.expectedQueueDepth > 0 {
+				expectedDepth.Set(tc.expectedQueueDepth)
+			}
+
+			if tc.expectedDroppedCount > 0 {
+				expectedDroppedCount.WithLabelValues(queueFullReason).Add(tc.expectedDroppedCount)
+			}
+
+			testAssert := touchtest.New(t)
+			expectedRegistry := prometheus.NewPedanticRegistry()
+			actualRegistry := prometheus.NewPedanticRegistry()
+			expectedRegistry.Register(expectedDepth)
+			expectedRegistry.Register(expectedDroppedCount)
+			actualRegistry.Register(metrics.EventsQueueDepth)
+			actualRegistry.Register(metrics.DroppedEventsCount)
+
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.GatherAndCompare(actualRegistry))
 			mockTimeTracker.AssertExpectations(t)
 		})
 	}

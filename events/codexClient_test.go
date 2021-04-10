@@ -5,19 +5,23 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sony/gobreaker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
+	"github.com/xmidt-org/touchstone/touchtest"
 	"go.uber.org/ratelimit"
 )
 
 func TestGetEvents(t *testing.T) {
+	t.Run("build request error", testBuildRequestErr)
 	t.Run("client error", testClientErr)
 	t.Run("unmarshal error", testUnmarshalErr)
 	t.Run("success", testSuccess)
@@ -50,6 +54,23 @@ func testClientErr(t *testing.T) {
 	auth := new(mockAcquirer)
 	auth.On("Acquire").Return("test", nil)
 	client.On("Do", mock.Anything).Return(httptest.NewRecorder().Result(), errors.New("test error")) // nolint:bodyclose
+	c := CodexClient{
+		Logger:         log.NewNopLogger(),
+		Client:         client,
+		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
+		Auth:           auth,
+		RateLimiter:    ratelimit.NewUnlimited(),
+	}
+	eventsList := c.GetEvents("some-deviceID")
+	assert.NotNil(eventsList)
+	assert.Empty(eventsList)
+}
+
+func testBuildRequestErr(t *testing.T) {
+	assert := assert.New(t)
+	client := new(mockClient)
+	auth := new(mockAcquirer)
+	auth.On("Acquire").Return("", errors.New("auth error"))
 	c := CodexClient{
 		Logger:         log.NewNopLogger(),
 		Client:         client,
@@ -104,6 +125,18 @@ func testSuccess(t *testing.T) {
 }
 
 func TestDoRequest(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	pastTime := true
+	timeElapsed := time.Minute
+	current := func() time.Time {
+		if pastTime {
+			pastTime = false
+			return now
+		}
+		pastTime = true
+		return now.Add(timeElapsed)
+	}
 	request, _ := http.NewRequest(http.MethodGet, "test-codex/test", nil)
 	tests := []struct {
 		description        string
@@ -126,19 +159,52 @@ func TestDoRequest(t *testing.T) {
 			clientErr:          errors.New("test"),
 			expectedErr:        errors.New("test"),
 		},
+		{
+			description:        "nil response",
+			client:             new(mockClient),
+			expectedStatusCode: -1,
+			clientErr:          errors.New("test"),
+			expectedErr:        errors.New("test"),
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
+			expectedRegistry := prometheus.NewPedanticRegistry()
+			expectedHistogram := prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "testClientResponseDuration",
+					Help:    "testClientResponseDuration",
+					Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+				},
+				[]string{responseCodeLabel},
+			)
+			expectedRegistry.Register(expectedHistogram)
 			resp := httptest.NewRecorder()
 			resp.Write(tc.expectedBody)
 			resp.Code = tc.expectedStatusCode
-			tc.client.On("Do", request).Return(resp.Result(), tc.clientErr) // nolint:bodyclose
-			c := CodexClient{
-				Client: tc.client,
+			if tc.expectedStatusCode == -1 {
+				tc.client.On("Do", request).Return(nil, tc.clientErr)
+			} else {
+				tc.client.On("Do", request).Return(resp.Result(), tc.clientErr) // nolint:bodyclose
 			}
-			body, err := c.doRequest(request)
+
+			m := Measures{
+				ResponseDuration: prometheus.NewHistogramVec(
+					prometheus.HistogramOpts{
+						Name:    "testClientResponseDuration",
+						Help:    "testClientResponseDuration",
+						Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+					},
+					[]string{responseCodeLabel},
+				),
+			}
+			c := CodexClient{
+				Client:  tc.client,
+				Metrics: m,
+			}
+			body, err := c.doRequest(request, current)
 			if tc.expectedErr != nil {
 				assert.NotNil(err)
 				assert.Contains(err.Error(), tc.expectedErr.Error())
@@ -147,6 +213,10 @@ func TestDoRequest(t *testing.T) {
 				assert.NotNil(body)
 				assert.Equal(string(tc.expectedBody), string(body.([]byte)))
 			}
+			expectedHistogram.WithLabelValues(strconv.Itoa(tc.expectedStatusCode)).Observe(timeElapsed.Seconds())
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.CollectAndCompare(m.ResponseDuration))
 
 		})
 	}
@@ -204,9 +274,10 @@ func TestExecuteRequest(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 
 	tests := []struct {
-		description  string
-		expectedBody []byte
-		clientErr    error
+		description             string
+		expectedBody            []byte
+		clientErr               error
+		expectedCBRejectedCount float64
 	}{
 		{
 			description:  "success",
@@ -216,6 +287,16 @@ func TestExecuteRequest(t *testing.T) {
 			description: "client err",
 			clientErr:   errors.New("test error"),
 		},
+		{
+			description:             "circuit breaker open",
+			clientErr:               gobreaker.ErrOpenState,
+			expectedCBRejectedCount: 1.0,
+		},
+		{
+			description:             "circuit breaker too many requests",
+			clientErr:               gobreaker.ErrTooManyRequests,
+			expectedCBRejectedCount: 1.0,
+		},
 	}
 
 	for _, tc := range tests {
@@ -224,16 +305,27 @@ func TestExecuteRequest(t *testing.T) {
 			resp := httptest.NewRecorder()
 			resp.Write(tc.expectedBody)
 			client.On("Do", req).Return(resp.Result(), tc.clientErr) // nolint:bodyclose
+			m := Measures{
+				CircuitBreakerRejectedCount: prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testCounter",
+						Help: "testCounter",
+					}, []string{circuitBreakerLabel}),
+			}
 			c := CodexClient{
 				Logger:         logger,
 				Client:         client,
 				CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 				RateLimiter:    ratelimit.NewUnlimited(),
+				Metrics:        m,
 			}
 			body, err := c.executeRequest(req)
 			if tc.clientErr != nil {
 				assert.Equal(tc.clientErr, err)
 				assert.Nil(body)
+				if tc.expectedCBRejectedCount > 0 {
+					assert.Equal(tc.expectedCBRejectedCount, testutil.ToFloat64(m.CircuitBreakerRejectedCount))
+				}
 			} else {
 				assert.Equal(string(tc.expectedBody), string(body))
 				assert.Nil(err)
@@ -283,13 +375,15 @@ func TestOnStateChanged(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			p := xmetricstest.NewProvider(&xmetrics.Options{})
 			m := Measures{
-				CircuitBreakerStatus: p.NewGauge("circuit_breaker_status"),
+				CircuitBreakerStatus: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+					Name: "circuitBreakerStatus",
+					Help: "circuitBreakerStatus",
+				}, []string{circuitBreakerLabel}),
 			}
 			s := onStateChanged(m)
 			s(tc.name, tc.from, tc.to)
-			p.Assert(t, "circuit_breaker_status", circuitBreakerLabel, tc.name)(xmetricstest.Value(tc.expectedStatus))
+			assert.Equal(t, tc.expectedStatus, testutil.ToFloat64(m.CircuitBreakerStatus))
 
 		})
 	}

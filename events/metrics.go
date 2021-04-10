@@ -18,9 +18,8 @@
 package events
 
 import (
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/touchstone/touchkit"
+	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 )
 
@@ -32,16 +31,16 @@ const (
 // Measures contains the various codex client related metrics.
 type Measures struct {
 	fx.In
-	ResponseDuration            metrics.Histogram `name:"client_response_duration"`
-	CircuitBreakerStatus        metrics.Gauge     `name:"circuit_breaker_status"`
-	CircuitBreakerRejectedCount metrics.Counter   `name:"circuit_breaker_rejected_count"`
-	CircuitBreakerOpenDuration  metrics.Histogram `name:"circuit_breaker_open_duration"`
+	ResponseDuration            prometheus.ObserverVec `name:"client_response_duration"`
+	CircuitBreakerStatus        *prometheus.GaugeVec   `name:"circuit_breaker_status"`
+	CircuitBreakerRejectedCount *prometheus.CounterVec `name:"circuit_breaker_rejected_count"`
+	CircuitBreakerOpenDuration  prometheus.ObserverVec `name:"circuit_breaker_open_duration"`
 }
 
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.
 func ProvideMetrics() fx.Option {
 	return fx.Options(
-		touchkit.Histogram(
+		touchstone.HistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "client_response_duration",
 				Help:    "The amount of time it takes for codex to respond in s",
@@ -49,21 +48,21 @@ func ProvideMetrics() fx.Option {
 			},
 			responseCodeLabel,
 		),
-		touchkit.Gauge(
+		touchstone.GaugeVec(
 			prometheus.GaugeOpts{
 				Name: "circuit_breaker_status",
 				Help: "The current status of the circuit breaker, with 1=open, 0.5=half-open, 0=closed",
 			},
 			circuitBreakerLabel,
 		),
-		touchkit.Counter(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "circuit_breaker_rejected_count",
 				Help: "Number of requests rejected by the circuit breaker",
 			},
 			circuitBreakerLabel,
 		),
-		touchkit.Histogram(
+		touchstone.HistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "circuit_breaker_open_duration",
 				Help:    "The amount of time the circuit breaker is open in s",

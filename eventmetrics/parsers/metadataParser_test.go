@@ -3,11 +3,11 @@ package parsers
 import (
 	"testing"
 
-	"github.com/go-kit/kit/log"
+	logging "github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
+	"github.com/xmidt-org/touchstone/touchtest"
 )
 
 func TestName(t *testing.T) {
@@ -22,13 +22,11 @@ func TestParse(t *testing.T) {
 		bootTimeKey  = "boot-time"
 		randomKey    = "random"
 	)
-	logger := log.NewNopLogger()
-	p := xmetricstest.NewProvider(&xmetrics.Options{})
+	logger := logging.NewNopLogger()
 
 	tests := []struct {
 		description        string
 		message            interpreter.Event
-		expectedCount      map[string]float64
 		expectedUnparsable float64
 	}{
 		{
@@ -40,12 +38,6 @@ func TestParse(t *testing.T) {
 					bootTimeKey:  "1611700028",
 					randomKey:    "random",
 				},
-			},
-			expectedCount: map[string]float64{
-				trustKey:     1,
-				partnerIDKey: 1,
-				bootTimeKey:  1,
-				randomKey:    1,
 			},
 		},
 		{
@@ -59,9 +51,49 @@ func TestParse(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
+			var (
+				assert                = assert.New(t)
+				expectedRegistry      = prometheus.NewPedanticRegistry()
+				actualRegistry        = prometheus.NewPedanticRegistry()
+				actualMetadataCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testMetadataCounter",
+						Help: "testMetadataCounter",
+					},
+					[]string{metadataKeyLabel},
+				)
+				actualUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testUnparsableCounter",
+						Help: "testUnparsableCounter",
+					},
+					[]string{parserLabel, reasonLabel},
+				)
+
+				expectedMetadataCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testMetadataCounter",
+						Help: "testMetadataCounter",
+					},
+					[]string{metadataKeyLabel},
+				)
+				expectedUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testUnparsableCounter",
+						Help: "testUnparsableCounter",
+					},
+					[]string{parserLabel, reasonLabel},
+				)
+			)
+
+			expectedRegistry.Register(expectedMetadataCounter)
+			expectedRegistry.Register(expectedUnparsableCounter)
+			actualRegistry.Register(actualMetadataCounter)
+			actualRegistry.Register(actualUnparsableCounter)
+
 			m := Measures{
-				MetadataFields:        p.NewCounter("metadata_keys"),
-				UnparsableEventsCount: p.NewCounter("unparsable_events"),
+				MetadataFields:        actualMetadataCounter,
+				UnparsableEventsCount: actualUnparsableCounter,
 			}
 			mp := MetadataParser{
 				measures: m,
@@ -70,11 +102,17 @@ func TestParse(t *testing.T) {
 			}
 
 			mp.Parse(tc.message)
-			for key, val := range tc.expectedCount {
-				p.Assert(t, "metadata_keys", metadataKeyLabel, key)(xmetricstest.Value(val))
+			for key := range tc.message.Metadata {
+				expectedMetadataCounter.With(prometheus.Labels{metadataKeyLabel: key}).Inc()
 			}
 
-			p.Assert(t, "unparsable_events", parserLabel, "metadata_parser", reasonLabel, noMetadataFoundErr)(xmetricstest.Value(tc.expectedUnparsable))
+			if tc.expectedUnparsable > 0 {
+				expectedUnparsableCounter.With(prometheus.Labels{parserLabel: "metadata_parser", reasonLabel: noMetadataFoundErr}).Add(tc.expectedUnparsable)
+			}
+
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.GatherAndCompare(actualRegistry))
 		})
 	}
 }
@@ -87,8 +125,46 @@ func TestMultipleParse(t *testing.T) {
 		randomKey    = "random"
 	)
 
-	logger := log.NewNopLogger()
-	p := xmetricstest.NewProvider(&xmetrics.Options{})
+	var (
+		assert                = assert.New(t)
+		expectedRegistry      = prometheus.NewPedanticRegistry()
+		actualRegistry        = prometheus.NewPedanticRegistry()
+		actualMetadataCounter = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "testMetadataCounter",
+				Help: "testMetadataCounter",
+			},
+			[]string{metadataKeyLabel},
+		)
+		actualUnparsableCounter = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "testUnparsableCounter",
+				Help: "testUnparsableCounter",
+			},
+			[]string{parserLabel, reasonLabel},
+		)
+
+		expectedMetadataCounter = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "testMetadataCounter",
+				Help: "testMetadataCounter",
+			},
+			[]string{metadataKeyLabel},
+		)
+		expectedUnparsableCounter = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "testUnparsableCounter",
+				Help: "testUnparsableCounter",
+			},
+			[]string{parserLabel, reasonLabel},
+		)
+	)
+
+	expectedRegistry.Register(expectedMetadataCounter)
+	expectedRegistry.Register(expectedUnparsableCounter)
+	actualRegistry.Register(actualMetadataCounter)
+	actualRegistry.Register(actualUnparsableCounter)
+
 	messages := []interpreter.Event{
 		interpreter.Event{
 			Metadata: map[string]string{
@@ -118,22 +194,27 @@ func TestMultipleParse(t *testing.T) {
 	}
 
 	m := Measures{
-		MetadataFields:        p.NewCounter("metadata_keys"),
-		UnparsableEventsCount: p.NewCounter("unparsable_events"),
+		MetadataFields:        actualMetadataCounter,
+		UnparsableEventsCount: actualUnparsableCounter,
 	}
 	mp := MetadataParser{
 		measures: m,
-		logger:   logger,
+		logger:   logging.NewNopLogger(),
 		name:     "metadata_parser",
 	}
 
 	for _, msg := range messages {
 		mp.Parse(msg)
+		for key := range msg.Metadata {
+			expectedMetadataCounter.WithLabelValues(key).Inc()
+		}
+
+		if (len(msg.Metadata)) == 0 {
+			expectedUnparsableCounter.WithLabelValues("metadata_parser", noMetadataFoundErr).Inc()
+		}
 	}
 
-	p.Assert(t, "metadata_keys", metadataKeyLabel, trustKey)(xmetricstest.Value(3.0))
-	p.Assert(t, "metadata_keys", metadataKeyLabel, partnerIDKey)(xmetricstest.Value(2.0))
-	p.Assert(t, "metadata_keys", metadataKeyLabel, bootTimeKey)(xmetricstest.Value(1.0))
-	p.Assert(t, "metadata_keys", metadataKeyLabel, randomKey)(xmetricstest.Value(1.0))
-	p.Assert(t, "unparsable_events", parserLabel, "metadata_parser", reasonLabel, noMetadataFoundErr)(xmetricstest.Value(2.0))
+	testAssert := touchtest.New(t)
+	testAssert.Expect(expectedRegistry)
+	assert.True(testAssert.GatherAndCompare(actualRegistry))
 }

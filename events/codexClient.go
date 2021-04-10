@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/httpaux"
@@ -74,12 +75,12 @@ func (c *CodexClient) GetEvents(device string) []interpreter.Event {
 func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
 	c.RateLimiter.Take()
 	response, err := c.CircuitBreaker.Execute(func() (interface{}, error) {
-		return c.doRequest(request)
+		return c.doRequest(request, time.Now)
 	})
 
 	if err != nil {
 		if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
-			c.Metrics.CircuitBreakerRejectedCount.With(circuitBreakerLabel, c.CircuitBreaker.Name()).Add(1.0)
+			c.Metrics.CircuitBreakerRejectedCount.With(prometheus.Labels{circuitBreakerLabel: c.CircuitBreaker.Name()}).Add(1.0)
 		}
 		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to make request")
 		return nil, err
@@ -93,14 +94,15 @@ func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
 	return r, nil
 }
 
-func (c *CodexClient) doRequest(req *http.Request) (interface{}, error) {
-	requestBegin := time.Now()
+func (c *CodexClient) doRequest(req *http.Request, currentTime func() time.Time) (interface{}, error) {
+	requestBegin := currentTime()
 	resp, err := c.Client.Do(req)
+	timeElapsed := currentTime().Sub(requestBegin).Seconds()
 
 	if resp != nil && c.Metrics.ResponseDuration != nil {
-		c.Metrics.ResponseDuration.With(responseCodeLabel, strconv.Itoa(resp.StatusCode)).Observe(time.Since(requestBegin).Seconds())
+		c.Metrics.ResponseDuration.With(prometheus.Labels{responseCodeLabel: strconv.Itoa(resp.StatusCode)}).Observe(timeElapsed)
 	} else if resp == nil && c.Metrics.ResponseDuration != nil {
-		c.Metrics.ResponseDuration.With(responseCodeLabel, "-1").Observe(time.Since(requestBegin).Seconds())
+		c.Metrics.ResponseDuration.With(prometheus.Labels{responseCodeLabel: "-1"}).Observe(timeElapsed)
 	}
 
 	if err != nil {
@@ -135,11 +137,11 @@ func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
 		if m.CircuitBreakerStatus != nil {
 			switch to {
 			case gobreaker.StateClosed:
-				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(0.0)
+				m.CircuitBreakerStatus.With(prometheus.Labels{circuitBreakerLabel: name}).Set(0.0)
 			case gobreaker.StateHalfOpen:
-				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(0.5)
+				m.CircuitBreakerStatus.With(prometheus.Labels{circuitBreakerLabel: name}).Set(0.5)
 			case gobreaker.StateOpen:
-				m.CircuitBreakerStatus.With(circuitBreakerLabel, name).Set(1.0)
+				m.CircuitBreakerStatus.With(prometheus.Labels{circuitBreakerLabel: name}).Set(1.0)
 			}
 		}
 
@@ -147,7 +149,7 @@ func onStateChanged(m Measures) func(string, gobreaker.State, gobreaker.State) {
 			start = time.Now()
 		} else if to == gobreaker.StateClosed && m.CircuitBreakerOpenDuration != nil {
 			openTime := time.Since(start).Seconds()
-			m.CircuitBreakerOpenDuration.With(circuitBreakerLabel, name).Observe(openTime)
+			m.CircuitBreakerOpenDuration.With(prometheus.Labels{circuitBreakerLabel: name}).Observe(openTime)
 		}
 	}
 }
