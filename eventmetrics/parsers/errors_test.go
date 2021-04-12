@@ -15,6 +15,7 @@ func TestTimeElapsedCalculationErr(t *testing.T) {
 		timeElapsed float64
 		event       interpreter.Event
 		err         error
+		errLabel    string
 	}{
 		{
 			description: "nil underlying err",
@@ -41,12 +42,18 @@ func TestTimeElapsedCalculationErr(t *testing.T) {
 				err:         tc.err,
 				oldEvent:    tc.event,
 				timeElapsed: tc.timeElapsed,
+				errLabel:    tc.errLabel,
 			}
 
 			assert.Equal(tc.event, calculationsErr.Event())
 			assert.Contains(calculationsErr.Error(), fmt.Sprint(tc.timeElapsed))
 			if tc.err != nil {
 				assert.Contains(calculationsErr.Error(), tc.err.Error())
+			}
+			if len(tc.errLabel) > 0 {
+				assert.Equal(tc.errLabel, calculationsErr.ErrorLabel())
+			} else {
+				assert.Equal("unknown", calculationsErr.ErrorLabel())
 			}
 
 		})
