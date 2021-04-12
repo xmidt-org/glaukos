@@ -37,7 +37,6 @@ import (
 	"github.com/xmidt-org/glaukos/eventmetrics"
 	"github.com/xmidt-org/httpaux"
 	"github.com/xmidt-org/themis/config"
-	"github.com/xmidt-org/themis/xhttp/xhttpserver"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/themis/xlog/xloghttp"
 	"github.com/xmidt-org/touchstone"
@@ -101,6 +100,10 @@ func main() {
 				},
 			},
 		}.Provide(),
+		arrangehttp.Server{
+			Key: "servers.metrics",
+		}.Provide(),
+		arrangehttp.Server{Key: "servers.primary"}.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
@@ -113,8 +116,6 @@ func main() {
 			},
 			xlog.Unmarshal("log"),
 			xloghttp.ProvideStandardBuilders,
-			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
-			xhttpserver.Unmarshal{Key: "servers.metrics", Optional: true}.Annotated(),
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
@@ -153,8 +154,8 @@ func main() {
 			},
 		),
 		fx.Invoke(
-			eventmetrics.ConfigureRoutes,
 			BuildMetricsRoutes,
+			eventmetrics.ConfigureRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
 				pr.Start()
 			},
