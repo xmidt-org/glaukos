@@ -17,7 +17,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/xmidt-org/arrange v0.1.6
+	github.com/xmidt-org/arrange v0.3.0
 	github.com/xmidt-org/bascule v0.8.1
 	github.com/xmidt-org/httpaux v0.2.1
 	github.com/xmidt-org/interpreter v0.0.3-0.20210406220031-4a721eb7d2cc
@@ -29,5 +29,3 @@ require (
 	go.uber.org/fx v1.13.1
 	go.uber.org/ratelimit v0.2.0
 )
-
-replace github.com/xmidt-org/arrange v0.1.6 => github.com/xmidt-org/arrange v0.3.0
