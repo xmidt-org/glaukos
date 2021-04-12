@@ -23,21 +23,20 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/InVisionApp/go-health"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/glaukos/eventmetrics"
+	"github.com/xmidt-org/httpaux"
 	"github.com/xmidt-org/themis/config"
-	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/themis/xlog/xloghttp"
@@ -84,13 +83,24 @@ func main() {
 
 	app := fx.New(
 		xlog.Logger(),
-		arrange.Supply(v),
+		fx.Supply(v),
+		arrange.ForViper(v),
 		basculechecks.ProvideMetrics(),
 		basculemetrics.ProvideMetrics(),
 		fx.Supply(eventmetrics.GetLogger),
 		eventmetrics.Provide(),
 		touchhttp.Provide(),
 		touchstone.Provide(),
+		arrangehttp.Server{
+			Key: "servers.health",
+			Invoke: arrange.Invoke{
+				func(r *mux.Router) {
+					r.Handle("/health", httpaux.ConstantHandler{
+						StatusCode: http.StatusOK,
+					})
+				},
+			},
+		}.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
@@ -105,8 +115,6 @@ func main() {
 			xloghttp.ProvideStandardBuilders,
 			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.metrics", Optional: true}.Annotated(),
-			xhttpserver.Unmarshal{Key: "servers.health", Optional: true}.Annotated(),
-			xhealth.Unmarshal("health"),
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
@@ -144,22 +152,9 @@ func main() {
 				return webhookClient.NewPeriodicRegisterer(r, c.RegistrationInterval, logger, provider.NewDiscardProvider())
 			},
 		),
-		arrangehttp.Server().Provide(),
 		fx.Invoke(
-			xhealth.ApplyChecks(
-				&health.Config{
-					Name:     applicationName,
-					Interval: 24 * time.Hour,
-					Checker: xhealth.NopCheckable{
-						Details: map[string]interface{}{
-							"StartTime": time.Now().UTC().Format(time.RFC3339),
-						},
-					},
-				},
-			),
 			eventmetrics.ConfigureRoutes,
 			BuildMetricsRoutes,
-			BuildHealthRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
 				pr.Start()
 			},
