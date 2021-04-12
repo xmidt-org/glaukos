@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
@@ -17,8 +18,9 @@ import (
 )
 
 func TestNewEventParser(t *testing.T) {
-	mockMetadataParser := new(mockParser)
-	mockBootTimeCalc := new(mockParser)
+	mockParser1 := new(mockParser)
+	mockParser2 := new(mockParser)
+	mockTimeTracker := new(mockTimeTracker)
 	emptyMetrics := Measures{}
 	tests := []struct {
 		description        string
@@ -36,7 +38,7 @@ func TestNewEventParser(t *testing.T) {
 				QueueSize:  100,
 				MaxWorkers: 10,
 			},
-			parsers: []Parser{mockBootTimeCalc, mockMetadataParser},
+			parsers: []Parser{mockParser1, mockParser2},
 			metrics: emptyMetrics,
 			expectedEventQueue: &EventQueue{
 				logger: log.NewJSONLogger(os.Stdout),
@@ -44,20 +46,20 @@ func TestNewEventParser(t *testing.T) {
 					QueueSize:  100,
 					MaxWorkers: 10,
 				},
-				parsers: []Parser{mockBootTimeCalc, mockMetadataParser},
+				parsers: []Parser{mockParser1, mockParser2},
 				metrics: emptyMetrics,
 			},
 		},
 		{
 			description: "Success with defaults",
-			parsers:     []Parser{mockBootTimeCalc, mockMetadataParser},
+			parsers:     []Parser{mockParser1, mockParser2},
 			expectedEventQueue: &EventQueue{
 				logger: log.NewNopLogger(),
 				config: Config{
 					QueueSize:  defaultMinQueueSize,
-					MaxWorkers: defaultMinMaxWorkers,
+					MaxWorkers: defaultMaxWorkers,
 				},
-				parsers: []Parser{mockBootTimeCalc, mockMetadataParser},
+				parsers: []Parser{mockParser1, mockParser2},
 			},
 		},
 		{
@@ -75,7 +77,8 @@ func TestNewEventParser(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			queue, err := newEventQueue(tc.config, tc.parsers, Measures{}, tc.logger)
+
+			queue, err := newEventQueue(tc.config, tc.parsers, Measures{}, mockTimeTracker, tc.logger)
 
 			if tc.expectedErr != nil || err != nil {
 				assert.True(errors.Is(err, tc.expectedErr))
@@ -84,8 +87,10 @@ func TestNewEventParser(t *testing.T) {
 			if tc.expectedErr == nil || err == nil {
 				assert.NotNil(queue.queue)
 				assert.NotNil(queue.workers)
+				assert.Equal(mockTimeTracker, queue.timeTracker)
 				tc.expectedEventQueue.queue = queue.queue
 				tc.expectedEventQueue.workers = queue.workers
+				tc.expectedEventQueue.timeTracker = queue.timeTracker
 
 			}
 
@@ -95,11 +100,82 @@ func TestNewEventParser(t *testing.T) {
 	}
 }
 
-func TestParseEvent(t *testing.T) {
+func TestStop(t *testing.T) {
+	queue := EventQueue{
+		queue: make(chan EventWithTime, 5),
+	}
+
+	queue.Stop()
+	_, more := <-queue.queue
+	assert.False(t, more)
+}
+
+func TestParseEvents(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
 	p := xmetricstest.NewProvider(&xmetrics.Options{})
 	event := interpreter.Event{
 		Source:          "test source",
-		Destination:     "device-status/mac:some_address/an-event/some_timestamp",
+		Destination:     "event:device-status/mac:some_address/an-event/some_timestamp",
+		MsgType:         int(wrp.SimpleEventMessageType),
+		PartnerIDs:      []string{"test1"},
+		TransactionUUID: "transaction test uuid",
+		Payload:         `{"ts":"2019-02-13T21:19:02.614191735Z"}`,
+		Metadata:        map[string]string{"testkey": "testvalue"},
+	}
+
+	mockParsers := []*mockParser{new(mockParser), new(mockParser)}
+	parsers := make([]Parser, 0, len(mockParsers))
+	for _, parser := range mockParsers {
+		parser.On("Parse", mock.Anything).Return(nil)
+		parsers = append(parsers, parser)
+	}
+
+	mockTimeTracker := new(mockTimeTracker)
+	mockTimeTracker.On("TrackTime", mock.Anything)
+	metrics := Measures{
+		EventsCount:      p.NewCounter("events_count"),
+		EventsQueueDepth: p.NewGauge("depth"),
+	}
+
+	queue := EventQueue{
+		parsers:     parsers,
+		logger:      xlogtest.New(t),
+		workers:     semaphore.New(2),
+		metrics:     metrics,
+		timeTracker: mockTimeTracker,
+		queue:       make(chan EventWithTime, 5),
+	}
+
+	queue.wg.Add(1)
+	go func() {
+		for i := 0; i < 3; i++ {
+			queue.queue <- EventWithTime{BeginTime: now, Event: event}
+		}
+		close(queue.queue)
+	}()
+	queue.ParseEvents()
+	queue.wg.Wait()
+	p.Assert(t, "depth")(xmetricstest.Value(-3.0))
+}
+
+func TestParseEvent(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	p := xmetricstest.NewProvider(&xmetrics.Options{})
+	event := interpreter.Event{
+		Source:          "test source",
+		Destination:     "event:device-status/mac:some_address/an-event/some_timestamp",
+		MsgType:         int(wrp.SimpleEventMessageType),
+		PartnerIDs:      []string{"test1"},
+		TransactionUUID: "transaction test uuid",
+		Payload:         `{"ts":"2019-02-13T21:19:02.614191735Z"}`,
+		Metadata:        map[string]string{"testkey": "testvalue"},
+	}
+
+	badDestEvent := interpreter.Event{
+		Source:          "test source",
+		Destination:     "some-event",
 		MsgType:         int(wrp.SimpleEventMessageType),
 		PartnerIDs:      []string{"test1"},
 		TransactionUUID: "transaction test uuid",
@@ -111,11 +187,15 @@ func TestParseEvent(t *testing.T) {
 		description         string
 		expectedEventsCount float64
 		metrics             Measures
+		event               EventWithTime
+		expectedType        string
 	}{
 		{
 			description:         "Without metrics",
 			expectedEventsCount: 0,
 			metrics:             Measures{},
+			event:               EventWithTime{Event: event, BeginTime: now},
+			expectedType:        "an-event",
 		},
 		{
 			description:         "With metrics",
@@ -123,42 +203,60 @@ func TestParseEvent(t *testing.T) {
 			metrics: Measures{
 				EventsCount: p.NewCounter("depth"),
 			},
+			event:        EventWithTime{Event: event, BeginTime: now},
+			expectedType: "an-event",
+		},
+		{
+			description:         "Bad destination event",
+			expectedEventsCount: 1,
+			metrics: Measures{
+				EventsCount: p.NewCounter("depth"),
+			},
+			event:        EventWithTime{Event: badDestEvent, BeginTime: now},
+			expectedType: "unknown",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			mockMetadataParser := new(mockParser)
-			mockBootTimeCalc := new(mockParser)
+			mockParsers := []*mockParser{new(mockParser), new(mockParser)}
+			parsers := make([]Parser, 0, len(mockParsers))
+			for _, parser := range mockParsers {
+				parser.On("Parse", mock.Anything).Return(nil).Once()
+				parsers = append(parsers, parser)
+			}
 
-			mockMetadataParser.On("Parse", mock.Anything).Return(nil).Once()
-			mockBootTimeCalc.On("Parse", mock.Anything).Return(nil).Once()
-
-			parsers := []Parser{mockBootTimeCalc, mockMetadataParser}
+			mockTimeTracker := new(mockTimeTracker)
+			mockTimeTracker.On("TrackTime", mock.Anything).Once()
 
 			queue := EventQueue{
 				config: Config{
 					MaxWorkers: 10,
 					QueueSize:  10,
 				},
-				parsers: parsers,
-				logger:  xlogtest.New(t),
-				workers: semaphore.New(2),
-				metrics: tc.metrics,
+				parsers:     parsers,
+				logger:      xlogtest.New(t),
+				workers:     semaphore.New(2),
+				metrics:     tc.metrics,
+				timeTracker: mockTimeTracker,
 			}
 
 			queue.workers.Acquire()
-			queue.ParseEvent(event)
+			queue.ParseEvent(tc.event)
 
-			mockMetadataParser.AssertCalled(t, "Parse", event)
-			mockBootTimeCalc.AssertCalled(t, "Parse", event)
-			p.Assert(t, "depth", partnerIDLabel, "test1")(xmetricstest.Value(tc.expectedEventsCount))
+			for _, parser := range mockParsers {
+				parser.AssertCalled(t, "Parse", tc.event.Event)
+			}
+			mockTimeTracker.AssertExpectations(t)
+			p.Assert(t, "depth", partnerIDLabel, "test1", eventDestLabel, tc.expectedType)(xmetricstest.Value(tc.expectedEventsCount))
 
 		})
 	}
 }
 
 func TestQueue(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
 	tests := []struct {
 		description        string
 		errorExpected      error
@@ -190,19 +288,26 @@ func TestQueue(t *testing.T) {
 				DroppedEventsCount: p.NewCounter("dropped"),
 			}
 
+			mockTimeTracker := new(mockTimeTracker)
+
 			q := EventQueue{
-				logger:  xlogtest.New(t),
-				workers: semaphore.New(2),
-				metrics: metrics,
-				queue:   make(chan interpreter.Event, tc.queueSize),
+				logger:      xlogtest.New(t),
+				workers:     semaphore.New(2),
+				metrics:     metrics,
+				queue:       make(chan EventWithTime, tc.queueSize),
+				timeTracker: mockTimeTracker,
 			}
 
 			for i := 0; i < tc.numEvents; i++ {
-				q.Queue(interpreter.Event{})
+				if i >= tc.queueSize {
+					mockTimeTracker.On("TrackTime", mock.Anything)
+				}
+				q.Queue(EventWithTime{BeginTime: now})
 			}
 
 			p.Assert(t, "depth")(xmetricstest.Value(tc.eventsMetricCount))
 			p.Assert(t, "dropped", reasonLabel, queueFullReason)(xmetricstest.Value(tc.droppedMetricCount))
+			mockTimeTracker.AssertExpectations(t)
 		})
 	}
 }

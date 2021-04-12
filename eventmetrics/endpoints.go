@@ -55,11 +55,13 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, logger log.Logger) Endpoints {
+func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, timeTracker queue.TimeTracker, logger log.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
+			begin := time.Now()
 			v, ok := request.(interpreter.Event)
 			if !ok {
+				timeTracker.TrackTime(time.Since(begin))
 				return nil, errors.New("invalid request info: unable to convert to Event")
 			}
 
@@ -68,7 +70,7 @@ func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, l
 				v.Birthdate = time.Now().UnixNano()
 			}
 
-			if err := eventQueue.Queue(v); err != nil {
+			if err := eventQueue.Queue(queue.EventWithTime{Event: v, BeginTime: begin}); err != nil {
 				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to queue message")
 				return nil, err
 			}

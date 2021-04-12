@@ -18,6 +18,8 @@
 package queue
 
 import (
+	"time"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/themis/xmetrics"
@@ -28,6 +30,7 @@ const (
 	partnerIDLabel  = "partner_id"
 	reasonLabel     = "reason"
 	queueFullReason = "queue_full"
+	eventDestLabel  = "event_destination"
 )
 
 // Measures contains the various queue-related metrics.
@@ -53,6 +56,7 @@ func ProvideMetrics() fx.Option {
 				Help: "Details of incoming events",
 			},
 			partnerIDLabel,
+			eventDestLabel,
 		),
 		xmetrics.ProvideCounter(
 			prometheus.CounterOpts{
@@ -62,4 +66,12 @@ func ProvideMetrics() fx.Option {
 			reasonLabel,
 		),
 	)
+}
+
+type timeTracker struct {
+	TimeInMemory metrics.Histogram
+}
+
+func (t *timeTracker) TrackTime(length time.Duration) {
+	t.TimeInMemory.Observe(length.Seconds())
 }

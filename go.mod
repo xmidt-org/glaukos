@@ -20,7 +20,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
-	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/xmidt-org/arrange v0.1.6
 	github.com/xmidt-org/bascule v0.8.1
@@ -37,3 +36,5 @@ require (
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.61.0 // indirect
 )
+
+replace github.com/xmidt-org/interpreter v0.0.3-0.20210402193409-647a5b85f70f => github.com/xmidt-org/interpreter v0.0.3-0.20210406220031-4a721eb7d2cc
