@@ -26,11 +26,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/interpreter/validation"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/history"
-	"github.com/xmidt-org/themis/xlog"
+	"go.uber.org/zap"
 )
 
 const (
@@ -77,13 +75,13 @@ type TimeElapsedParser struct {
 	incomingEvent EventInfo
 	searchedEvent EventInfo
 	name          string
-	logger        log.Logger
+	logger        *zap.Logger
 	client        EventClient
 	measures      Measures
 }
 
 // NewTimeElapsedParser creates a TimeElapsedParser from a TimeElapsedConfig or returns an error if there one cannot be created.
-func NewTimeElapsedParser(config TimeElapsedConfig, client EventClient, logger log.Logger, measures Measures, currentTime TimeFunc) (*TimeElapsedParser, error) {
+func NewTimeElapsedParser(config TimeElapsedConfig, client EventClient, logger *zap.Logger, measures Measures, currentTime TimeFunc) (*TimeElapsedParser, error) {
 	incomingEvent, err := NewEventInfo(config.IncomingEvent, currentTime)
 	if err != nil {
 		return nil, err
@@ -160,7 +158,7 @@ func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 		}
 		histogram.With(labels).Observe(restartTime)
 	} else {
-		level.Error(t.logger).Log(xlog.ErrorKey(), "No histogram found for this time elapsed parser")
+		t.logger.Error("No histogram found for this time elapsed parser")
 	}
 }
 
@@ -188,16 +186,16 @@ func fixConfig(config TimeElapsedConfig, defaultValidFrom time.Duration) TimeEla
 func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
 	if valid, err := t.incomingEvent.Valid(incomingEvent); !valid {
 		if errors.Is(err, validation.ErrInvalidEventType) {
-			level.Info(t.logger).Log(xlog.MessageKey(), err, "event destination", incomingEvent.Destination)
+			t.logger.Info("invalid incoming event", zap.Error(err), zap.String("event destination", incomingEvent.Destination))
 		} else {
-			level.Error(t.logger).Log(xlog.ErrorKey(), err, "event destination", incomingEvent.Destination)
+			t.logger.Error("invalid incoming event", zap.Error(err), zap.String("event destination", incomingEvent.Destination))
 		}
 		return -1, err
 	}
 
 	deviceID, err := incomingEvent.DeviceID()
 	if err != nil {
-		level.Error(t.logger).Log(xlog.ErrorKey(), err)
+		t.logger.Error("invalid incoming event", zap.Error(err))
 		return -1, TimeElapsedCalculationErr{err: err, errLabel: idParseReason}
 	}
 
@@ -230,10 +228,10 @@ func (t *TimeElapsedParser) logErrWithEventDetails(err error, incomingEvent inte
 	var eventErr ErrorWithEvent
 	if errors.As(err, &eventErr) {
 		if len(eventErr.Event().TransactionUUID) > 0 {
-			level.Error(t.logger).Log(xlog.ErrorKey(), err, "deviceID", deviceID, "incoming event", incomingEvent.TransactionUUID, "old event", eventErr.Event().TransactionUUID)
+			t.logger.Error("invalid event", zap.Error(err), zap.String("deviceID", deviceID), zap.String("incoming event", incomingEvent.TransactionUUID), zap.String("comparison event", eventErr.Event().TransactionUUID))
 			return
 		}
 	}
 
-	level.Error(t.logger).Log(xlog.ErrorKey(), err, "deviceID", deviceID, "incoming event", incomingEvent.TransactionUUID)
+	t.logger.Error("invalid event", zap.Error(err), zap.String("deviceID", deviceID), zap.String("incoming event", incomingEvent.TransactionUUID))
 }

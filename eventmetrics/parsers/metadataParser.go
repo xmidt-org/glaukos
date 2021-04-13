@@ -22,10 +22,8 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xlog"
+	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/interpreter"
 )
 
@@ -43,14 +41,14 @@ var (
 type MetadataParser struct {
 	measures Measures
 	name     string
-	logger   log.Logger
+	logger   *zap.Logger
 }
 
 // Parse gathers metrics for each metadata key.
 func (m *MetadataParser) Parse(event interpreter.Event) {
 	if len(event.Metadata) < 1 {
 		m.measures.UnparsableEventsCount.With(prometheus.Labels{parserLabel: m.name, reasonLabel: noMetadataFoundErr}).Add(1.0)
-		level.Error(m.logger).Log(xlog.ErrorKey(), errNoMetadata)
+		m.logger.Error("no metadata found")
 		return
 	}
 

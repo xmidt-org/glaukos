@@ -7,8 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sony/gobreaker"
+	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/bascule/acquire"
 )
@@ -109,7 +109,7 @@ func TestCodexTokenAcquirer(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			auth, err := determineCodexTokenAcquirer(log.NewNopLogger(), tc.config)
+			auth, err := determineCodexTokenAcquirer(zap.NewNop(), tc.config)
 			if tc.expectedErr {
 				assert.Nil(auth)
 				assert.NotNil(err)
@@ -186,7 +186,7 @@ func TestCreateCodexClient(t *testing.T) {
 				}, []string{circuitBreakerLabel}),
 			}
 			auth := &acquire.DefaultAcquirer{}
-			logger := log.NewNopLogger()
+			logger := zap.NewNop()
 			cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test"})
 			client := createCodexClient(tc.config, cb, auth, m, logger)
 			assert.NotNil(client)

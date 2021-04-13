@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	logging "github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +17,7 @@ import (
 	"github.com/xmidt-org/interpreter/history"
 	"github.com/xmidt-org/interpreter/validation"
 	"github.com/xmidt-org/touchstone/touchtest"
+	"go.uber.org/zap"
 )
 
 type testFinder struct {
@@ -31,7 +31,7 @@ func TestNewTimeElapsedParser(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
 	currTime := func() time.Time { return now }
-	logger := log.NewNopLogger()
+	logger := zap.NewNop()
 	mockClient := new(mockEventClient)
 
 	tests := []struct {
@@ -354,7 +354,7 @@ func testParseCalculateErr(t *testing.T) {
 			}
 			parser := TimeElapsedParser{
 				incomingEvent: EventInfo{Validator: mockVal},
-				logger:        logging.NewNopLogger(),
+				logger:        zap.NewNop(),
 				measures:      m,
 				name:          "TEP_test",
 			}
@@ -424,7 +424,7 @@ func testParseNoHWFWErr(t *testing.T) {
 			parser := TimeElapsedParser{
 				searchedEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
 				incomingEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
-				logger:        logging.NewNopLogger(),
+				logger:        zap.NewNop(),
 				client:        mockClient,
 				finder:        mockFinder,
 				measures:      m,
@@ -516,7 +516,7 @@ func testParseSuccess(t *testing.T) {
 			parser := TimeElapsedParser{
 				searchedEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
 				incomingEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
-				logger:        logging.NewNopLogger(),
+				logger:        zap.NewNop(),
 				client:        mockClient,
 				finder:        mockFinder,
 				measures:      m,
@@ -590,7 +590,7 @@ func TestLogErrWithEventDetails(t *testing.T) {
 func testInvalidIncomingEvent(t *testing.T) {
 	assert := assert.New(t)
 	mockVal := new(mockValidator)
-	logger := log.NewNopLogger()
+	logger := zap.NewNop()
 	invalidEventErr := errors.New("invalid event")
 	incomingEvent := interpreter.Event{
 		Destination: "some-destination",
@@ -613,7 +613,7 @@ func testInvalidIncomingEvent(t *testing.T) {
 func testDeviceIDErr(t *testing.T) {
 	assert := assert.New(t)
 	mockVal := new(mockValidator)
-	logger := log.NewNopLogger()
+	logger := zap.NewNop()
 	incomingEvent := interpreter.Event{
 		Destination: "some-destination",
 	}
@@ -630,7 +630,7 @@ func testDeviceIDErr(t *testing.T) {
 
 func testFinderErr(t *testing.T) {
 	assert := assert.New(t)
-	logger := log.NewNopLogger()
+	logger := zap.NewNop()
 	testErr := errors.New("test error")
 	incomingEvent := interpreter.Event{
 		Destination: "event:device-status/mac:112233445566/fully-manageable",
@@ -658,7 +658,7 @@ func testFinderErr(t *testing.T) {
 func testCalculations(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
-	logger := log.NewNopLogger()
+	logger := zap.NewNop()
 	mockVal := new(mockValidator)
 	mockClient := new(mockEventClient)
 	mockFinder := new(mockFinder)

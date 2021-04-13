@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	logging "github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/glaukos/events"
 	"github.com/xmidt-org/touchstone"
+	"go.uber.org/zap"
 )
 
 func TestValidNames(t *testing.T) {
@@ -138,7 +138,7 @@ func TestTimeElapsedParsersSuccess(t *testing.T) {
 			testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 			timeElapsedParsersIn := TimeElapsedParsersIn{
 				Config:      tc.config,
-				Logger:      logging.NewNopLogger(),
+				Logger:      zap.NewNop(),
 				Measures:    testMeasures,
 				CodexClient: &events.CodexClient{},
 				Factory:     testFactory,
@@ -165,7 +165,7 @@ func TestCreateTimeElapsedParsersErrors(t *testing.T) {
 
 func TestParserLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	logger := logging.NewJSONLogger(buf)
+	logger := zap.NewExample()
 
 	parserLogger := ParserLogger(logger, "test_parser")
 
@@ -195,7 +195,7 @@ func testHistogramError(t *testing.T) {
 	}
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      logging.NewNopLogger(),
+		Logger:      zap.NewNop(),
 		Measures:    Measures{},
 		CodexClient: &events.CodexClient{},
 		Factory:     nil,
@@ -235,7 +235,7 @@ func testParserError(t *testing.T) {
 	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      logging.NewNopLogger(),
+		Logger:      zap.NewNop(),
 		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,
@@ -275,7 +275,7 @@ func testRepeatedNamesError(t *testing.T) {
 	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      logging.NewNopLogger(),
+		Logger:      zap.NewNop(),
 		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,

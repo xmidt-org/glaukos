@@ -24,12 +24,10 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 // EncodeResponseCode creates a go-kit EncodeResponseFunc that returns the
@@ -47,7 +45,6 @@ func EncodeResponseCode(statusCode int) kithttp.EncodeResponseFunc {
 func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, response http.ResponseWriter) {
 		statusCode := http.StatusInternalServerError
-		details := []interface{}{}
 
 		var e kithttp.StatusCoder
 		if errors.As(err, &e) {
@@ -57,9 +54,7 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 		// get logger from context and log error
 		logger := getLogger(ctx)
 		if logger != nil {
-			logger = log.With(logger, details...)
-			logger.Log(level.Key(), level.ErrorValue(), xlog.MessageKey(), "failed to process event",
-				xlog.ErrorKey(), err, "resp status code", statusCode)
+			logger.Error("failed to process event", zap.Error(err), zap.Any("resp status code", statusCode))
 		}
 
 		response.WriteHeader(statusCode)

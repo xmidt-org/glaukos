@@ -36,9 +36,8 @@ import (
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/glaukos/eventmetrics"
 	"github.com/xmidt-org/httpaux"
-	"github.com/xmidt-org/themis/config"
-	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/themis/xlog/xloghttp"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/sallust/sallustkit"
 	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchhttp"
 	"github.com/xmidt-org/webpa-common/basculechecks"
@@ -48,6 +47,7 @@ import (
 	"github.com/xmidt-org/wrp-listener/webhookClient"
 
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 const (
@@ -81,7 +81,6 @@ func main() {
 	}
 
 	app := fx.New(
-		xlog.Logger(),
 		fx.Supply(v),
 		arrange.ForViper(v),
 		basculechecks.ProvideMetrics(),
@@ -106,16 +105,19 @@ func main() {
 		arrangehttp.Server{Key: "servers.primary"}.Provide(),
 		fx.Provide(
 			ProvideConsts,
-			ProvideUnmarshaller,
 			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
-			fx.Annotated{
-				Name: "server_metrics_middleware",
-				Target: func(sb touchhttp.ServerBundle) func(http.Handler) http.Handler {
-					return sb.ForServer("servers.primary").Then
-				},
+			func(sb touchhttp.ServerBundle) touchhttp.ServerInstrumenter {
+				return sb.ForServer("servers.primary")
 			},
-			xlog.Unmarshal("log"),
-			xloghttp.ProvideStandardBuilders,
+			arrange.UnmarshalKey("log", sallust.Config{}),
+			func(config sallust.Config) (*zap.Logger, error) {
+				return config.Build()
+			},
+			func(logger *zap.Logger) log.Logger {
+				return sallustkit.Logger{
+					Zap: logger,
+				}
+			},
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
@@ -183,17 +185,5 @@ func ProvideConsts() ConstOut {
 	return ConstOut{
 		APIBase:      apiBase,
 		DefaultKeyID: DefaultKeyID,
-	}
-}
-
-// TODO: once we get rid of any packages that need an unmarshaller, remove this.
-type UnmarshallerOut struct {
-	fx.Out
-	Unmarshaller config.Unmarshaller
-}
-
-func ProvideUnmarshaller(v *viper.Viper) UnmarshallerOut {
-	return UnmarshallerOut{
-		Unmarshaller: config.ViperUnmarshaller{Viper: v, Options: []viper.DecoderConfigOption{}},
 	}
 }

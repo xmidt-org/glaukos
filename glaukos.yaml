@@ -4,15 +4,14 @@ prometheus:
   defaultSubsystem: glaukos
   constLabels:
     development: "true"
+  instrumentMetricHandler: true
 
 log:
-  file: stdout
-  level: DEBUG
-
-health:
-  disableLogging: false
-  custom:
-    server: development
+  level: debug
+  development: true
+  encoderConfig:
+    messageKey: msg
+    levelKey: level
 
 servers:
   primary:

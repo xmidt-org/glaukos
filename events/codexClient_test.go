@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sony/gobreaker"
@@ -18,6 +17,7 @@ import (
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/touchstone/touchtest"
 	"go.uber.org/ratelimit"
+	"go.uber.org/zap"
 )
 
 func TestGetEvents(t *testing.T) {
@@ -37,7 +37,7 @@ func testUnmarshalErr(t *testing.T) {
 	resp.WriteString(`{"some key": "some-value"}`)
 	client.On("Do", mock.Anything).Return(resp.Result(), nil) // nolint:bodyclose
 	c := CodexClient{
-		Logger:         log.NewNopLogger(),
+		Logger:         zap.NewNop(),
 		Client:         client,
 		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 		Auth:           auth,
@@ -55,7 +55,7 @@ func testClientErr(t *testing.T) {
 	auth.On("Acquire").Return("test", nil)
 	client.On("Do", mock.Anything).Return(httptest.NewRecorder().Result(), errors.New("test error")) // nolint:bodyclose
 	c := CodexClient{
-		Logger:         log.NewNopLogger(),
+		Logger:         zap.NewNop(),
 		Client:         client,
 		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 		Auth:           auth,
@@ -72,7 +72,7 @@ func testBuildRequestErr(t *testing.T) {
 	auth := new(mockAcquirer)
 	auth.On("Acquire").Return("", errors.New("auth error"))
 	c := CodexClient{
-		Logger:         log.NewNopLogger(),
+		Logger:         zap.NewNop(),
 		Client:         client,
 		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 		Auth:           auth,
@@ -114,7 +114,7 @@ func testSuccess(t *testing.T) {
 	resp.WriteString(string(jsonEvents))
 	client.On("Do", mock.Anything).Return(resp.Result(), nil) // nolint:bodyclose
 	c := CodexClient{
-		Logger:         log.NewNopLogger(),
+		Logger:         zap.NewNop(),
 		Client:         client,
 		CircuitBreaker: gobreaker.NewCircuitBreaker(gobreaker.Settings{Name: "test circuit breaker"}),
 		Auth:           auth,
@@ -268,7 +268,7 @@ func TestBuildGETRequest(t *testing.T) {
 func TestExecuteRequest(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = log.NewNopLogger()
+		logger = zap.NewNop()
 	)
 
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)

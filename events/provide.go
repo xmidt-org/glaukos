@@ -21,16 +21,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/httpaux/retry"
-	"github.com/xmidt-org/themis/xlog"
 	"go.uber.org/fx"
 	"go.uber.org/ratelimit"
+	"go.uber.org/zap"
 )
 
 // CodexConfig determines the auth and address for connecting to the codex cluster.
@@ -78,7 +76,7 @@ func Provide() fx.Option {
 
 }
 
-func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, measures Measures, logger log.Logger) *CodexClient {
+func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAuth acquire.Acquirer, measures Measures, logger *zap.Logger) *CodexClient {
 	var limiter ratelimit.Limiter
 	if config.RateLimit.Requests <= 0 {
 		limiter = ratelimit.NewUnlimited()
@@ -111,20 +109,20 @@ func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAu
 	}
 }
 
-func determineCodexTokenAcquirer(logger log.Logger, config CodexConfig) (acquire.Acquirer, error) {
+func determineCodexTokenAcquirer(logger *zap.Logger, config CodexConfig) (acquire.Acquirer, error) {
 	defaultAcquirer := &acquire.DefaultAcquirer{}
 	jwt := config.Auth.JWT
 	if jwt.AuthURL != "" && jwt.Buffer > 0 && jwt.Timeout > 0 {
-		level.Debug(logger).Log(xlog.MessageKey(), "using jwt")
+		logger.Debug("using jwt")
 		return acquire.NewRemoteBearerTokenAcquirer(jwt)
 	}
 
 	if config.Auth.Basic != "" {
-		level.Debug(logger).Log(xlog.MessageKey(), "using basic auth")
+		logger.Debug("using basic auth")
 		return acquire.NewFixedAuthAcquirer(config.Auth.Basic)
 	}
 
-	level.Error(logger).Log(xlog.ErrorKey(), "failed to create acquirer")
+	logger.Error("failed to create acquirer")
 	return defaultAcquirer, nil
 
 }
