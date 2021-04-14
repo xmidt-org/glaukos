@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +17,7 @@ import (
 	"github.com/xmidt-org/interpreter/validation"
 	"github.com/xmidt-org/touchstone/touchtest"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type testFinder struct {
@@ -574,7 +574,10 @@ func TestLogErrWithEventDetails(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 			buf := &bytes.Buffer{}
-			logger := log.NewJSONLogger(buf)
+			ws := zapcore.AddSync(buf)
+			core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), ws, zapcore.DebugLevel)
+			logger := zap.New(core)
+
 			parser := TimeElapsedParser{
 				logger: logger,
 			}

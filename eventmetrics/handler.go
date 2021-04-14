@@ -21,12 +21,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/xmidt-org/touchstone/touchhttp"
-
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/xmidt-org/touchstone/touchhttp"
 	"go.uber.org/fx"
 )
 
@@ -54,18 +53,19 @@ func NewEventHandler(e endpoint.Endpoint, getLogger GetLoggerFunc) http.Handler 
 // handling requests for glaukos's primary subscribing endpoint.
 type RoutesIn struct {
 	fx.In
-	Handler            Handler
-	AuthChain          alice.Chain
-	ServerInstrumenter touchhttp.ServerInstrumenter
-	Router             *mux.Router `name:"servers.primary"`
-	APIBase            string      `name:"api_base"`
+	Handler      Handler
+	AuthChain    alice.Chain
+	ServerBundle touchhttp.ServerBundle
+	Router       *mux.Router `name:"servers.primary"`
+	APIBase      string      `name:"api_base"`
 }
 
 // ConfigureRoutes sets up the router provided to handle traffic for the events parsing endpoint.
 func ConfigureRoutes(in RoutesIn) {
 	path := fmt.Sprintf("/%s/events", in.APIBase)
+	instrumenter := in.ServerBundle.ForServer("servers.primary")
 	in.Router.Use(in.AuthChain.Then)
-	in.Router.Handle(path, in.ServerInstrumenter.Then(in.Handler.Event)).
+	in.Router.Handle(path, instrumenter.Then(in.Handler.Event)).
 		Name("events").
 		Methods("POST")
 }

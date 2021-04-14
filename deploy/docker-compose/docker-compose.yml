@@ -11,7 +11,7 @@ services:
       - QUEUE_SIZE=10
       - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
-      - "LOG_LEVEL=debug"
+      - "LOG_LEVEL=error"
       - LIMITER_REQUESTS=10
       - LIMITER_TICK=1s
     ports:
@@ -23,7 +23,7 @@ services:
       - xmidt
 
   caduceator1:
-    image: caduceator:${CADUCEATOR_VERSION}
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
     container_name: caduceator-1
     ports:
       - 5010-5013:5010-5013
@@ -35,7 +35,7 @@ services:
       - xmidt
 
   caduceator2:
-    image: caduceator:${CADUCEATOR_VERSION}
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
     container_name: caduceator-2
     ports:
       - 5020-5023:5020-5023
@@ -47,7 +47,7 @@ services:
       - xmidt
 
   caduceator3:
-    image: caduceator:${CADUCEATOR_VERSION}
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
     container_name: caduceator-3
     ports:
       - 5030-5033:5030-5033
@@ -59,7 +59,7 @@ services:
       - xmidt
 
   caduceator4:
-    image: caduceator:${CADUCEATOR_VERSION}
+    image: xmidt/caduceator:${CADUCEATOR_VERSION}
     container_name: caduceator-4
     ports:
       - 5040-5043:5040-5043

@@ -25,12 +25,14 @@ import (
 
 type MetricsRoutesIn struct {
 	fx.In
-	Router  *mux.Router `name:"servers.metrics"`
-	Handler touchhttp.Handler
+	Router       *mux.Router `name:"servers.metrics"`
+	ServerBundle touchhttp.ServerBundle
+	Handler      touchhttp.Handler
 }
 
 func BuildMetricsRoutes(in MetricsRoutesIn) {
 	if in.Router != nil && in.Handler != nil {
-		in.Router.Handle("/metrics", in.Handler).Methods("GET")
+		instrumenter := in.ServerBundle.ForServer("servers.metrics")
+		in.Router.Handle("/metrics", instrumenter.Then(in.Handler)).Methods("GET")
 	}
 }

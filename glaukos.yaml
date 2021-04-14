@@ -2,11 +2,6 @@
 prometheus:
   defaultNamespace: xmidt
   defaultSubsystem: glaukos
-  constLabels:
-    development: "true"
-
-promhttp:
-  instrumentMetricHandler: true
 
 log:
   level: debug

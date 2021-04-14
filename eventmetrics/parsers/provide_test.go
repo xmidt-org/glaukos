@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/glaukos/events"
@@ -164,17 +166,15 @@ func TestCreateTimeElapsedParsersErrors(t *testing.T) {
 }
 
 func TestParserLogger(t *testing.T) {
+	assert := assert.New(t)
 	buf := &bytes.Buffer{}
-	logger := zap.NewExample()
+	ws := zapcore.AddSync(buf)
+	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), ws, zapcore.DebugLevel)
+	logger := zap.New(core)
 
 	parserLogger := ParserLogger(logger, "test_parser")
-
-	if err := parserLogger.Log(); err != nil {
-		t.Fatal(err)
-	}
-	if want, have := `{"parser":"test_parser"}`+"\n", buf.String(); want != have {
-		t.Errorf("\nwant %#v\nhave %#v", want, have)
-	}
+	parserLogger.Debug("test")
+	assert.Contains(buf.String(), `"parser":"test_parser"`)
 }
 
 func testHistogramError(t *testing.T) {
