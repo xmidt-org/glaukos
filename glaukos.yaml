@@ -4,6 +4,8 @@ prometheus:
   defaultSubsystem: glaukos
   constLabels:
     development: "true"
+
+promhttp:
   instrumentMetricHandler: true
 
 log:

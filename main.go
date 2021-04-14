@@ -106,6 +106,7 @@ func main() {
 		fx.Provide(
 			ProvideConsts,
 			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
+			arrange.UnmarshalKey("promhttp", touchhttp.Config{}),
 			func(sb touchhttp.ServerBundle) touchhttp.ServerInstrumenter {
 				return sb.ForServer("servers.primary")
 			},
