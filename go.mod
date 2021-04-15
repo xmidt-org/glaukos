@@ -23,7 +23,7 @@ require (
 	github.com/xmidt-org/arrange v0.1.6
 	github.com/xmidt-org/bascule v0.8.1
 	github.com/xmidt-org/httpaux v0.1.6
-	github.com/xmidt-org/interpreter v0.0.3-0.20210402193409-647a5b85f70f
+	github.com/xmidt-org/interpreter v0.0.3
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/touchstone v0.0.2-0.20210402004515-cfe41e009455
 	github.com/xmidt-org/webpa-common v1.11.0
@@ -34,4 +34,4 @@ require (
 	gopkg.in/ini.v1 v1.61.0 // indirect
 )
 
-replace github.com/xmidt-org/interpreter v0.0.3-0.20210402193409-647a5b85f70f => github.com/xmidt-org/interpreter v0.0.3-0.20210406220031-4a721eb7d2cc
+replace github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb => github.com/xmidt-org/wrp-listener v0.2.2-0.20210414183315-4f7d9e86cf1b

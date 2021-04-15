@@ -21,7 +21,6 @@ import (
 	"crypto/sha1" // nolint:gosec
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 
 	"github.com/InVisionApp/go-health"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
@@ -43,8 +41,6 @@ import (
 	"github.com/xmidt-org/themis/xlog/xloghttp"
 	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchhttp"
-	"github.com/xmidt-org/webpa-common/basculechecks"
-	"github.com/xmidt-org/webpa-common/basculemetrics"
 	"github.com/xmidt-org/wrp-listener/hashTokenFactory"
 	secretGetter "github.com/xmidt-org/wrp-listener/secret"
 	"github.com/xmidt-org/wrp-listener/webhookClient"
@@ -85,9 +81,8 @@ func main() {
 	app := fx.New(
 		xlog.Logger(),
 		arrange.Supply(v),
-		basculechecks.ProvideMetrics(),
-		basculemetrics.ProvideMetrics(),
 		fx.Supply(eventmetrics.GetLogger),
+		webhookClient.ProvideMetrics(),
 		eventmetrics.Provide(),
 		touchhttp.Provide(),
 		touchstone.Provide(),
@@ -95,12 +90,6 @@ func main() {
 			ProvideConsts,
 			ProvideUnmarshaller,
 			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
-			fx.Annotated{
-				Name: "server_metrics_middleware",
-				Target: func(sb touchhttp.ServerBundle) func(http.Handler) http.Handler {
-					return sb.ForServer("servers.primary").Then
-				},
-			},
 			xlog.Unmarshal("log"),
 			xloghttp.ProvideStandardBuilders,
 			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
@@ -140,8 +129,9 @@ func main() {
 			},
 			determineTokenAcquirer,
 			webhookClient.NewBasicRegisterer,
-			func(l fx.Lifecycle, r *webhookClient.BasicRegisterer, c WebhookConfig, logger log.Logger) (*webhookClient.PeriodicRegisterer, error) {
-				return webhookClient.NewPeriodicRegisterer(r, c.RegistrationInterval, logger, provider.NewDiscardProvider())
+			webhookClient.NewProvideMeasures,
+			func(l fx.Lifecycle, r *webhookClient.BasicRegisterer, c WebhookConfig, m *webhookClient.Measures, logger log.Logger) (*webhookClient.PeriodicRegisterer, error) {
+				return webhookClient.NewPeriodicRegisterer(r, c.RegistrationInterval, logger, m)
 			},
 		),
 		arrangehttp.Server().Provide(),
