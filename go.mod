@@ -34,4 +34,4 @@ require (
 	gopkg.in/ini.v1 v1.61.0 // indirect
 )
 
-replace github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb => github.com/xmidt-org/wrp-listener v0.2.2-0.20210414183315-4f7d9e86cf1b
+replace github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb => github.com/xmidt-org/wrp-listener v0.2.2-0.20210415175145-26f8f385f550

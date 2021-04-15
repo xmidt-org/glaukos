@@ -29,7 +29,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/InVisionApp/go-health"
-	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
@@ -82,10 +81,10 @@ func main() {
 		xlog.Logger(),
 		arrange.Supply(v),
 		fx.Supply(eventmetrics.GetLogger),
-		webhookClient.ProvideMetrics(),
 		eventmetrics.Provide(),
 		touchhttp.Provide(),
 		touchstone.Provide(),
+		webhookClient.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
@@ -127,12 +126,13 @@ func main() {
 					Request:         config.Request,
 				}
 			},
-			determineTokenAcquirer,
-			webhookClient.NewBasicRegisterer,
-			webhookClient.NewProvideMeasures,
-			func(l fx.Lifecycle, r *webhookClient.BasicRegisterer, c WebhookConfig, m *webhookClient.Measures, logger log.Logger) (*webhookClient.PeriodicRegisterer, error) {
-				return webhookClient.NewPeriodicRegisterer(r, c.RegistrationInterval, logger, m)
+			fx.Annotated{
+				Name: "periodic_registration_interval",
+				Target: func(config WebhookConfig) time.Duration {
+					return config.RegistrationInterval
+				},
 			},
+			determineTokenAcquirer,
 		),
 		arrangehttp.Server().Provide(),
 		fx.Invoke(
