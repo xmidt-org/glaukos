@@ -25,13 +25,11 @@ require (
 	github.com/xmidt-org/httpaux v0.1.6
 	github.com/xmidt-org/interpreter v0.0.3
 	github.com/xmidt-org/themis v0.4.4
-	github.com/xmidt-org/touchstone v0.0.2-0.20210402004515-cfe41e009455
+	github.com/xmidt-org/touchstone v0.0.2
 	github.com/xmidt-org/webpa-common v1.11.0
 	github.com/xmidt-org/wrp-go/v3 v3.0.2
-	github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb
+	github.com/xmidt-org/wrp-listener v0.2.2-0.20210415232557-f9262aa91819
 	go.uber.org/fx v1.13.1
 	go.uber.org/ratelimit v0.2.0
 	gopkg.in/ini.v1 v1.61.0 // indirect
 )
-
-replace github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb => github.com/xmidt-org/wrp-listener v0.2.2-0.20210415175145-26f8f385f550
