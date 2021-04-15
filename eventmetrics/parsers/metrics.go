@@ -21,9 +21,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 )
 
@@ -40,23 +39,23 @@ var (
 // Measures tracks the various event-related metrics.
 type Measures struct {
 	fx.In
-	MetadataFields        metrics.Counter              `name:"metadata_fields"`
-	TimeElapsedHistograms map[string]metrics.Histogram `name:"time_elapsed_histograms"`
-	UnparsableEventsCount metrics.Counter              `name:"unparsable_events_count"`
+	MetadataFields        *prometheus.CounterVec            `name:"metadata_fields"`
+	TimeElapsedHistograms map[string]prometheus.ObserverVec `name:"time_elapsed_histograms"`
+	UnparsableEventsCount *prometheus.CounterVec            `name:"unparsable_events_count"`
 }
 
-func (m *Measures) addTimeElapsedHistogram(f xmetrics.Factory, o prometheus.HistogramOpts, labelNames ...string) (bool, error) {
+func (m *Measures) addTimeElapsedHistogram(f *touchstone.Factory, o prometheus.HistogramOpts, labelNames ...string) (bool, error) {
 	if f == nil {
 		return false, errNilFactory
 	}
 
-	histogram, err := f.NewHistogram(o, labelNames)
+	histogram, err := f.NewHistogramVec(o, labelNames...)
 	if err != nil {
 		return false, fmt.Errorf("%w: %v", errNewHistogram, err)
 	}
 
 	if m.TimeElapsedHistograms == nil {
-		m.TimeElapsedHistograms = make(map[string]metrics.Histogram)
+		m.TimeElapsedHistograms = make(map[string]prometheus.ObserverVec)
 	}
 
 	if _, found := m.TimeElapsedHistograms[o.Name]; found {
@@ -69,15 +68,15 @@ func (m *Measures) addTimeElapsedHistogram(f xmetrics.Factory, o prometheus.Hist
 
 // ProvideEventMetrics builds the event-related metrics and makes them available to the container.
 func ProvideEventMetrics() fx.Option {
-	return fx.Provide(
-		xmetrics.ProvideCounter(
+	return fx.Options(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "metadata_fields",
 				Help: "the metadata fields coming from each event received",
 			},
 			metadataKeyLabel,
 		),
-		xmetrics.ProvideCounter(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "unparsable_events_count",
 				Help: "events that are unparsable, labelled by type of parser and the reason why they failed",
@@ -85,9 +84,11 @@ func ProvideEventMetrics() fx.Option {
 			parserLabel,
 			reasonLabel,
 		),
-		fx.Annotated{
-			Name:   "time_elapsed_histograms",
-			Target: func() map[string]metrics.Histogram { return make(map[string]metrics.Histogram) },
-		},
+		fx.Provide(
+			fx.Annotated{
+				Name:   "time_elapsed_histograms",
+				Target: func() map[string]prometheus.ObserverVec { return make(map[string]prometheus.ObserverVec) },
+			},
+		),
 	)
 }

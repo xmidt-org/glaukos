@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
+	logging "github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/history"
 	"github.com/xmidt-org/interpreter/validation"
-	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
+	"github.com/xmidt-org/touchstone/touchtest"
 )
 
 type testFinder struct {
@@ -297,87 +298,244 @@ func TestCalculateTimeElapsed(t *testing.T) {
 	t.Run("finder err", testFinderErr)
 	t.Run("test calculations", testCalculations)
 }
-func TestTimeElapsedParseErr(t *testing.T) {
-	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
-	assert.Nil(t, err)
-	logger := log.NewNopLogger()
-	mockVal := new(mockValidator)
-	mockClient := new(mockEventClient)
-	mockFinder := new(mockFinder)
-	mockClient.On("GetEvents", mock.Anything).Return([]interpreter.Event{})
+
+func TestTimeElapsedParse(t *testing.T) {
+	t.Run("calculate error", testParseCalculateErr)
+	t.Run("no fw/hw error", testParseNoHWFWErr)
+	t.Run("success", testParseSuccess)
+}
+
+func testParseCalculateErr(t *testing.T) {
+	err := validation.InvalidEventErr{}
 
 	tests := []struct {
-		description          string
-		incomingEvent        interpreter.Event
-		oldEvent             interpreter.Event
-		incomingCalculateBy  TimeLocation
-		oldCalculateBy       TimeLocation
-		expectedUnparsable   float64
-		expectedAddToMetrics bool
+		description   string
+		err           error
+		expectedLabel string
 	}{
 		{
-			description: "invalid calculated time",
-			incomingEvent: interpreter.Event{
-				Destination: "event:device-status/mac:112233445566/some-event/1614265173",
-				Birthdate:   now.UnixNano(),
-			},
-			oldEvent: interpreter.Event{
-				Birthdate: now.Add(time.Hour).UnixNano(),
-			},
-			oldCalculateBy:      Birthdate,
-			incomingCalculateBy: Birthdate,
+			description:   "metrics log error",
+			err:           err,
+			expectedLabel: err.ErrorLabel(),
 		},
 		{
-			description: "no hardware key",
-			incomingEvent: interpreter.Event{
-				Destination: "event:device-status/mac:112233445566/some-event/1614265173",
-				Metadata:    map[string]string{hardwareMetadataKey: "hardware"},
-				Birthdate:   now.UnixNano(),
-			},
-			oldEvent: interpreter.Event{
-				Birthdate: now.Add(-1 * time.Hour).UnixNano(),
-			},
-			oldCalculateBy:      Birthdate,
-			incomingCalculateBy: Birthdate,
-			expectedUnparsable:  1.0,
-		},
-		{
-			description: "no firmware key",
-			incomingEvent: interpreter.Event{
-				Destination: "event:device-status/mac:112233445566/some-event/1614265173",
-				Metadata:    map[string]string{firmwareMetadataKey: "firmware"},
-				Birthdate:   now.UnixNano(),
-			},
-			oldEvent: interpreter.Event{
-				Birthdate: now.Add(-1 * time.Hour).UnixNano(),
-			},
-			oldCalculateBy:      Birthdate,
-			incomingCalculateBy: Birthdate,
-			expectedUnparsable:  1.0,
+			description:   "non-metrics log error",
+			err:           errors.New("test error"),
+			expectedLabel: unknownReason,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			p := xmetricstest.NewProvider(&xmetrics.Options{})
+			var (
+				assert                    = assert.New(t)
+				mockVal                   = new(mockValidator)
+				expectedRegistry          = prometheus.NewPedanticRegistry()
+				expectedUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testUnparsableCounter",
+						Help: "testUnparsableCounter",
+					},
+					[]string{parserLabel, reasonLabel},
+				)
+				actualUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testUnparsableCounter",
+						Help: "testUnparsableCounter",
+					},
+					[]string{parserLabel, reasonLabel},
+				)
+			)
+
+			mockVal.On("Valid", mock.Anything).Return(false, tc.err)
+			expectedRegistry.Register(expectedUnparsableCounter)
 			m := Measures{
-				UnparsableEventsCount: p.NewCounter("unparsable_events"),
-				TimeElapsedHistograms: make(map[string]metrics.Histogram),
+				UnparsableEventsCount: actualUnparsableCounter,
 			}
-			mockVal.On("Valid", tc.incomingEvent).Return(true, nil)
-			mockFinder.On("Find", mock.Anything, tc.incomingEvent).Return(tc.oldEvent, nil).Once()
 			parser := TimeElapsedParser{
-				searchedEvent: EventInfo{CalculateUsing: tc.oldCalculateBy, Validator: mockVal},
-				incomingEvent: EventInfo{CalculateUsing: tc.incomingCalculateBy, Validator: mockVal},
-				logger:        logger,
+				incomingEvent: EventInfo{Validator: mockVal},
+				logger:        logging.NewNopLogger(),
+				measures:      m,
+				name:          "TEP_test",
+			}
+			parser.Parse(interpreter.Event{})
+			expectedUnparsableCounter.WithLabelValues("TEP_test", tc.expectedLabel).Inc()
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.CollectAndCompare(actualUnparsableCounter))
+
+		})
+	}
+
+}
+
+func testParseNoHWFWErr(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	var (
+		mockVal    = new(mockValidator)
+		mockClient = new(mockEventClient)
+		mockFinder = new(mockFinder)
+	)
+
+	mockClient.On("GetEvents", mock.Anything).Return([]interpreter.Event{})
+	mockFinder.On("Find", mock.Anything, mock.Anything).Return(interpreter.Event{Birthdate: now.Add(-1 * time.Minute).UnixNano()}, nil)
+	mockVal.On("Valid", mock.Anything).Return(true, nil)
+
+	tests := []struct {
+		description string
+		event       interpreter.Event
+	}{
+		{
+			description: "no hardware key",
+			event: interpreter.Event{
+				Destination: "event:device-status/mac:112233445566/offline",
+				Birthdate:   now.UnixNano(),
+				Metadata: map[string]string{
+					hardwareMetadataKey: "hardware",
+				},
+			},
+		},
+		{
+			description: "no firmware key",
+			event: interpreter.Event{
+				Destination: "event:device-status/mac:112233445566/offline",
+				Birthdate:   now.UnixNano(),
+				Metadata: map[string]string{
+					firmwareMetadataKey: "firmware",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			m := Measures{
+				UnparsableEventsCount: prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "testUnparsableCounter",
+						Help: "testUnparsableCounter",
+					},
+					[]string{parserLabel, reasonLabel},
+				),
+			}
+
+			parser := TimeElapsedParser{
+				searchedEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
+				incomingEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
+				logger:        logging.NewNopLogger(),
 				client:        mockClient,
 				finder:        mockFinder,
 				measures:      m,
 				name:          "TEP_test",
 			}
 
-			parser.Parse(tc.incomingEvent)
-			p.Assert(t, "unparsable_events", parserLabel, parser.name, reasonLabel, noFwHwReason)(xmetricstest.Value(tc.expectedUnparsable))
+			parser.Parse(tc.event)
+			assert.Equal(1.0, testutil.ToFloat64(m.UnparsableEventsCount))
+
+		})
+	}
+}
+
+func testParseSuccess(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	var (
+		mockVal    = new(mockValidator)
+		mockClient = new(mockEventClient)
+		mockFinder = new(mockFinder)
+	)
+
+	foundEvent := interpreter.Event{Birthdate: now.Add(-1 * time.Minute).UnixNano()}
+
+	mockClient.On("GetEvents", mock.Anything).Return([]interpreter.Event{})
+	mockFinder.On("Find", mock.Anything, mock.Anything).Return(foundEvent, nil)
+	mockVal.On("Valid", mock.Anything).Return(true, nil)
+
+	tests := []struct {
+		description       string
+		event             interpreter.Event
+		expectedTimeAdded float64
+	}{
+		{
+			description: "with reboot reason",
+			event: interpreter.Event{
+				Destination: "event:device-status/mac:112233445566/offline",
+				Birthdate:   now.UnixNano(),
+				Metadata: map[string]string{
+					hardwareMetadataKey:     "hardware",
+					firmwareMetadataKey:     "firmware",
+					rebootReasonMetadataKey: "reboot-reason",
+				},
+			},
+			expectedTimeAdded: now.Sub(time.Unix(0, foundEvent.Birthdate)).Seconds(),
+		},
+		{
+			description: "without reboot reason",
+			event: interpreter.Event{
+				Destination: "event:device-status/mac:112233445566/offline",
+				Birthdate:   now.UnixNano(),
+				Metadata: map[string]string{
+					hardwareMetadataKey: "hardware",
+					firmwareMetadataKey: "firmware",
+				},
+			},
+			expectedTimeAdded: now.Sub(time.Unix(0, foundEvent.Birthdate)).Seconds(),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			expectedRegistry := prometheus.NewPedanticRegistry()
+			actualRegistry := prometheus.NewPedanticRegistry()
+			actualHistogram := prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "TEP_test",
+					Help:    "test TEP histogram",
+					Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+				}, []string{firmwareLabel, hardwareLabel, rebootReasonLabel})
+
+			expectedHistogram := prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "TEP_test",
+					Help:    "test TEP histogram",
+					Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+				}, []string{firmwareLabel, hardwareLabel, rebootReasonLabel})
+
+			expectedRegistry.Register(expectedHistogram)
+			actualRegistry.Register(actualHistogram)
+
+			m := Measures{
+				TimeElapsedHistograms: map[string]prometheus.ObserverVec{
+					"TEP_test": actualHistogram,
+				},
+			}
+
+			parser := TimeElapsedParser{
+				searchedEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
+				incomingEvent: EventInfo{CalculateUsing: Birthdate, Validator: mockVal},
+				logger:        logging.NewNopLogger(),
+				client:        mockClient,
+				finder:        mockFinder,
+				measures:      m,
+				name:          "TEP_test",
+			}
+
+			parser.Parse(tc.event)
+			if len(tc.event.Metadata[rebootReasonMetadataKey]) == 0 {
+				tc.event.Metadata[rebootReasonMetadataKey] = "unknown"
+			}
+			labels := prometheus.Labels{
+				hardwareLabel:     tc.event.Metadata[hardwareMetadataKey],
+				firmwareLabel:     tc.event.Metadata[firmwareMetadataKey],
+				rebootReasonLabel: tc.event.Metadata[rebootReasonMetadataKey],
+			}
+			expectedHistogram.With(labels).Observe(tc.expectedTimeAdded)
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.GatherAndCompare(actualRegistry))
 		})
 	}
 }

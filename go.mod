@@ -12,8 +12,7 @@ require (
 	github.com/magiconair/properties v1.8.3 // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/prometheus/client_golang v1.7.1
-	github.com/prometheus/common v0.13.0 // indirect
+	github.com/prometheus/client_golang v1.10.0
 	github.com/sony/gobreaker v0.4.1
 	github.com/spf13/afero v1.4.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
@@ -24,17 +23,13 @@ require (
 	github.com/xmidt-org/arrange v0.1.6
 	github.com/xmidt-org/bascule v0.8.1
 	github.com/xmidt-org/httpaux v0.1.6
-	github.com/xmidt-org/interpreter v0.0.3-0.20210402193409-647a5b85f70f
+	github.com/xmidt-org/interpreter v0.0.3
 	github.com/xmidt-org/themis v0.4.4
+	github.com/xmidt-org/touchstone v0.0.2
 	github.com/xmidt-org/webpa-common v1.11.0
 	github.com/xmidt-org/wrp-go/v3 v3.0.2
-	github.com/xmidt-org/wrp-listener v0.2.2-0.20201008164425-8cc15715a0bb
+	github.com/xmidt-org/wrp-listener v0.2.2
 	go.uber.org/fx v1.13.1
-	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/ratelimit v0.2.0
-	golang.org/x/sys v0.0.0-20200915084602-288bc346aa39 // indirect
-	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.61.0 // indirect
 )
-
-replace github.com/xmidt-org/interpreter v0.0.3-0.20210402193409-647a5b85f70f => github.com/xmidt-org/interpreter v0.0.3-0.20210406220031-4a721eb7d2cc

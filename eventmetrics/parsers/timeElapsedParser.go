@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/interpreter/validation"
 
 	"github.com/go-kit/kit/log"
@@ -38,6 +39,7 @@ const (
 	rebootReasonLabel           = "reboot_reason"
 	noFwHwReason                = "no_firmware_or_hardware_key"
 	idParseReason               = "device_ID_unparseable"
+	unknownReason               = "unknown"
 	invalidTimeCalculatedReason = "invalid_time_calculated"
 
 	hardwareMetadataKey     = "/hw-model"
@@ -130,9 +132,9 @@ func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	if err != nil || restartTime <= 0 {
 		var logError validation.MetricsLogError
 		if errors.As(err, &logError) {
-			t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, logError.ErrorLabel()).Add(1.0)
+			t.measures.UnparsableEventsCount.With(prometheus.Labels{parserLabel: t.name, reasonLabel: logError.ErrorLabel()}).Add(1.0)
 		} else {
-			t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, "unknown_reason").Add(1.0)
+			t.measures.UnparsableEventsCount.With(prometheus.Labels{parserLabel: t.name, reasonLabel: unknownReason}).Add(1.0)
 		}
 		return
 	}
@@ -142,16 +144,21 @@ func (t *TimeElapsedParser) Parse(event interpreter.Event) {
 	rebootReason, reasonFound := event.GetMetadataValue(rebootReasonMetadataKey)
 
 	if !hardwareFound || !firmwareFound {
-		t.measures.UnparsableEventsCount.With(parserLabel, t.name, reasonLabel, noFwHwReason).Add(1.0)
+		t.measures.UnparsableEventsCount.With(prometheus.Labels{parserLabel: t.name, reasonLabel: noFwHwReason}).Add(1.0)
 		return
 	}
 
 	if !reasonFound {
-		rebootReason = "unknown"
+		rebootReason = unknownReason
 	}
 
 	if histogram, ok := t.measures.TimeElapsedHistograms[t.name]; ok {
-		histogram.With(hardwareLabel, hardwareVal, firmwareLabel, firmwareVal, rebootReasonLabel, rebootReason).Observe(restartTime)
+		labels := prometheus.Labels{
+			hardwareLabel:     hardwareVal,
+			firmwareLabel:     firmwareVal,
+			rebootReasonLabel: rebootReason,
+		}
+		histogram.With(labels).Observe(restartTime)
 	} else {
 		level.Error(t.logger).Log(xlog.ErrorKey(), "No histogram found for this time elapsed parser")
 	}

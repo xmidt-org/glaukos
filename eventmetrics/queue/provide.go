@@ -21,9 +21,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/arrange"
-	"github.com/xmidt-org/themis/xmetrics"
 	"go.uber.org/fx"
 )
 
@@ -42,7 +40,11 @@ type ParsersIn struct {
 func Provide() fx.Option {
 	return fx.Provide(
 		arrange.UnmarshalKey("queue", Config{}),
-		newTimeTracker,
+		func(in TimeTrackIn) TimeTracker {
+			return &timeTracker{
+				TimeInMemory: in.TimeInMemory,
+			}
+		},
 		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, tracker TimeTracker, logger log.Logger) (Queue, error) {
 			e, err := newEventQueue(config, parsersIn.Parsers, metrics, tracker, logger)
 
@@ -64,22 +66,4 @@ func Provide() fx.Option {
 			return e, nil
 		},
 	)
-}
-
-func newTimeTracker(f xmetrics.Factory) (TimeTracker, error) {
-	opts := prometheus.HistogramOpts{
-		Name:    "time_in_memory",
-		Help:    "the amount of time an event stays in memory in s",
-		Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
-	}
-
-	histogram, err := f.NewHistogram(opts, []string{})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &timeTracker{
-		TimeInMemory: histogram,
-	}, nil
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/bascule/acquire"
@@ -96,7 +97,7 @@ func createCodexClient(config CodexConfig, cb *gobreaker.CircuitBreaker, codexAu
 	client := retry.New(retryConfig, new(http.Client))
 
 	if measures.CircuitBreakerStatus != nil {
-		measures.CircuitBreakerStatus.With(circuitBreakerLabel, cb.Name()).Set(0.0)
+		measures.CircuitBreakerStatus.With(prometheus.Labels{circuitBreakerLabel: cb.Name()}).Set(0.0)
 	}
 
 	return &CodexClient{

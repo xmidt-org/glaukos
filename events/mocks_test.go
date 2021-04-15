@@ -21,5 +21,8 @@ type mockClient struct {
 
 func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
 	args := m.Called(req)
-	return args.Get(0).(*http.Response), args.Error(1)
+	if args.Get(0) != nil {
+		return args.Get(0).(*http.Response), args.Error(1)
+	}
+	return nil, args.Error(1)
 }

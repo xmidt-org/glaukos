@@ -3,12 +3,13 @@ package parsers
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"testing"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone"
 )
 
 func TestAddTimeElapsedHistogramSuccess(t *testing.T) {
@@ -23,7 +24,7 @@ func TestAddTimeElapsedHistogramSuccess(t *testing.T) {
 			description: "Success",
 			name:        "test_parser",
 			labelNames:  []string{"key1", "key2"},
-			measures:    Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)},
+			measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		},
 		{
 			description: "Success with empty Measures",
@@ -40,8 +41,7 @@ func TestAddTimeElapsedHistogramSuccess(t *testing.T) {
 			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 		}
 		assert := assert.New(t)
-		testFactory, err := xmetrics.New(xmetrics.Options{})
-		assert.Nil(err)
+		testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 		added, err := tc.measures.addTimeElapsedHistogram(testFactory, o, tc.labelNames...)
 		assert.Equal(tc.expectedErr, err)
 		assert.True(added)
@@ -62,7 +62,7 @@ func testHistogramNilFactory(t *testing.T) {
 		Help:    fmt.Sprintf("tracks %s durations in s", "test_parser"),
 		Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 	}
-	measures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
+	measures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 	added, err := measures.addTimeElapsedHistogram(nil, o, []string{"key1", "key2"}...)
 	assert.Equal(errNilFactory, err)
 	assert.False(added)
@@ -77,13 +77,12 @@ func testNewHistogramErr(t *testing.T) {
 		Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 	}
 	labelNames := []string{"key1", "key2"}
-	testFactory, err := xmetrics.New(xmetrics.Options{})
-	assert.Nil(err)
-	measures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
-	testFactory.NewHistogram(prometheus.HistogramOpts{
+	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+	measures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
+	testFactory.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    name,
 		Buckets: []float64{60, 21600},
-	}, labelNames)
+	}, labelNames...)
 	added, err := measures.addTimeElapsedHistogram(testFactory, o, labelNames...)
 	assert.True(errors.Is(err, errNewHistogram),
 		fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
@@ -93,19 +92,15 @@ func testNewHistogramErr(t *testing.T) {
 }
 
 func testHistogramExistsErr(t *testing.T) {
-	measures := Measures{TimeElapsedHistograms: make(map[string]metrics.Histogram)}
+	measures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 	o := prometheus.HistogramOpts{
 		Name:    "test_parser",
 		Help:    fmt.Sprintf("tracks %s durations in s", "test_parser"),
 		Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 	}
 	assert := assert.New(t)
-	testFactory, err := xmetrics.New(xmetrics.Options{})
-	assert.Nil(err)
-	testFac, err := xmetrics.New(xmetrics.Options{})
-	assert.Nil(err)
-	testHistogram, err := testFac.NewHistogram(o, nil)
-	assert.Nil(err)
+	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+	testHistogram := prometheus.NewHistogramVec(o, nil)
 	measures.TimeElapsedHistograms[o.Name] = testHistogram
 	added, err := measures.addTimeElapsedHistogram(testFactory, o, []string{"key1", "key2"}...)
 	assert.True(errors.Is(err, errNewHistogram),

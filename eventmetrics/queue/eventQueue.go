@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/themis/xlog"
 
 	"github.com/go-kit/kit/log"
@@ -129,7 +130,7 @@ func (e *EventQueue) Queue(eventWithTime EventWithTime) (err error) {
 		}
 	default:
 		if e.metrics.DroppedEventsCount != nil {
-			e.metrics.DroppedEventsCount.With(reasonLabel, queueFullReason).Add(1.0)
+			e.metrics.DroppedEventsCount.With(prometheus.Labels{reasonLabel: queueFullReason}).Add(1.0)
 		}
 		e.timeTracker.TrackTime(time.Since(eventWithTime.BeginTime))
 		err = TooManyRequestsErr{Message: "Queue Full"}
@@ -161,7 +162,7 @@ func (e *EventQueue) ParseEvent(eventWithTime EventWithTime) {
 			level.Error(e.logger).Log(xlog.ErrorKey())
 			eventType = "unknown"
 		}
-		e.metrics.EventsCount.With(partnerIDLabel, partnerID, eventDestLabel, eventType).Add(1.0)
+		e.metrics.EventsCount.With(prometheus.Labels{partnerIDLabel: partnerID, eventDestLabel: eventType}).Add(1.0)
 	}
 
 	for _, p := range e.parsers {

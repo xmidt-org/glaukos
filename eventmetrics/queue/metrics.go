@@ -20,9 +20,8 @@ package queue
 import (
 	"time"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xmetrics"
+	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 )
 
@@ -36,21 +35,26 @@ const (
 // Measures contains the various queue-related metrics.
 type Measures struct {
 	fx.In
-	EventsQueueDepth   metrics.Gauge   `name:"events_queue_depth"`
-	EventsCount        metrics.Counter `name:"events_count"`
-	DroppedEventsCount metrics.Counter `name:"dropped_events_count"`
+	EventsQueueDepth   prometheus.Gauge       `name:"events_queue_depth"`
+	EventsCount        *prometheus.CounterVec `name:"events_count"`
+	DroppedEventsCount *prometheus.CounterVec `name:"dropped_events_count"`
+}
+
+type TimeTrackIn struct {
+	fx.In
+	TimeInMemory prometheus.Observer `name:"time_in_memory"`
 }
 
 // ProvideMetrics builds the queue-related metrics and makes them available to the container.
 func ProvideMetrics() fx.Option {
-	return fx.Provide(
-		xmetrics.ProvideGauge(
+	return fx.Options(
+		touchstone.Gauge(
 			prometheus.GaugeOpts{
 				Name: "events_queue_depth",
 				Help: "The depth of the event queue",
 			},
 		),
-		xmetrics.ProvideCounter(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "events_count",
 				Help: "Details of incoming events",
@@ -58,18 +62,25 @@ func ProvideMetrics() fx.Option {
 			partnerIDLabel,
 			eventDestLabel,
 		),
-		xmetrics.ProvideCounter(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "dropped_events_count",
 				Help: "The total number of events dropped",
 			},
 			reasonLabel,
 		),
+		touchstone.Histogram(
+			prometheus.HistogramOpts{
+				Name:    "time_in_memory",
+				Help:    "The amount of time an event stays in memory",
+				Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+			},
+		),
 	)
 }
 
 type timeTracker struct {
-	TimeInMemory metrics.Histogram
+	TimeInMemory prometheus.Observer
 }
 
 func (t *timeTracker) TrackTime(length time.Duration) {

@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sony/gobreaker"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/bascule/acquire"
-	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
 
 func TestCodexTokenAcquirer(t *testing.T) {
@@ -179,9 +179,11 @@ func TestCreateCodexClient(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			p := xmetricstest.NewProvider(&xmetrics.Options{})
 			m := Measures{
-				CircuitBreakerStatus: p.NewGauge("circuit_breaker_status"),
+				CircuitBreakerStatus: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+					Name: "circuitBreakerStatus",
+					Help: "circuitBreakerStatus",
+				}, []string{circuitBreakerLabel}),
 			}
 			auth := &acquire.DefaultAcquirer{}
 			logger := log.NewNopLogger()
@@ -192,7 +194,7 @@ func TestCreateCodexClient(t *testing.T) {
 			assert.Equal(auth, client.Auth)
 			assert.Equal(m, client.Metrics)
 			assert.Equal(cb, client.CircuitBreaker)
-			p.Assert(t, "circuit_breaker_status", circuitBreakerLabel, cb.Name())(xmetricstest.Value(0.0))
+			assert.Equal(0.0, testutil.ToFloat64(m.CircuitBreakerStatus))
 		})
 	}
 }

@@ -25,13 +25,10 @@ import (
 	"time"
 
 	"github.com/justinas/alice"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/InVisionApp/go-health"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
@@ -41,9 +38,8 @@ import (
 	"github.com/xmidt-org/themis/xhttp/xhttpserver"
 	"github.com/xmidt-org/themis/xlog"
 	"github.com/xmidt-org/themis/xlog/xloghttp"
-	"github.com/xmidt-org/themis/xmetrics/xmetricshttp"
-	"github.com/xmidt-org/webpa-common/basculechecks"
-	"github.com/xmidt-org/webpa-common/basculemetrics"
+	"github.com/xmidt-org/touchstone"
+	"github.com/xmidt-org/touchstone/touchhttp"
 	"github.com/xmidt-org/wrp-listener/hashTokenFactory"
 	secretGetter "github.com/xmidt-org/wrp-listener/secret"
 	"github.com/xmidt-org/wrp-listener/webhookClient"
@@ -84,22 +80,21 @@ func main() {
 	app := fx.New(
 		xlog.Logger(),
 		arrange.Supply(v),
-		provideMetrics(),
-		basculechecks.ProvideMetrics(),
-		basculemetrics.ProvideMetrics(),
 		fx.Supply(eventmetrics.GetLogger),
 		eventmetrics.Provide(),
+		touchhttp.Provide(),
+		touchstone.Provide(),
+		webhookClient.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			ProvideUnmarshaller,
+			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
 			xlog.Unmarshal("log"),
 			xloghttp.ProvideStandardBuilders,
-			xmetricshttp.Unmarshal("prometheus", promhttp.HandlerOpts{}),
 			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.metrics", Optional: true}.Annotated(),
 			xhttpserver.Unmarshal{Key: "servers.health", Optional: true}.Annotated(),
 			xhealth.Unmarshal("health"),
-			provideServerChainFactory,
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
@@ -131,11 +126,13 @@ func main() {
 					Request:         config.Request,
 				}
 			},
-			determineTokenAcquirer,
-			webhookClient.NewBasicRegisterer,
-			func(l fx.Lifecycle, r *webhookClient.BasicRegisterer, c WebhookConfig, logger log.Logger) (*webhookClient.PeriodicRegisterer, error) {
-				return webhookClient.NewPeriodicRegisterer(r, c.RegistrationInterval, logger, provider.NewDiscardProvider())
+			fx.Annotated{
+				Name: "periodic_registration_interval",
+				Target: func(config WebhookConfig) time.Duration {
+					return config.RegistrationInterval
+				},
 			},
+			determineTokenAcquirer,
 		),
 		arrangehttp.Server().Provide(),
 		fx.Invoke(
