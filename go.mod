@@ -28,7 +28,7 @@ require (
 	github.com/xmidt-org/touchstone v0.0.2
 	github.com/xmidt-org/webpa-common v1.11.0
 	github.com/xmidt-org/wrp-go/v3 v3.0.2
-	github.com/xmidt-org/wrp-listener v0.2.2-0.20210415232557-f9262aa91819
+	github.com/xmidt-org/wrp-listener v0.2.2
 	go.uber.org/fx v1.13.1
 	go.uber.org/ratelimit v0.2.0
 	gopkg.in/ini.v1 v1.61.0 // indirect
