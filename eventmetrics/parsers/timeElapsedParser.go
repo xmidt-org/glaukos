@@ -43,6 +43,8 @@ const (
 	hardwareMetadataKey     = "/hw-model"
 	firmwareMetadataKey     = "/fw-name"
 	rebootReasonMetadataKey = "/hw-last-reboot-reason"
+
+	invalidIncomingMsg = "invalid incoming event"
 )
 
 // EventClient is an interface that provides a list of events related to a device.
@@ -186,23 +188,23 @@ func fixConfig(config TimeElapsedConfig, defaultValidFrom time.Duration) TimeEla
 func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
 	if valid, err := t.incomingEvent.Valid(incomingEvent); !valid {
 		if errors.Is(err, validation.ErrInvalidEventType) {
-			t.logger.Info("invalid incoming event", zap.Error(err), zap.String("event destination", incomingEvent.Destination))
+			t.logger.Info(invalidIncomingMsg, zap.Error(err), zap.String("event destination", incomingEvent.Destination))
 		} else {
-			t.logger.Error("invalid incoming event", zap.Error(err), zap.String("event destination", incomingEvent.Destination))
+			t.logger.Error(invalidIncomingMsg, zap.Error(err), zap.String("event destination", incomingEvent.Destination))
 		}
 		return -1, err
 	}
 
 	deviceID, err := incomingEvent.DeviceID()
 	if err != nil {
-		t.logger.Error("invalid incoming event", zap.Error(err))
+		t.logger.Error(invalidIncomingMsg, zap.Error(err))
 		return -1, TimeElapsedCalculationErr{err: err, errLabel: idParseReason}
 	}
 
 	events := t.client.GetEvents(deviceID)
 	oldEvent, err := t.finder.Find(events, incomingEvent)
 	if err != nil {
-		t.logErrWithEventDetails(err, incomingEvent)
+		t.logErrWithEventDetails(invalidIncomingMsg, err, incomingEvent)
 		return -1, err
 	}
 
@@ -215,7 +217,7 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 
 	if timeElapsed <= 0 {
 		err = TimeElapsedCalculationErr{timeElapsed: timeElapsed, oldEvent: oldEvent, errLabel: invalidTimeCalculatedReason}
-		t.logErrWithEventDetails(err, incomingEvent)
+		t.logErrWithEventDetails("invalid calculation", err, incomingEvent)
 		return -1, err
 	}
 
@@ -223,15 +225,15 @@ func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event
 }
 
 // logs errors with events' transaction uuids.
-func (t *TimeElapsedParser) logErrWithEventDetails(err error, incomingEvent interpreter.Event) {
+func (t *TimeElapsedParser) logErrWithEventDetails(msg string, err error, incomingEvent interpreter.Event) {
 	deviceID, _ := incomingEvent.DeviceID()
 	var eventErr ErrorWithEvent
 	if errors.As(err, &eventErr) {
 		if len(eventErr.Event().TransactionUUID) > 0 {
-			t.logger.Error("invalid event", zap.Error(err), zap.String("deviceID", deviceID), zap.String("incoming event", incomingEvent.TransactionUUID), zap.String("comparison event", eventErr.Event().TransactionUUID))
+			t.logger.Error(msg, zap.Error(err), zap.String("deviceID", deviceID), zap.String("incoming event", incomingEvent.TransactionUUID), zap.String("comparison event", eventErr.Event().TransactionUUID))
 			return
 		}
 	}
 
-	t.logger.Error("invalid event", zap.Error(err), zap.String("deviceID", deviceID), zap.String("incoming event", incomingEvent.TransactionUUID))
+	t.logger.Error(msg, zap.Error(err), zap.String("deviceID", deviceID), zap.String("incoming event", incomingEvent.TransactionUUID))
 }

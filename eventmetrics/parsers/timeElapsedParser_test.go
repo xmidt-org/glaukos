@@ -577,15 +577,17 @@ func TestLogErrWithEventDetails(t *testing.T) {
 			ws := zapcore.AddSync(buf)
 			core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), ws, zapcore.DebugLevel)
 			logger := zap.New(core)
+			msg := "testMsg"
 
 			parser := TimeElapsedParser{
 				logger: logger,
 			}
-			parser.logErrWithEventDetails(tc.err, tc.event)
+			parser.logErrWithEventDetails(msg, tc.err, tc.event)
 			logStr := buf.String()
 			for _, logVal := range tc.expectedJSONLog {
 				assert.Contains(logStr, logVal)
 			}
+			assert.Contains(logStr, msg)
 		})
 	}
 }
