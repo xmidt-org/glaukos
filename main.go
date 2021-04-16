@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
@@ -81,7 +82,6 @@ func main() {
 		fx.Supply(v),
 		arrange.ForViper(v),
 		fx.Supply(eventmetrics.GetLogger),
-		webhookClient.ProvideMetrics(),
 		eventmetrics.Provide(),
 		touchhttp.Provide(),
 		touchstone.Provide(),
@@ -97,6 +97,7 @@ func main() {
 		}.Provide(),
 		arrangehttp.Server{Key: "servers.metrics"}.Provide(),
 		arrangehttp.Server{Key: "servers.primary"}.Provide(),
+		webhookClient.Provide(),
 		fx.Provide(
 			ProvideConsts,
 			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
@@ -139,12 +140,13 @@ func main() {
 					Request:         config.Request,
 				}
 			},
-			determineTokenAcquirer,
-			webhookClient.NewProvideMeasures,
-			webhookClient.NewBasicRegisterer,
-			func(l fx.Lifecycle, r *webhookClient.BasicRegisterer, c WebhookConfig, m *webhookClient.Measures, logger log.Logger) (*webhookClient.PeriodicRegisterer, error) {
-				return webhookClient.NewPeriodicRegisterer(r, c.RegistrationInterval, logger, m)
+			fx.Annotated{
+				Name: "periodic_registration_interval",
+				Target: func(config WebhookConfig) time.Duration {
+					return config.RegistrationInterval
+				},
 			},
+			determineTokenAcquirer,
 		),
 		fx.Invoke(
 			BuildMetricsRoutes,
