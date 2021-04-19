@@ -119,7 +119,7 @@ func NewTimeElapsedParser(config TimeElapsedConfig, client EventClient, logger *
 		finder:        finder,
 		incomingEvent: incomingEvent,
 		searchedEvent: searchedEvent,
-		logger:        logger,
+		logger:        logger.With(zap.String("parser", config.Name)),
 		client:        client,
 		measures:      measures,
 		name:          config.Name,
@@ -188,7 +188,7 @@ func fixConfig(config TimeElapsedConfig, defaultValidFrom time.Duration) TimeEla
 func (t *TimeElapsedParser) calculateTimeElapsed(incomingEvent interpreter.Event) (float64, error) {
 	if valid, err := t.incomingEvent.Valid(incomingEvent); !valid {
 		if errors.Is(err, validation.ErrInvalidEventType) {
-			t.logger.Info(invalidIncomingMsg, zap.Error(err), zap.String("event destination", incomingEvent.Destination))
+			t.logger.Debug(invalidIncomingMsg, zap.Error(err), zap.String("event destination", incomingEvent.Destination))
 		} else {
 			t.logger.Error(invalidIncomingMsg, zap.Error(err), zap.String("event destination", incomingEvent.Destination))
 		}

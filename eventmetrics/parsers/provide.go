@@ -71,7 +71,7 @@ func provideParsers() fx.Option {
 				return &MetadataParser{
 					measures: measures,
 					name:     "metadata",
-					logger:   ParserLogger(logger, "metadata"),
+					logger:   logger.With(zap.String("parser", "metadata")),
 				}
 			},
 		},
@@ -105,8 +105,7 @@ func TimeElapsedParsers(parsers TimeElapsedParsersIn) ([]queue.Parser, error) {
 			return nil, err
 		}
 
-		logger := ParserLogger(parsers.Logger, parserConfig.Name)
-		parser, err := NewTimeElapsedParser(parserConfig, parsers.CodexClient, logger, parsers.Measures, time.Now)
+		parser, err := NewTimeElapsedParser(parserConfig, parsers.CodexClient, parsers.Logger, parsers.Measures, time.Now)
 		if err != nil {
 			return nil, err
 		}
@@ -131,9 +130,4 @@ func validNames(parsers []TimeElapsedConfig) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// ParserLogger pulls the logger from the context and adds the parser name to it.
-func ParserLogger(logger *zap.Logger, parserName string) *zap.Logger {
-	return logger.With(zap.String("parser", parserName))
 }

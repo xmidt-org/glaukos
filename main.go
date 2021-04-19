@@ -79,7 +79,6 @@ func main() {
 	}
 
 	app := fx.New(
-		fx.Supply(v),
 		arrange.ForViper(v),
 		fx.Supply(eventmetrics.GetLogger),
 		eventmetrics.Provide(),

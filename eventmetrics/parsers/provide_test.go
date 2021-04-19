@@ -1,14 +1,11 @@
 package parsers
 
 import (
-	"bytes"
 	"errors"
 	"io/ioutil"
 	"log"
 	"testing"
 	"time"
-
-	"go.uber.org/zap/zapcore"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -163,18 +160,6 @@ func TestCreateTimeElapsedParsersErrors(t *testing.T) {
 	t.Run("histogram error", testHistogramError)
 	t.Run("parser error", testParserError)
 	t.Run("repeated parser names", testRepeatedNamesError)
-}
-
-func TestParserLogger(t *testing.T) {
-	assert := assert.New(t)
-	buf := &bytes.Buffer{}
-	ws := zapcore.AddSync(buf)
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), ws, zapcore.DebugLevel)
-	logger := zap.New(core)
-
-	parserLogger := ParserLogger(logger, "test_parser")
-	parserLogger.Debug("test")
-	assert.Contains(buf.String(), `"parser":"test_parser"`)
 }
 
 func testHistogramError(t *testing.T) {

@@ -11,7 +11,7 @@ services:
       - QUEUE_SIZE=10
       - QUEUE_MAX_WORKERS=5
       - "CODEX_ADDRESS=http://gungnir:7000"
-      - "LOG_LEVEL=error"
+      - "LOG_LEVEL=debug"
       - LIMITER_REQUESTS=10
       - LIMITER_TICK=1s
     ports:
