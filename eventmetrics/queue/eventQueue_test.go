@@ -2,20 +2,18 @@ package queue
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/themis/xlog/xlogtest"
 	"github.com/xmidt-org/touchstone/touchtest"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 func TestNewEventParser(t *testing.T) {
@@ -26,7 +24,7 @@ func TestNewEventParser(t *testing.T) {
 	tests := []struct {
 		description        string
 		config             Config
-		logger             log.Logger
+		logger             *zap.Logger
 		parsers            []Parser
 		metrics            Measures
 		expectedEventQueue *EventQueue
@@ -34,7 +32,7 @@ func TestNewEventParser(t *testing.T) {
 	}{
 		{
 			description: "Custom config success",
-			logger:      log.NewJSONLogger(os.Stdout),
+			logger:      zap.NewNop(),
 			config: Config{
 				QueueSize:  100,
 				MaxWorkers: 10,
@@ -42,7 +40,7 @@ func TestNewEventParser(t *testing.T) {
 			parsers: []Parser{mockParser1, mockParser2},
 			metrics: emptyMetrics,
 			expectedEventQueue: &EventQueue{
-				logger: log.NewJSONLogger(os.Stdout),
+				logger: zap.NewNop(),
 				config: Config{
 					QueueSize:  100,
 					MaxWorkers: 10,
@@ -55,7 +53,7 @@ func TestNewEventParser(t *testing.T) {
 			description: "Success with defaults",
 			parsers:     []Parser{mockParser1, mockParser2},
 			expectedEventQueue: &EventQueue{
-				logger: log.NewNopLogger(),
+				logger: zap.NewNop(),
 				config: Config{
 					QueueSize:  defaultMinQueueSize,
 					MaxWorkers: defaultMaxWorkers,
@@ -149,7 +147,7 @@ func TestParseEvents(t *testing.T) {
 
 	queue := EventQueue{
 		parsers:     parsers,
-		logger:      xlogtest.New(t),
+		logger:      zap.NewNop(),
 		workers:     semaphore.New(2),
 		metrics:     metrics,
 		timeTracker: mockTimeTracker,
@@ -256,7 +254,7 @@ func TestParseEvent(t *testing.T) {
 					QueueSize:  10,
 				},
 				parsers:     parsers,
-				logger:      xlogtest.New(t),
+				logger:      zap.NewNop(),
 				workers:     semaphore.New(2),
 				metrics:     tc.metrics,
 				timeTracker: mockTimeTracker,
@@ -330,7 +328,7 @@ func TestQueue(t *testing.T) {
 			mockTimeTracker := new(mockTimeTracker)
 
 			q := EventQueue{
-				logger:      xlogtest.New(t),
+				logger:      zap.NewNop(),
 				workers:     semaphore.New(2),
 				metrics:     metrics,
 				queue:       make(chan EventWithTime, tc.queueSize),

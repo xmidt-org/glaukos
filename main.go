@@ -21,23 +21,23 @@ import (
 	"crypto/sha1" // nolint:gosec
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/InVisionApp/go-health"
+	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/glaukos/eventmetrics"
-	"github.com/xmidt-org/themis/config"
-	"github.com/xmidt-org/themis/xhealth"
-	"github.com/xmidt-org/themis/xhttp/xhttpserver"
-	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/themis/xlog/xloghttp"
+	"github.com/xmidt-org/httpaux"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/sallust/sallustkit"
 	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchhttp"
 	"github.com/xmidt-org/wrp-listener/hashTokenFactory"
@@ -45,6 +45,7 @@ import (
 	"github.com/xmidt-org/wrp-listener/webhookClient"
 
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 const (
@@ -78,23 +79,36 @@ func main() {
 	}
 
 	app := fx.New(
-		xlog.Logger(),
-		arrange.Supply(v),
+		arrange.ForViper(v),
 		fx.Supply(eventmetrics.GetLogger),
 		eventmetrics.Provide(),
 		touchhttp.Provide(),
 		touchstone.Provide(),
+		arrangehttp.Server{
+			Key: "servers.health",
+			Invoke: arrange.Invoke{
+				func(r *mux.Router) {
+					r.Handle("/health", httpaux.ConstantHandler{
+						StatusCode: http.StatusOK,
+					})
+				},
+			},
+		}.Provide(),
+		arrangehttp.Server{Key: "servers.metrics"}.Provide(),
+		arrangehttp.Server{Key: "servers.primary"}.Provide(),
 		webhookClient.Provide(),
 		fx.Provide(
 			ProvideConsts,
-			ProvideUnmarshaller,
 			arrange.UnmarshalKey("prometheus", touchstone.Config{}),
-			xlog.Unmarshal("log"),
-			xloghttp.ProvideStandardBuilders,
-			xhttpserver.Unmarshal{Key: "servers.primary", Optional: true}.Annotated(),
-			xhttpserver.Unmarshal{Key: "servers.metrics", Optional: true}.Annotated(),
-			xhttpserver.Unmarshal{Key: "servers.health", Optional: true}.Annotated(),
-			xhealth.Unmarshal("health"),
+			arrange.UnmarshalKey("log", sallust.Config{}),
+			func(config sallust.Config) (*zap.Logger, error) {
+				return config.Build()
+			},
+			func(logger *zap.Logger) log.Logger {
+				return sallustkit.Logger{
+					Zap: logger,
+				}
+			},
 			arrange.UnmarshalKey("webhook", WebhookConfig{}),
 			arrange.UnmarshalKey("secret", SecretConfig{}),
 			func(config WebhookConfig) webhookClient.SecretGetter {
@@ -116,7 +130,6 @@ func main() {
 						return alice.New(authConstructor), nil
 					}
 				}
-
 				return alice.New(), nil
 			},
 			func(config WebhookConfig) webhookClient.BasicConfig {
@@ -134,22 +147,9 @@ func main() {
 			},
 			determineTokenAcquirer,
 		),
-		arrangehttp.Server().Provide(),
 		fx.Invoke(
-			xhealth.ApplyChecks(
-				&health.Config{
-					Name:     applicationName,
-					Interval: 24 * time.Hour,
-					Checker: xhealth.NopCheckable{
-						Details: map[string]interface{}{
-							"StartTime": time.Now().UTC().Format(time.RFC3339),
-						},
-					},
-				},
-			),
-			eventmetrics.ConfigureRoutes,
 			BuildMetricsRoutes,
-			BuildHealthRoutes,
+			eventmetrics.ConfigureRoutes,
 			func(pr *webhookClient.PeriodicRegisterer) {
 				pr.Start()
 			},
@@ -177,17 +177,5 @@ func ProvideConsts() ConstOut {
 	return ConstOut{
 		APIBase:      apiBase,
 		DefaultKeyID: DefaultKeyID,
-	}
-}
-
-// TODO: once we get rid of any packages that need an unmarshaller, remove this.
-type UnmarshallerOut struct {
-	fx.Out
-	Unmarshaller config.Unmarshaller
-}
-
-func ProvideUnmarshaller(v *viper.Viper) UnmarshallerOut {
-	return UnmarshallerOut{
-		Unmarshaller: config.ViperUnmarshaller{Viper: v, Options: []viper.DecoderConfigOption{}},
 	}
 }

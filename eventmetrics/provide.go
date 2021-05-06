@@ -24,10 +24,10 @@ import (
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/interpreter/validation"
 
-	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/glaukos/eventmetrics/parsers"
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 // Config configures things related to the parsing of events for metrics
@@ -45,7 +45,7 @@ func Provide() fx.Option {
 		queue.ProvideMetrics(),
 		fx.Provide(
 			arrange.UnmarshalKey("eventMetrics", Config{}),
-			func(f func(context.Context) log.Logger) GetLoggerFunc {
+			func(f func(context.Context) *zap.Logger) GetLoggerFunc {
 				return f
 			},
 			// TimeValidator used to validate birthdate of incoming events in NewEndpoints

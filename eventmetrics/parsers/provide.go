@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/events"
 	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 var (
@@ -43,7 +43,7 @@ type TimeElapsedParsersConfig struct {
 type TimeElapsedParsersIn struct {
 	fx.In
 	Config      TimeElapsedParsersConfig
-	Logger      log.Logger
+	Logger      *zap.Logger
 	Measures    Measures
 	CodexClient *events.CodexClient
 	Factory     *touchstone.Factory
@@ -67,11 +67,11 @@ func provideParsers() fx.Option {
 	return fx.Provide(
 		fx.Annotated{
 			Group: "parsers",
-			Target: func(measures Measures, logger log.Logger) queue.Parser {
+			Target: func(measures Measures, logger *zap.Logger) queue.Parser {
 				return &MetadataParser{
 					measures: measures,
 					name:     "metadata",
-					logger:   ParserLogger(logger, "metadata"),
+					logger:   logger.With(zap.String("parser", "metadata")),
 				}
 			},
 		},
@@ -105,8 +105,7 @@ func TimeElapsedParsers(parsers TimeElapsedParsersIn) ([]queue.Parser, error) {
 			return nil, err
 		}
 
-		logger := ParserLogger(parsers.Logger, parserConfig.Name)
-		parser, err := NewTimeElapsedParser(parserConfig, parsers.CodexClient, logger, parsers.Measures, time.Now)
+		parser, err := NewTimeElapsedParser(parserConfig, parsers.CodexClient, parsers.Logger, parsers.Measures, time.Now)
 		if err != nil {
 			return nil, err
 		}
@@ -131,9 +130,4 @@ func validNames(parsers []TimeElapsedConfig) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// ParserLogger pulls the logger from the context and adds the parser name to it.
-func ParserLogger(logger log.Logger, parserName string) log.Logger {
-	return log.With(logger, "parser", parserName)
 }

@@ -1,18 +1,17 @@
 package parsers
 
 import (
-	"bytes"
 	"errors"
 	"io/ioutil"
 	"log"
 	"testing"
 	"time"
 
-	logging "github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/glaukos/events"
 	"github.com/xmidt-org/touchstone"
+	"go.uber.org/zap"
 )
 
 func TestValidNames(t *testing.T) {
@@ -138,7 +137,7 @@ func TestTimeElapsedParsersSuccess(t *testing.T) {
 			testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 			timeElapsedParsersIn := TimeElapsedParsersIn{
 				Config:      tc.config,
-				Logger:      logging.NewNopLogger(),
+				Logger:      zap.NewNop(),
 				Measures:    testMeasures,
 				CodexClient: &events.CodexClient{},
 				Factory:     testFactory,
@@ -163,20 +162,6 @@ func TestCreateTimeElapsedParsersErrors(t *testing.T) {
 	t.Run("repeated parser names", testRepeatedNamesError)
 }
 
-func TestParserLogger(t *testing.T) {
-	buf := &bytes.Buffer{}
-	logger := logging.NewJSONLogger(buf)
-
-	parserLogger := ParserLogger(logger, "test_parser")
-
-	if err := parserLogger.Log(); err != nil {
-		t.Fatal(err)
-	}
-	if want, have := `{"parser":"test_parser"}`+"\n", buf.String(); want != have {
-		t.Errorf("\nwant %#v\nhave %#v", want, have)
-	}
-}
-
 func testHistogramError(t *testing.T) {
 	assert := assert.New(t)
 	config := TimeElapsedParsersConfig{
@@ -195,7 +180,7 @@ func testHistogramError(t *testing.T) {
 	}
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      logging.NewNopLogger(),
+		Logger:      zap.NewNop(),
 		Measures:    Measures{},
 		CodexClient: &events.CodexClient{},
 		Factory:     nil,
@@ -235,7 +220,7 @@ func testParserError(t *testing.T) {
 	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      logging.NewNopLogger(),
+		Logger:      zap.NewNop(),
 		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,
@@ -275,7 +260,7 @@ func testRepeatedNamesError(t *testing.T) {
 	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
 	timeElapsedParsersIn := TimeElapsedParsersIn{
 		Config:      config,
-		Logger:      logging.NewNopLogger(),
+		Logger:      zap.NewNop(),
 		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
 		CodexClient: &events.CodexClient{},
 		Factory:     testFactory,

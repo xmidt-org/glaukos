@@ -20,9 +20,9 @@ package queue
 import (
 	"context"
 
-	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/arrange"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 // Queue is the type that processes incoming events
@@ -45,7 +45,7 @@ func Provide() fx.Option {
 				TimeInMemory: in.TimeInMemory,
 			}
 		},
-		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, tracker TimeTracker, logger log.Logger) (Queue, error) {
+		func(config Config, lc fx.Lifecycle, parsersIn ParsersIn, metrics Measures, tracker TimeTracker, logger *zap.Logger) (Queue, error) {
 			e, err := newEventQueue(config, parsersIn.Parsers, metrics, tracker, logger)
 
 			if err != nil {

@@ -19,7 +19,6 @@ package main
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/xmidt-org/themis/xhealth"
 	"github.com/xmidt-org/touchstone/touchhttp"
 	"go.uber.org/fx"
 )
@@ -35,17 +34,5 @@ func BuildMetricsRoutes(in MetricsRoutesIn) {
 	if in.Router != nil && in.Handler != nil {
 		instrumenter := in.ServerBundle.ForServer("servers.metrics")
 		in.Router.Handle("/metrics", instrumenter.Then(in.Handler)).Methods("GET")
-	}
-}
-
-type HealthRoutesIn struct {
-	fx.In
-	Router  *mux.Router `name:"servers.health"`
-	Handler xhealth.Handler
-}
-
-func BuildHealthRoutes(in HealthRoutesIn) {
-	if in.Router != nil && in.Handler != nil {
-		in.Router.Handle("/health", in.Handler).Methods("GET")
 	}
 }

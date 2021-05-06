@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add rate limiter and metrics for codex client. [#57](https://github.com/xmidt-org/glaukos/pull/57)
 - Add metrics to track event types and how long events are in memory. [#59](https://github.com/xmidt-org/glaukos/pull/59)
 - Switch to `touchstone` library. [#62](https://github.com/xmidt-org/glaukos/pull/62)
+- Remove themis libraries and switch to `zap`, `sallust`, `httpaux`, and `arrangehttp` libraries. [#64](https://github.com/xmidt-org/glaukos/pull/64)
 
 ### Changed
 - Rename packages and move files. [#46](https://github.com/xmidt-org/glaukos/pull/46)

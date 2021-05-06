@@ -3,11 +3,11 @@ package parsers
 import (
 	"testing"
 
-	logging "github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/touchstone/touchtest"
+	"go.uber.org/zap"
 )
 
 func TestName(t *testing.T) {
@@ -22,7 +22,7 @@ func TestParse(t *testing.T) {
 		bootTimeKey  = "boot-time"
 		randomKey    = "random"
 	)
-	logger := logging.NewNopLogger()
+	logger := zap.NewNop()
 
 	tests := []struct {
 		description        string
@@ -199,7 +199,7 @@ func TestMultipleParse(t *testing.T) {
 	}
 	mp := MetadataParser{
 		measures: m,
-		logger:   logging.NewNopLogger(),
+		logger:   zap.NewNop(),
 		name:     "metadata_parser",
 	}
 

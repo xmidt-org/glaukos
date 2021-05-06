@@ -26,15 +26,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sony/gobreaker"
 	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/httpaux"
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/themis/xlog"
 	"go.uber.org/ratelimit"
+	"go.uber.org/zap"
 )
 
 // CodexClient is the client used to get events from codex.
@@ -44,7 +42,7 @@ type CodexClient struct {
 	Client         httpaux.Client
 	CircuitBreaker *gobreaker.CircuitBreaker
 	RateLimiter    ratelimit.Limiter
-	Logger         log.Logger
+	Logger         *zap.Logger
 	Metrics        Measures
 }
 
@@ -54,18 +52,18 @@ func (c *CodexClient) GetEvents(device string) []interpreter.Event {
 
 	request, err := buildGETRequest(fmt.Sprintf("%s/api/v1/device/%s/events", c.Address, device), c.Auth)
 	if err != nil {
-		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to build request")
+		c.Logger.Error("failed to build request", zap.Error(err))
 		return eventList
 	}
 
 	data, err := c.executeRequest(request)
 	if err != nil {
-		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to complete request")
+		c.Logger.Error("failed to complete request", zap.Error(err))
 		return eventList
 	}
 
 	if err = json.Unmarshal(data, &eventList); err != nil {
-		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to read body")
+		c.Logger.Error("failed to read body", zap.Error(err))
 		return eventList
 	}
 
@@ -82,7 +80,7 @@ func (c *CodexClient) executeRequest(request *http.Request) ([]byte, error) {
 		if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
 			c.Metrics.CircuitBreakerRejectedCount.With(prometheus.Labels{circuitBreakerLabel: c.CircuitBreaker.Name()}).Add(1.0)
 		}
-		level.Error(c.Logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to make request")
+		c.Logger.Error("failed to make request", zap.Error(err))
 		return nil, err
 	}
 

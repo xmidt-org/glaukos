@@ -25,22 +25,21 @@ import (
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/validation"
-
-	"github.com/xmidt-org/themis/xlog"
+	"github.com/xmidt-org/sallust"
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 var (
-	defaultLogger = log.NewNopLogger()
+	defaultLogger = zap.NewNop()
 )
 
 // GetLoggerFunc is the function used to get a request-specific logger from
 // its context.
-type GetLoggerFunc func(context.Context) log.Logger
+type GetLoggerFunc func(context.Context) *zap.Logger
 
 // Endpoints is the register go-kit endpoints.
 type Endpoints struct {
@@ -55,7 +54,7 @@ type EndpointsDecodeIn struct {
 	GetLogger GetLoggerFunc
 }
 
-func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, timeTracker queue.TimeTracker, logger log.Logger) Endpoints {
+func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, timeTracker queue.TimeTracker, logger *zap.Logger) Endpoints {
 	return Endpoints{
 		Event: func(_ context.Context, request interface{}) (interface{}, error) {
 			begin := time.Now()
@@ -66,12 +65,12 @@ func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, t
 			}
 
 			if valid, err := validator.Valid(time.Unix(0, v.Birthdate)); !valid {
-				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "invalid birthdate", "birthdate", v.Birthdate)
+				logger.Error("invalid birthdate", zap.Error(err), zap.Int64("birthdate", v.Birthdate))
 				v.Birthdate = time.Now().UnixNano()
 			}
 
 			if err := eventQueue.Queue(queue.EventWithTime{Event: v, BeginTime: begin}); err != nil {
-				level.Error(logger).Log(xlog.ErrorKey(), err, xlog.MessageKey(), "failed to queue message")
+				logger.Error("failed to queue message", zap.Error(err))
 				return nil, err
 			}
 			return nil, nil
@@ -80,7 +79,7 @@ func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, t
 }
 
 // GetLogger pulls the logger from the context and adds a timestamp to it.
-func GetLogger(ctx context.Context) log.Logger {
-	logger := log.With(xlog.GetDefault(ctx, defaultLogger), xlog.TimestampKey(), log.DefaultTimestampUTC)
+func GetLogger(ctx context.Context) *zap.Logger {
+	logger := sallust.GetDefault(ctx, defaultLogger).With(zap.Any("ts", log.DefaultTimestampUTC))
 	return logger
 }

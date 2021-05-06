@@ -23,17 +23,15 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xlog"
+	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/webpa-common/basculechecks"
 	"github.com/xmidt-org/webpa-common/semaphore"
 )
 
 var (
-	defaultLogger = log.NewNopLogger()
+	defaultLogger = zap.NewNop()
 
 	errNoParsers = errors.New("No parsers")
 )
@@ -59,7 +57,7 @@ type EventQueue struct {
 	queue       chan EventWithTime
 	workers     semaphore.Interface
 	wg          sync.WaitGroup
-	logger      log.Logger
+	logger      *zap.Logger
 	config      Config
 	parsers     []Parser
 	metrics     Measures
@@ -78,7 +76,7 @@ type EventWithTime struct {
 	BeginTime time.Time
 }
 
-func newEventQueue(config Config, parsers []Parser, metrics Measures, tracker TimeTracker, logger log.Logger) (*EventQueue, error) {
+func newEventQueue(config Config, parsers []Parser, metrics Measures, tracker TimeTracker, logger *zap.Logger) (*EventQueue, error) {
 	if len(parsers) == 0 {
 		return nil, errNoParsers
 	}
@@ -159,7 +157,7 @@ func (e *EventQueue) ParseEvent(eventWithTime EventWithTime) {
 		partnerID := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
 		eventType, err := event.EventType()
 		if err != nil {
-			level.Error(e.logger).Log(xlog.ErrorKey())
+			e.logger.Error("unable to get event type")
 			eventType = "unknown"
 		}
 		e.metrics.EventsCount.With(prometheus.Labels{partnerIDLabel: partnerID, eventDestLabel: eventType}).Add(1.0)

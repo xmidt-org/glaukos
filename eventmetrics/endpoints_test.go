@@ -10,6 +10,7 @@ import (
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/validation"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
@@ -43,7 +44,7 @@ func TestNewEndpoints(t *testing.T) {
 	assert.Nil(t, err)
 	currTime := func() time.Time { return now }
 	tv := validation.TimeValidator{ValidFrom: -2 * time.Hour, ValidTo: time.Hour, Current: currTime}
-	logger := log.NewNopLogger()
+	logger := zap.NewNop()
 
 	tests := []struct {
 		description string
