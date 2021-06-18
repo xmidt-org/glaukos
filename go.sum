@@ -444,6 +444,16 @@ github.com/xmidt-org/httpaux v0.2.1 h1:SFK+Bab5c6r70VxMfJcDR49aBHIUs0uQJruC+nMpA
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
 github.com/xmidt-org/interpreter v0.0.3 h1:CclHUWx2/yO+hCEPjh6ZzTl4Cqj2hMK3+WGxep50ZtY=
 github.com/xmidt-org/interpreter v0.0.3/go.mod h1:GAUgJmGjOovam/Ottj99ZzCLXdKDvTWMZ7X7L5UGhqI=
+github.com/xmidt-org/interpreter v0.0.4-0.20210608224742-428734d07880 h1:/tNimltlbPKNpSIyyojRnTd+0SIj69Se4VPB9wAMHGE=
+github.com/xmidt-org/interpreter v0.0.4-0.20210608224742-428734d07880/go.mod h1:1odXM9N0kIS5EKa5Yty+6SUqJ9umWVMhOjxNn44K5b0=
+github.com/xmidt-org/interpreter v0.0.4-0.20210608225209-55ea398d85d4 h1:oba32xEtGSnMvaelKdp3S8bDneu3eC3ZX7Du/E0QTr4=
+github.com/xmidt-org/interpreter v0.0.4-0.20210608225209-55ea398d85d4/go.mod h1:1odXM9N0kIS5EKa5Yty+6SUqJ9umWVMhOjxNn44K5b0=
+github.com/xmidt-org/interpreter v0.0.4 h1:NBCTivPMF9ldlBSn1XFtNQvMJlMkbTSFv2OQRBNyep8=
+github.com/xmidt-org/interpreter v0.0.4/go.mod h1:1odXM9N0kIS5EKa5Yty+6SUqJ9umWVMhOjxNn44K5b0=
+github.com/xmidt-org/interpreter v0.0.5-0.20210615213931-d09d75463b9f h1:jA7kYW0HcwX0ERmu4OJNVAuvuzazOEtlShK1vSa0yhc=
+github.com/xmidt-org/interpreter v0.0.5-0.20210615213931-d09d75463b9f/go.mod h1:1odXM9N0kIS5EKa5Yty+6SUqJ9umWVMhOjxNn44K5b0=
+github.com/xmidt-org/interpreter v0.0.5-0.20210615232946-0acbc8fcee73 h1:5+7pKI2+kvyTrlZ4fvta8lPJ8qFvpTC9asU6FA0bzE0=
+github.com/xmidt-org/interpreter v0.0.5-0.20210615232946-0acbc8fcee73/go.mod h1:1odXM9N0kIS5EKa5Yty+6SUqJ9umWVMhOjxNn44K5b0=
 github.com/xmidt-org/sallust v0.1.5 h1:yf95DXZUYnS+Td3w+jV3oO7XmhMbViMYK0A/WVM4QYo=
 github.com/xmidt-org/sallust v0.1.5/go.mod h1:azcKBypudADIeZ3Em8zGjVq3yQ7n4ueSvM/degHMIxo=
 github.com/xmidt-org/themis v0.4.4 h1:KewitRxStW1xOehDBi0YyGZyRv3PjFdYUEDvQFf1Nmk=

@@ -93,7 +93,7 @@ func TestParse(t *testing.T) {
 
 			m := Measures{
 				MetadataFields:        actualMetadataCounter,
-				UnparsableEventsCount: actualUnparsableCounter,
+				TotalUnparsableEvents: actualUnparsableCounter,
 			}
 			mp := MetadataParser{
 				measures: m,
@@ -195,7 +195,7 @@ func TestMultipleParse(t *testing.T) {
 
 	m := Measures{
 		MetadataFields:        actualMetadataCounter,
-		UnparsableEventsCount: actualUnparsableCounter,
+		TotalUnparsableEvents: actualUnparsableCounter,
 	}
 	mp := MetadataParser{
 		measures: m,
