@@ -71,10 +71,9 @@ func (p *RebootDurationParser) Name() string {
 	return p.name
 }
 
-// Parse takes an event, validates it, and calculates the time elapsed
-// if everything is valid.
-func (p *RebootDurationParser) Parse(event interpreter.Event) {
-	/* Steps:
+// Parse takes an event, validates it, and calculates the time elapsed if everything is valid.
+/*
+	Steps:
 	1. HW & FW: Get the hardware and firmware values stored in the event's metadata to use as labels in Prometheus metrics.
 	2. Destination check: check that the incoming event is a fully-manageable evenp.
 	2. Basic checks: Check that the boot-time and device id exists.
@@ -83,8 +82,8 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 	5. Validate events: run validation on each of the last cycle's events.
 	6. Cycle validation: Validate the entire cycle
 	7. Calculate time elapsed: If everything is valid, calculate the boot and reboot durations.
-	*/
-
+*/
+func (p *RebootDurationParser) Parse(event interpreter.Event) {
 	// get hardware and firmware from metadata to use in metrics as labels
 	hardwareVal, firmwareVal, found := getHardwareFirmware(event)
 	if !found {
@@ -92,23 +91,20 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 			firmwareLabel: firmwareVal, reasonLabel: noHwFwReason}).Add(1.0)
 	}
 
-	// Make sure event is actually a fully-manageable event.
+	// Make sure event is actually a fully-manageable event. Make sure event follows event regex and is a fully-mangeable event.
 	eventType, err := event.EventType()
 	if err != nil {
-		// if err != nil, this means that the event does not follow the expected event regex
 		p.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
 		p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
 			hardwareLabel: hardwareVal, reasonLabel: fatalErrReason}).Add(1.0)
 		p.logger.Error(invalidIncomingMsg, zap.Error(err), zap.String("event destination", event.Destination))
 		return
 	} else if eventType != "fully-manageable" {
-		// event is not the event we are looking for, so exit
 		p.logger.Debug("wrong destination", zap.Error(err), zap.String("event destination", event.Destination))
 		return
 	}
 
-	// Check that event passes necessary checks. If it doesn't it is impossible to continue
-	// and we should exit.
+	// Check that event passes necessary checks. If it doesn't it is impossible to continue and we should exit.
 	if !p.basicChecks(event) {
 		p.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
 		p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
@@ -116,8 +112,7 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 		return
 	}
 
-	// Get the history of events and parse into slice with relevant events relevant to the latest boot-cycle,
-	// If there is an error, this means there are problems with getting the events, and we should not continue.
+	// Get the history of events and parse events relevant to the latest boot-cycle, into a slice.
 	bootCycle, err := p.getEvents(event)
 	if err != nil {
 		p.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)

@@ -51,19 +51,6 @@ func (m *mockEventsParser) Parse(eventsHistory []interpreter.Event, currentEvent
 	return args.Get(0).([]interpreter.Event), args.Error(1)
 }
 
-type testErrorWithEvent struct {
-	err   error
-	event interpreter.Event
-}
-
-func (t testErrorWithEvent) Error() string {
-	return t.err.Error()
-}
-
-func (t testErrorWithEvent) Event() interpreter.Event {
-	return t.event
-}
-
 type testTaggedError struct {
 	tag validation.Tag
 }

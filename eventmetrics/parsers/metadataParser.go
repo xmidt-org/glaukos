@@ -18,7 +18,6 @@
 package parsers
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,10 +30,6 @@ const (
 	metadataKeyLabel = "metadata_key"
 
 	noMetadataFoundErr = "no_metadata_found"
-)
-
-var (
-	errNoMetadata = errors.New("no metadata found")
 )
 
 // MetadataParser parses messages coming in and counts the various metadata keys of each request.

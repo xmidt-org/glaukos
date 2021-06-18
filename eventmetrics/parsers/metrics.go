@@ -24,9 +24,8 @@ import (
 )
 
 const (
-	parserLabel    = "parser_type"
-	reasonLabel    = "reason"
-	eventTypeLabel = "event_type"
+	parserLabel = "parser_type"
+	reasonLabel = "reason"
 )
 
 // Measures tracks the various event-related metrics.
@@ -63,18 +62,14 @@ func ProvideEventMetrics() fx.Option {
 				Name: "reboot_unparsable_count",
 				Help: "events that are not able to be fully processed, labelled by reason",
 			},
-			firmwareLabel,
-			hardwareLabel,
-			reasonLabel,
+			firmwareLabel, hardwareLabel, reasonLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "reboot_event_errors",
 				Help: "individual event errors",
 			},
-			firmwareLabel,
-			hardwareLabel,
-			reasonLabel,
+			firmwareLabel, hardwareLabel, reasonLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
@@ -89,9 +84,7 @@ func ProvideEventMetrics() fx.Option {
 				Help:    "time elapsed between a device booting and fully-manageable event",
 				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 			},
-			firmwareLabel,
-			hardwareLabel,
-			rebootReasonLabel,
+			firmwareLabel, hardwareLabel, rebootReasonLabel,
 		),
 		touchstone.HistogramVec(
 			prometheus.HistogramOpts{
@@ -99,9 +92,7 @@ func ProvideEventMetrics() fx.Option {
 				Help:    "time elapsed between a reboot-pending and fully-manageable event",
 				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 			},
-			firmwareLabel,
-			hardwareLabel,
-			rebootReasonLabel,
+			firmwareLabel, hardwareLabel, rebootReasonLabel,
 		),
 	)
 }
