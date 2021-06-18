@@ -120,25 +120,50 @@ func TestParseValid(t *testing.T) {
 func TestParseCalculationErr(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
-	validParser := new(mockEventsParser)
-	validCycleValidator := new(mockCycleValidator)
-	validValidator := new(mockValidator)
-	finder := new(mockFinder)
-	client := new(mockEventClient)
+
+	const (
+		hwVal = "hw"
+		fwVal = "fw"
+	)
+
+	var (
+		validParser         = new(mockEventsParser)
+		validCycleValidator = new(mockCycleValidator)
+		validValidator      = new(mockValidator)
+		finder              = new(mockFinder)
+		client              = new(mockEventClient)
+	)
+
+	event := interpreter.Event{
+		Destination: "event:device-status/mac:112233445566/fully-manageable",
+		Metadata: map[string]string{
+			interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
+			hardwareMetadataKey:     hwVal,
+			firmwareMetadataKey:     fwVal,
+		},
+		Birthdate: now.Add(-2 * time.Minute).UnixNano(),
+	}
+
 	validParser.On("Parse", mock.Anything, mock.Anything).Return([]interpreter.Event{interpreter.Event{}}, nil)
 	validValidator.On("Valid", mock.Anything).Return(true, nil)
 	validCycleValidator.On("Valid", mock.Anything).Return(true, nil)
 	finder.On("Find", mock.Anything, mock.Anything).Return(interpreter.Event{Birthdate: now.Add(2 * time.Minute).UnixNano()}, nil)
 	client.On("GetEvents", mock.Anything).Return([]interpreter.Event{})
-	event := interpreter.Event{
-		Destination: "event:device-status/mac:112233445566/fully-manageable",
-		Metadata: map[string]string{
-			interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
-			hardwareMetadataKey:     "hw",
-			firmwareMetadataKey:     "fw",
+
+	expectedTotalUnparsableCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "totalUnparsableEvents",
+			Help: "totalUnparsableEvents",
 		},
-		Birthdate: now.Add(-2 * time.Minute).UnixNano(),
-	}
+		[]string{parserLabel},
+	)
+	expectedRebootUnparsableCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "rebootUnparsableEvents",
+			Help: "rebootUnparsableEvents",
+		},
+		[]string{firmwareLabel, hardwareLabel, reasonLabel},
+	)
 
 	m := Measures{
 		RebootUnparsableCount: prometheus.NewCounterVec(
@@ -170,13 +195,26 @@ func TestParseCalculationErr(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	parser.Parse(event)
-	assert.Equal(1.0, testutil.ToFloat64(m.RebootUnparsableCount))
-	assert.Equal(1.0, testutil.ToFloat64(m.TotalUnparsableEvents))
+	expectedRegistry := prometheus.NewPedanticRegistry()
+	actualRegistry := prometheus.NewPedanticRegistry()
+	expectedRegistry.Register(expectedTotalUnparsableCounter)
+	expectedRegistry.Register(expectedRebootUnparsableCounter)
+	actualRegistry.Register(m.TotalUnparsableEvents)
+	actualRegistry.Register(m.RebootUnparsableCount)
 
+	parser.Parse(event)
+
+	expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
+	expectedRebootUnparsableCounter.WithLabelValues(fwVal, hwVal, calculationErrReason).Inc()
+
+	testAssert := touchtest.New(t)
+	testAssert.Expect(expectedRegistry)
+	assert.True(testAssert.GatherAndCompare(actualRegistry))
 }
 
 func TestParseValidationErr(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
 	hwVal := "hw"
 	fwVal := "fw"
 	validParser := new(mockEventsParser)
@@ -203,8 +241,9 @@ func TestParseValidationErr(t *testing.T) {
 			event: interpreter.Event{
 				Destination: "event:device-status/mac:112233445566/fully-manageable",
 				Metadata: map[string]string{
-					hardwareMetadataKey: hwVal,
-					firmwareMetadataKey: fwVal,
+					hardwareMetadataKey:     hwVal,
+					firmwareMetadataKey:     fwVal,
+					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 			eventValidator:  invalidValidator,
@@ -215,8 +254,9 @@ func TestParseValidationErr(t *testing.T) {
 			event: interpreter.Event{
 				Destination: "event:device-status/mac:112233445566/fully-manageable",
 				Metadata: map[string]string{
-					hardwareMetadataKey: hwVal,
-					firmwareMetadataKey: fwVal,
+					hardwareMetadataKey:     hwVal,
+					firmwareMetadataKey:     fwVal,
+					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 			eventValidator:  validValidator,
@@ -242,11 +282,39 @@ func TestParseValidationErr(t *testing.T) {
 					},
 					[]string{firmwareLabel, hardwareLabel, reasonLabel},
 				)
+				expectedTotalUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "totalUnparsableEvents",
+						Help: "totalUnparsableEvents",
+					},
+					[]string{parserLabel},
+				)
+				expectedRebootUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "rebootUnparsableEvents",
+						Help: "rebootUnparsableEvents",
+					},
+					[]string{firmwareLabel, hardwareLabel, reasonLabel},
+				)
 			)
 
 			m := Measures{
 				RebootUnparsableCount: rebootUnparsableCounter,
 				TotalUnparsableEvents: totalUnparsableCounter,
+				RebootEventErrors: prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "reboot_event_errors",
+						Help: "reboot_event_errors",
+					},
+					[]string{firmwareLabel, hardwareLabel, reasonLabel},
+				),
+				RebootCycleErrors: prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "reboot_cycle_errors",
+						Help: "reboot_cycle_errors",
+					},
+					[]string{reasonLabel},
+				),
 			}
 
 			parser := RebootDurationParser{
@@ -260,15 +328,28 @@ func TestParseValidationErr(t *testing.T) {
 				client:           client,
 			}
 
+			expectedRegistry := prometheus.NewPedanticRegistry()
+			actualRegistry := prometheus.NewPedanticRegistry()
+			expectedRegistry.Register(expectedTotalUnparsableCounter)
+			expectedRegistry.Register(expectedRebootUnparsableCounter)
+			actualRegistry.Register(m.TotalUnparsableEvents)
+			actualRegistry.Register(m.RebootUnparsableCount)
+
+			expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
+			expectedRebootUnparsableCounter.WithLabelValues(fwVal, hwVal, validationErrReason).Inc()
+
 			parser.Parse(tc.event)
-			assert.Equal(1.0, testutil.ToFloat64(m.RebootUnparsableCount))
-			assert.Equal(1.0, testutil.ToFloat64(m.TotalUnparsableEvents))
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.GatherAndCompare(actualRegistry))
 		})
 	}
 
 }
 
 func TestParseFatalErr(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
 	hwVal := "hw"
 	fwVal := "fw"
 	invalidParser := new(mockEventsParser)
@@ -289,8 +370,9 @@ func TestParseFatalErr(t *testing.T) {
 			event: interpreter.Event{
 				Destination: "some-destination",
 				Metadata: map[string]string{
-					hardwareMetadataKey: hwVal,
-					firmwareMetadataKey: fwVal,
+					hardwareMetadataKey:     hwVal,
+					firmwareMetadataKey:     fwVal,
+					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 		},
@@ -298,6 +380,17 @@ func TestParseFatalErr(t *testing.T) {
 			description: "no device id",
 			event: interpreter.Event{
 				Destination: "event:device-status/some-id/online",
+				Metadata: map[string]string{
+					hardwareMetadataKey:     hwVal,
+					firmwareMetadataKey:     fwVal,
+					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
+				},
+			},
+		},
+		{
+			description: "no boot-time",
+			event: interpreter.Event{
+				Destination: "event:device-status/mac:112233445566/fully-manageable",
 				Metadata: map[string]string{
 					hardwareMetadataKey: hwVal,
 					firmwareMetadataKey: fwVal,
@@ -309,8 +402,9 @@ func TestParseFatalErr(t *testing.T) {
 			event: interpreter.Event{
 				Destination: "event:device-status/mac:112233445566/fully-manageable",
 				Metadata: map[string]string{
-					hardwareMetadataKey: hwVal,
-					firmwareMetadataKey: fwVal,
+					hardwareMetadataKey:     hwVal,
+					firmwareMetadataKey:     fwVal,
+					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 			cycleParser: invalidParser,
@@ -320,8 +414,9 @@ func TestParseFatalErr(t *testing.T) {
 			event: interpreter.Event{
 				Destination: "event:device-status/mac:112233445566/fully-manageable",
 				Metadata: map[string]string{
-					hardwareMetadataKey: hwVal,
-					firmwareMetadataKey: fwVal,
+					hardwareMetadataKey:     hwVal,
+					firmwareMetadataKey:     fwVal,
+					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
 			cycleParser:      validParser,
@@ -347,6 +442,20 @@ func TestParseFatalErr(t *testing.T) {
 					},
 					[]string{firmwareLabel, hardwareLabel, reasonLabel},
 				)
+				expectedTotalUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "totalUnparsableEvents",
+						Help: "totalUnparsableEvents",
+					},
+					[]string{parserLabel},
+				)
+				expectedRebootUnparsableCounter = prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "rebootUnparsableEvents",
+						Help: "rebootUnparsableEvents",
+					},
+					[]string{firmwareLabel, hardwareLabel, reasonLabel},
+				)
 			)
 
 			m := Measures{
@@ -363,9 +472,20 @@ func TestParseFatalErr(t *testing.T) {
 				client:           client,
 			}
 
+			expectedRegistry := prometheus.NewPedanticRegistry()
+			actualRegistry := prometheus.NewPedanticRegistry()
+			expectedRegistry.Register(expectedTotalUnparsableCounter)
+			expectedRegistry.Register(expectedRebootUnparsableCounter)
+			actualRegistry.Register(m.TotalUnparsableEvents)
+			actualRegistry.Register(m.RebootUnparsableCount)
+
+			expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
+			expectedRebootUnparsableCounter.WithLabelValues(fwVal, hwVal, fatalErrReason).Inc()
+
 			parser.Parse(tc.event)
-			assert.Equal(1.0, testutil.ToFloat64(m.RebootUnparsableCount))
-			assert.Equal(1.0, testutil.ToFloat64(m.TotalUnparsableEvents))
+			testAssert := touchtest.New(t)
+			testAssert.Expect(expectedRegistry)
+			assert.True(testAssert.GatherAndCompare(actualRegistry))
 		})
 	}
 }
