@@ -17,6 +17,14 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestRebootDurationParserName(t *testing.T) {
+	name := "testRebootParser"
+	parser := RebootDurationParser{
+		name: name,
+	}
+	assert.Equal(t, name, parser.Name())
+}
+
 func TestParseValid(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)
@@ -112,6 +120,71 @@ func TestParseValid(t *testing.T) {
 	parser.Parse(event)
 	expectedBootToManageableHistogram.With(prometheus.Labels{hardwareLabel: hwVal, firmwareLabel: fwVal, rebootReasonLabel: rebootReason}).Observe(incomingBirthdate.Sub(incomingBootTime).Seconds())
 	expectedRebootToManageableHistogram.With(prometheus.Labels{hardwareLabel: hwVal, firmwareLabel: fwVal, rebootReasonLabel: rebootReason}).Observe(incomingBirthdate.Sub(startingBirthdate).Seconds())
+	testAssert := touchtest.New(t)
+	testAssert.Expect(expectedRegistry)
+	assert.True(testAssert.GatherAndCompare(actualRegistry))
+}
+
+func TestParseNotFullyManageable(t *testing.T) {
+	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
+	assert.Nil(t, err)
+	event := interpreter.Event{
+		Destination: "event:device-status/mac:112233445566/online",
+		Metadata: map[string]string{
+			hardwareMetadataKey:     "hw",
+			firmwareMetadataKey:     "fw",
+			interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
+		},
+	}
+
+	expectedTotalUnparsableCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "totalUnparsableEvents",
+			Help: "totalUnparsableEvents",
+		},
+		[]string{parserLabel},
+	)
+	expectedRebootUnparsableCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "rebootUnparsableEvents",
+			Help: "rebootUnparsableEvents",
+		},
+		[]string{firmwareLabel, hardwareLabel, reasonLabel},
+	)
+
+	m := Measures{
+		TotalUnparsableEvents: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "totalUnparsableEvents",
+				Help: "totalUnparsableEvents",
+			},
+			[]string{parserLabel},
+		),
+		RebootUnparsableCount: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "rebootUnparsableEvents",
+				Help: "rebootUnparsableEvents",
+			},
+			[]string{firmwareLabel, hardwareLabel, reasonLabel},
+		),
+	}
+
+	parser := RebootDurationParser{
+		measures: m,
+		name:     "test_reboot_parser",
+		logger:   zap.NewNop(),
+	}
+
+	assert := assert.New(t)
+
+	expectedRegistry := prometheus.NewPedanticRegistry()
+	actualRegistry := prometheus.NewPedanticRegistry()
+	expectedRegistry.Register(expectedTotalUnparsableCounter)
+	expectedRegistry.Register(expectedRebootUnparsableCounter)
+	actualRegistry.Register(m.TotalUnparsableEvents)
+	actualRegistry.Register(m.RebootUnparsableCount)
+
+	parser.Parse(event)
 	testAssert := touchtest.New(t)
 	testAssert.Expect(expectedRegistry)
 	assert.True(testAssert.GatherAndCompare(actualRegistry))
