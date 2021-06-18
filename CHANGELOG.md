@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Remove themis libraries and switch to `zap`, `sallust`, `httpaux`, and `arrangehttp` libraries. [#64](https://github.com/xmidt-org/glaukos/pull/64)
 
 ### Changed
+- Change `TimeElapsedParser` to `RebootDurationParser`, reworking implementation logic. [#67](https://github.com/xmidt-org/glaukos/pull/67)
 - Rename packages and move files. [#46](https://github.com/xmidt-org/glaukos/pull/46)
 - Refactor to only use Events, remove use of wrp.Message beyond converting a wrp.Message to Event when a message is received through the webhook. [#47](https://github.com/xmidt-org/glaukos/pull/47)
 - Refactor to use `interpreter` library. [#53](https://github.com/xmidt-org/glaukos/pull/53)
