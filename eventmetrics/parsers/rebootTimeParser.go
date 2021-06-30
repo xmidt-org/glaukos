@@ -55,15 +55,17 @@ type Finder interface {
 // RebootDurationParser is triggered whenever glaukos receives a fully-manageable event. Validates the event
 // and the last boot-cycle, calculating the boot and reboot durations.
 type RebootDurationParser struct {
-	name             string
-	finder           Finder
-	cycleValidators  []CycleValidator
-	eventValidator   validation.Validator
-	cycleParser      EventsParser
-	validationParser EventsParser
-	logger           *zap.Logger
-	client           EventClient
-	measures         Measures
+	name                string
+	finder              Finder
+	eventValidator      validation.Validator
+	entireCycleParser   EventsParser
+	lastCycleParser     EventsParser
+	rebootEventsParser  EventsParser
+	lastCycleValidators []CycleValidator
+	rebootValidators    []CycleValidator
+	logger              *zap.Logger
+	client              EventClient
+	measures            Measures
 }
 
 // Name implements the Parser interface.
@@ -122,7 +124,7 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 	}
 
 	// parse the events that need validation
-	eventsToValidate, err := p.validationParser.Parse(bootCycle, event)
+	eventsToValidate, err := p.lastCycleParser.Parse(bootCycle, event)
 	if err != nil {
 		p.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
 		p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
@@ -137,6 +139,8 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 			hardwareLabel: hardwareVal, reasonLabel: validationErrReason}).Add(1.0)
 		return
 	}
+
+	// TODO: validate reboot events
 
 	// If there are calculation errors, add to the appropriate error counters.
 	if valid := p.calculateDurations(bootCycle, event); !valid {
@@ -171,7 +175,7 @@ func (p *RebootDurationParser) getEvents(event interpreter.Event) ([]interpreter
 	}
 
 	events := p.client.GetEvents(deviceID)
-	bootCycle, err := p.cycleParser.Parse(events, event)
+	bootCycle, err := p.entireCycleParser.Parse(events, event)
 	if err != nil {
 		p.logger.Info("parsing error", zap.Error(err), zap.String("event id", event.TransactionUUID), zap.String("device id", deviceID))
 		return []interpreter.Event{}, err
@@ -209,7 +213,7 @@ func (p *RebootDurationParser) validateEvents(events []interpreter.Event, event 
 func (p *RebootDurationParser) validateCycle(cycle []interpreter.Event) bool {
 	allValid := true
 	var allErrors validation.Errors
-	for _, cycleValidator := range p.cycleValidators {
+	for _, cycleValidator := range p.lastCycleValidators {
 		if valid, err := cycleValidator.Valid(cycle); !valid {
 			allValid = false
 			allErrors = append(allErrors, err)

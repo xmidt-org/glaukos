@@ -18,6 +18,7 @@
 package parsers
 
 import (
+	"errors"
 	"time"
 
 	"github.com/xmidt-org/interpreter"
@@ -38,8 +39,10 @@ const (
 	defaultBirthdateAlignmentDuration = 60 * time.Second
 )
 
-// RebootParserConfig is the config for the reboot duration parser
-type RebootParserConfig struct {
+// ValidationConfig is the config for each of the validators
+type ValidationConfig struct {
+	Key                        string
+	CycleType                  string
 	ValidEventTypes            []string
 	MetadataValidators         []string
 	BootTimeValidator          TimeValidationConfig
@@ -70,7 +73,7 @@ func Provide() fx.Option {
 		events.Provide(),
 		provideParsers(),
 		fx.Provide(
-			arrange.UnmarshalKey("rebootDurationParser", RebootParserConfig{}),
+			arrange.UnmarshalKey("rebootDurationParser.cycleValidators", []CycleValidationConfig{}),
 			createEventValidator,
 			func(config RebootParserConfig) []CycleValidator {
 				return []CycleValidator{
@@ -114,50 +117,106 @@ func provideParsers() fx.Option {
 				})
 
 				return &RebootDurationParser{
-					name:             "reboot_duration_parser",
-					finder:           history.LastSessionFinder(validation.DestinationValidator("reboot-pending")),
-					cycleValidators:  cycleValidators,
-					cycleParser:      history.LastCycleToCurrentParser(comparators),
-					validationParser: history.LastCycleParser(comparators),
-					eventValidator:   eventValidator,
-					measures:         parserIn.Measures,
-					client:           parserIn.CodexClient,
-					logger:           parserIn.Logger,
+					name:                "reboot_duration_parser",
+					finder:              history.LastSessionFinder(validation.DestinationValidator("reboot-pending")),
+					entireCycleParser:   history.LastCycleToCurrentParser(comparators),
+					lastCycleParser:     history.LastCycleParser(comparators),
+					lastCycleValidators: cycleValidators,
+					rebootEventsParser:  history.RebootParser(comparators),
+					// rebootValidators: // TODO: add reboot parsers
+					eventValidator: eventValidator,
+					measures:       parserIn.Measures,
+					client:         parserIn.CodexClient,
+					logger:         parserIn.Logger,
 				}
 			},
 		},
 	)
 }
 
-func createEventValidator(config RebootParserConfig) validation.Validator {
-	config = checkTimeValidations(config)
+func createEventValidator(configs []ValidationConfig) (validation.Validator, error) {
+	var eventValidator validation.Validators
+	for _, config := range configs {
+		validationType := ParseValidationType(config.Key)
+		if validationType == unknown {
+			return nil, errors.New("invalid key")
+		}
 
-	bootTimeValidator := validation.TimeValidator{
-		Current:      time.Now,
-		ValidFrom:    config.BootTimeValidator.ValidFrom,
-		ValidTo:      config.BootTimeValidator.ValidTo,
-		MinValidYear: config.BootTimeValidator.MinValidYear,
-	}
-	birthdateValidator := validation.TimeValidator{
-		Current:      time.Now,
-		ValidFrom:    config.BirthdateValidator.ValidFrom,
-		ValidTo:      config.BirthdateValidator.ValidTo,
-		MinValidYear: config.BirthdateValidator.MinValidYear,
+		var validator validation.Validator
+		switch validationType {
+		case bootTimeValidation:
+			config = checkTimeValidations(config)
+			bootTimeValidator := validation.TimeValidator{
+				Current:      time.Now,
+				ValidFrom:    config.BootTimeValidator.ValidFrom,
+				ValidTo:      config.BootTimeValidator.ValidTo,
+				MinValidYear: config.BootTimeValidator.MinValidYear,
+			}
+			validator = validation.BootTimeValidator(bootTimeValidator)
+			break
+		case birthdateValidation:
+			config = checkTimeValidations(config)
+			birthdateValidator := validation.TimeValidator{
+				Current:      time.Now,
+				ValidFrom:    config.BootTimeValidator.ValidFrom,
+				ValidTo:      config.BootTimeValidator.ValidTo,
+				MinValidYear: config.BootTimeValidator.MinValidYear,
+			}
+			validator = validation.BirthdateValidator(birthdateValidator)
+			break
+		case minBootDuration:
+			config = checkTimeValidations(config)
+			validator = validation.BootDurationValidator(config.MinBootDuration)
+			break
+		case birthdateAlignment:
+			config = checkTimeValidations(config)
+			validator = validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration)
+			break
+		case consistentDeviceID:
+			validator = validation.ConsistentDeviceIDValidator()
+			break
+		case validEventType:
+			validator = validation.EventTypeValidator(config.ValidEventTypes)
+			break
+		}
+
+		if validator != nil {
+			eventValidator = append(eventValidator, validator)
+		}
 	}
 
-	validators := []validation.Validator{
-		validation.EventTypeValidator(config.ValidEventTypes),
-		validation.ConsistentDeviceIDValidator(),
-		validation.BootDurationValidator(config.MinBootDuration),
-		validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration),
-		validation.BootTimeValidator(bootTimeValidator),
-		validation.BirthdateValidator(birthdateValidator),
-	}
-
-	return validation.Validators(validators)
+	return eventValidator, nil
 }
 
-func checkTimeValidations(config RebootParserConfig) RebootParserConfig {
+// func createEventValidator(config ValidationConfig) validation.Validator {
+// 	config = checkTimeValidations(config)
+
+// 	bootTimeValidator := validation.TimeValidator{
+// 		Current:      time.Now,
+// 		ValidFrom:    config.BootTimeValidator.ValidFrom,
+// 		ValidTo:      config.BootTimeValidator.ValidTo,
+// 		MinValidYear: config.BootTimeValidator.MinValidYear,
+// 	}
+// 	birthdateValidator := validation.TimeValidator{
+// 		Current:      time.Now,
+// 		ValidFrom:    config.BirthdateValidator.ValidFrom,
+// 		ValidTo:      config.BirthdateValidator.ValidTo,
+// 		MinValidYear: config.BirthdateValidator.MinValidYear,
+// 	}
+
+// 	validators := []validation.Validator{
+// 		validation.EventTypeValidator(config.ValidEventTypes),
+// 		validation.ConsistentDeviceIDValidator(),
+// 		validation.BootDurationValidator(config.MinBootDuration),
+// 		validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration),
+// 		validation.BootTimeValidator(bootTimeValidator),
+// 		validation.BirthdateValidator(birthdateValidator),
+// 	}
+
+// 	return validation.Validators(validators)
+// }
+
+func checkTimeValidations(config ValidationConfig) ValidationConfig {
 	if config.BootTimeValidator.ValidFrom == 0 {
 		config.BootTimeValidator.ValidFrom = defaultValidFrom
 	}
