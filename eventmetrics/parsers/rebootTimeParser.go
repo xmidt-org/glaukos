@@ -8,6 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/interpreter/history"
 	"github.com/xmidt-org/interpreter/validation"
 	"go.uber.org/zap"
 )
@@ -32,11 +33,6 @@ var (
 	errInvalidTimeElapsed = errors.New("invalid time elapsed calculated")
 )
 
-// CycleValidator validates a list of events.
-type CycleValidator interface {
-	Valid(events []interpreter.Event) (bool, error)
-}
-
 // EventsParser parses the relevant events from a device's history of events and returns those events.
 type EventsParser interface {
 	Parse(eventsHistory []interpreter.Event, currentEvent interpreter.Event) ([]interpreter.Event, error)
@@ -57,7 +53,7 @@ type Finder interface {
 type RebootDurationParser struct {
 	name             string
 	finder           Finder
-	cycleValidators  []CycleValidator
+	cycleValidator   history.CycleValidator
 	eventValidator   validation.Validator
 	cycleParser      EventsParser
 	validationParser EventsParser
@@ -131,7 +127,9 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 	}
 
 	// validate events individually and as a cycle
-	if !p.validateEvents(eventsToValidate, event) || !p.validateCycle(eventsToValidate) {
+	eventsValid := p.validateEvents(eventsToValidate, event)
+	cycleValid := p.validateCycle(eventsToValidate)
+	if !eventsValid || !cycleValid {
 		p.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
 		p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
 			hardwareLabel: hardwareVal, reasonLabel: validationErrReason}).Add(1.0)
@@ -177,14 +175,14 @@ func (p *RebootDurationParser) getEvents(event interpreter.Event) ([]interpreter
 		return []interpreter.Event{}, err
 	}
 
-	// make sure slice is sorted oldest to newest
+	// make sure slice is sorted newest to oldest
 	sort.Slice(bootCycle, func(a, b int) bool {
 		boottimeA, _ := bootCycle[a].BootTime()
 		boottimeB, _ := bootCycle[b].BootTime()
 		if boottimeA != boottimeB {
-			return boottimeA < boottimeB
+			return boottimeA > boottimeB
 		}
-		return bootCycle[a].Birthdate < bootCycle[b].Birthdate
+		return bootCycle[a].Birthdate > bootCycle[b].Birthdate
 	})
 
 	return bootCycle, nil
@@ -207,24 +205,21 @@ func (p *RebootDurationParser) validateEvents(events []interpreter.Event, event 
 
 // run all cycle validators on the list of events, add tags to metrics
 func (p *RebootDurationParser) validateCycle(cycle []interpreter.Event) bool {
-	allValid := true
 	var allErrors validation.Errors
-	for _, cycleValidator := range p.cycleValidators {
-		if valid, err := cycleValidator.Valid(cycle); !valid {
-			allValid = false
-			allErrors = append(allErrors, err)
+	valid, err := p.cycleValidator.Valid(cycle)
+	if err != nil {
+		if errors.As(err, &allErrors) {
+			p.logger.Info("invalid cycle", zap.String("tags", tagsToString(allErrors.UniqueTags())))
+		} else {
+			p.logger.Info("invalid cycle", zap.Error(err))
 		}
-	}
-
-	if allErrors != nil {
-		p.logger.Info("invalid cycle", zap.String("tags", tagsToString(allErrors.UniqueTags())))
 	}
 
 	for _, tag := range allErrors.UniqueTags() {
 		p.measures.RebootCycleErrors.With(prometheus.Labels{reasonLabel: tag.String()}).Add(1.0)
 	}
 
-	return allValid
+	return valid
 }
 
 // Calculates difference between birthdate and boot-time of the event, as well as the

@@ -31,4 +31,4 @@ require (
 	go.uber.org/zap v1.16.0
 )
 
-replace github.com/xmidt-org/interpreter v0.0.4 => github.com/xmidt-org/interpreter v0.0.5-0.20210615232946-0acbc8fcee73
+replace github.com/xmidt-org/interpreter v0.0.4 => github.com/xmidt-org/interpreter v0.0.5-0.20210702175641-9d35613b38f9

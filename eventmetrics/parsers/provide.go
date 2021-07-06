@@ -72,8 +72,8 @@ func Provide() fx.Option {
 		fx.Provide(
 			arrange.UnmarshalKey("rebootDurationParser", RebootParserConfig{}),
 			createEventValidator,
-			func(config RebootParserConfig) []CycleValidator {
-				return []CycleValidator{
+			func(config RebootParserConfig) history.CycleValidator {
+				validators := []history.CycleValidator{
 					history.TransactionUUIDValidator(),
 					history.MetadataValidator(config.MetadataValidators, true),
 					history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
@@ -89,6 +89,8 @@ func Provide() fx.Option {
 						return false
 					}),
 				}
+
+				return history.CycleValidators(validators)
 			},
 		),
 	)
@@ -108,7 +110,7 @@ func provideParsers() fx.Option {
 		},
 		fx.Annotated{
 			Group: "parsers",
-			Target: func(cycleValidators []CycleValidator, eventValidator validation.Validator, parserIn RebootParserIn) queue.Parser {
+			Target: func(cycleValidator history.CycleValidator, eventValidator validation.Validator, parserIn RebootParserIn) queue.Parser {
 				comparators := history.Comparators([]history.Comparator{
 					history.OlderBootTimeComparator(),
 				})
@@ -116,7 +118,7 @@ func provideParsers() fx.Option {
 				return &RebootDurationParser{
 					name:             "reboot_duration_parser",
 					finder:           history.LastSessionFinder(validation.DestinationValidator("reboot-pending")),
-					cycleValidators:  cycleValidators,
+					cycleValidator:   cycleValidator,
 					cycleParser:      history.LastCycleToCurrentParser(comparators),
 					validationParser: history.LastCycleParser(comparators),
 					eventValidator:   eventValidator,

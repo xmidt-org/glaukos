@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/interpreter/history"
 	"github.com/xmidt-org/interpreter/validation"
 	"github.com/xmidt-org/touchstone/touchtest"
 	"go.uber.org/zap"
@@ -104,7 +105,7 @@ func TestParseValid(t *testing.T) {
 		cycleParser:      validParser,
 		validationParser: validParser,
 		eventValidator:   validValidator,
-		cycleValidators:  []CycleValidator{validCycleValidator},
+		cycleValidator:   validCycleValidator,
 		finder:           finder,
 		client:           client,
 	}
@@ -262,7 +263,7 @@ func TestParseCalculationErr(t *testing.T) {
 		cycleParser:      validParser,
 		validationParser: validParser,
 		eventValidator:   validValidator,
-		cycleValidators:  []CycleValidator{validCycleValidator},
+		cycleValidator:   validCycleValidator,
 		finder:           finder,
 		client:           client,
 	}
@@ -304,10 +305,10 @@ func TestParseValidationErr(t *testing.T) {
 	validCycleValidator.On("Valid", mock.Anything).Return(true, nil)
 
 	tests := []struct {
-		description     string
-		event           interpreter.Event
-		eventValidator  validation.Validator
-		cycleValidators []CycleValidator
+		description    string
+		event          interpreter.Event
+		eventValidator validation.Validator
+		cycleValidator history.CycleValidator
 	}{
 		{
 			description: "event validation error",
@@ -319,8 +320,8 @@ func TestParseValidationErr(t *testing.T) {
 					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			eventValidator:  invalidValidator,
-			cycleValidators: []CycleValidator{validCycleValidator},
+			eventValidator: invalidValidator,
+			cycleValidator: validCycleValidator,
 		},
 		{
 			description: "cycle validation error",
@@ -332,8 +333,8 @@ func TestParseValidationErr(t *testing.T) {
 					interpreter.BootTimeKey: fmt.Sprint(now.Unix()),
 				},
 			},
-			eventValidator:  validValidator,
-			cycleValidators: []CycleValidator{invalidCycleValidator},
+			eventValidator: validValidator,
+			cycleValidator: invalidCycleValidator,
 		},
 	}
 
@@ -397,7 +398,7 @@ func TestParseValidationErr(t *testing.T) {
 				cycleParser:      validParser,
 				validationParser: validParser,
 				eventValidator:   tc.eventValidator,
-				cycleValidators:  tc.cycleValidators,
+				cycleValidator:   tc.cycleValidator,
 				client:           client,
 			}
 
@@ -849,7 +850,7 @@ func TestValidateEvents(t *testing.T) {
 func TestValidateCycle(t *testing.T) {
 	tests := []struct {
 		description     string
-		cycleValidators []CycleValidator
+		cycleValidators []history.CycleValidator
 		errors          []error
 		expectedTags    []string
 		numValid        int
@@ -903,9 +904,9 @@ func TestValidateCycle(t *testing.T) {
 
 			cycleValidators := createCycleValidators(tc.errors, tc.numValid)
 			parser := RebootDurationParser{
-				measures:        m,
-				cycleValidators: cycleValidators,
-				logger:          zap.NewNop(),
+				measures:       m,
+				cycleValidator: history.CycleValidators(cycleValidators),
+				logger:         zap.NewNop(),
 			}
 
 			valid := parser.validateCycle([]interpreter.Event{})
@@ -923,8 +924,8 @@ func TestValidateCycle(t *testing.T) {
 	}
 }
 
-func createCycleValidators(errs []error, numValid int) []CycleValidator {
-	cycleValidators := make([]CycleValidator, len(errs)+numValid)
+func createCycleValidators(errs []error, numValid int) []history.CycleValidator {
+	cycleValidators := make([]history.CycleValidator, len(errs)+numValid)
 	for i := 0; i < len(errs)+numValid; i++ {
 		var validator *mockCycleValidator
 		if i < len(errs) {
