@@ -24,12 +24,12 @@ const (
 	birthdateValidationStr = "birthdate-validation"
 	minBootDurationStr     = "min-boot-duration"
 	birthdateAlignmentStr  = "birthdate-alignment"
+	validEventTypeStr      = "valid-event-type"
+	consistentDeviceIDStr  = "consistent-device-id"
 	consistentMetadataStr  = "consistent-metadata"
 	uniqueTransactionIDStr = "unique-transaction-id"
 	sessionOnlineStr       = "session-online"
 	sessionOfflineStr      = "session-offline"
-	validEventTypeStr      = "valid-event-type"
-	consistentDeviceIDStr  = "consistent-device-id"
 )
 
 func (v ValidationType) String() string {
@@ -42,6 +42,10 @@ func (v ValidationType) String() string {
 		return minBootDurationStr
 	case birthdateAlignment:
 		return birthdateAlignmentStr
+	case validEventType:
+		return validEventTypeStr
+	case consistentDeviceID:
+		return consistentDeviceIDStr
 	case consistentMetadata:
 		return consistentMetadataStr
 	case uniqueTransactionID:
@@ -50,10 +54,6 @@ func (v ValidationType) String() string {
 		return sessionOnlineStr
 	case sessionOffline:
 		return sessionOfflineStr
-	case validEventType:
-		return validEventTypeStr
-	case consistentDeviceID:
-		return consistentDeviceIDStr
 	}
 
 	return unknownStr
@@ -71,6 +71,10 @@ func ParseValidationType(s string) ValidationType {
 		return minBootDuration
 	case birthdateAlignmentStr:
 		return birthdateAlignment
+	case validEventTypeStr:
+		return validEventType
+	case consistentDeviceIDStr:
+		return consistentDeviceID
 	case consistentMetadataStr:
 		return consistentMetadata
 	case uniqueTransactionIDStr:
@@ -79,10 +83,6 @@ func ParseValidationType(s string) ValidationType {
 		return sessionOnline
 	case sessionOfflineStr:
 		return sessionOffline
-	case validEventTypeStr:
-		return validEventType
-	case consistentDeviceIDStr:
-		return consistentDeviceID
 	}
 
 	return unknown

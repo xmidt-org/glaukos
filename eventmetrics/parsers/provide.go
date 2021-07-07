@@ -39,14 +39,29 @@ const (
 	defaultBirthdateAlignmentDuration = 60 * time.Second
 )
 
+var (
+	errWrongEventValidatorKey = errors.New("not an event validator key")
+	errWrongCycleValidatorKey = errors.New("not a cycle validator key")
+	errNonExistentKey         = errors.New("key does not exist")
+)
+
+type RebootParserConfig struct {
+	EventValidators []EventValidationConfig
+	CycleValidators []CycleValidationConfig
+}
+
+type CycleValidationConfig struct {
+	Key                string
+	CycleType          string
+	MetadataValidators []string
+}
+
 // ValidationConfig is the config for each of the validators
-type ValidationConfig struct {
+type EventValidationConfig struct {
 	Key                        string
-	CycleType                  string
-	ValidEventTypes            []string
-	MetadataValidators         []string
 	BootTimeValidator          TimeValidationConfig
 	BirthdateValidator         TimeValidationConfig
+	ValidEventTypes            []string
 	MinBootDuration            time.Duration
 	BirthdateAlignmentDuration time.Duration
 }
@@ -73,25 +88,22 @@ func Provide() fx.Option {
 		events.Provide(),
 		provideParsers(),
 		fx.Provide(
-			arrange.UnmarshalKey("rebootDurationParser.cycleValidators", []CycleValidationConfig{}),
+			arrange.UnmarshalKey("rebootDurationParser", RebootParserConfig{}),
 			createEventValidator,
-			func(config RebootParserConfig) []CycleValidator {
-				return []CycleValidator{
-					history.TransactionUUIDValidator(),
-					history.MetadataValidator(config.MetadataValidators, true),
-					history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
-						if len(events) > 0 {
-							return id == events[0].SessionID
-						}
-						return false
-					}),
-					history.SessionOfflineValidator(func(events []interpreter.Event, id string) bool {
-						if len(events) > 0 {
-							return id == events[len(events)-1].SessionID
-						}
-						return false
-					}),
+			func(config RebootParserConfig) (history.CycleValidator, error) {
+				return createCycleValidators(config.CycleValidators)
+			},
+			func(config RebootParserConfig) (validation.Validator, error) {
+				var validators validation.Validators
+				for _, config := range config.EventValidators {
+					validator, err := createEventValidator(config)
+					if err != nil {
+						return nil, err
+					}
+					validators = append(validators, validator)
 				}
+
+				return validators, nil
 			},
 		),
 	)
@@ -134,89 +146,91 @@ func provideParsers() fx.Option {
 	)
 }
 
-func createEventValidator(configs []ValidationConfig) (validation.Validator, error) {
-	var eventValidator validation.Validators
-	for _, config := range configs {
-		validationType := ParseValidationType(config.Key)
-		if validationType == unknown {
-			return nil, errors.New("invalid key")
-		}
-
-		var validator validation.Validator
-		switch validationType {
-		case bootTimeValidation:
-			config = checkTimeValidations(config)
-			bootTimeValidator := validation.TimeValidator{
-				Current:      time.Now,
-				ValidFrom:    config.BootTimeValidator.ValidFrom,
-				ValidTo:      config.BootTimeValidator.ValidTo,
-				MinValidYear: config.BootTimeValidator.MinValidYear,
-			}
-			validator = validation.BootTimeValidator(bootTimeValidator)
-			break
-		case birthdateValidation:
-			config = checkTimeValidations(config)
-			birthdateValidator := validation.TimeValidator{
-				Current:      time.Now,
-				ValidFrom:    config.BootTimeValidator.ValidFrom,
-				ValidTo:      config.BootTimeValidator.ValidTo,
-				MinValidYear: config.BootTimeValidator.MinValidYear,
-			}
-			validator = validation.BirthdateValidator(birthdateValidator)
-			break
-		case minBootDuration:
-			config = checkTimeValidations(config)
-			validator = validation.BootDurationValidator(config.MinBootDuration)
-			break
-		case birthdateAlignment:
-			config = checkTimeValidations(config)
-			validator = validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration)
-			break
-		case consistentDeviceID:
-			validator = validation.ConsistentDeviceIDValidator()
-			break
-		case validEventType:
-			validator = validation.EventTypeValidator(config.ValidEventTypes)
-			break
-		}
-
-		if validator != nil {
-			eventValidator = append(eventValidator, validator)
-		}
+func createCycleValidator(config CycleValidationConfig) (history.CycleValidator, error) {
+	validationType := ParseValidationType(config.Key)
+	if validationType == unknown {
+		return nil, errNonExistentKey
 	}
 
-	return eventValidator, nil
+	switch validationType {
+	case consistentMetadata:
+		return history.MetadataValidator(config.MetadataValidators, true), nil
+	case uniqueTransactionID:
+		return history.TransactionUUIDValidator(), nil
+	case sessionOnline:
+		return history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
+			if len(events) > 0 {
+				return id == events[0].SessionID
+			}
+			return false
+		}), nil
+	case sessionOffline:
+		return history.SessionOfflineValidator(func(events []interpreter.Event, id string) bool {
+			if len(events) > 0 {
+				return id == events[len(events)-1].SessionID
+			}
+			return false
+		}), nil
+	default:
+		return nil, errWrongCycleValidatorKey
+	}
 }
 
-// func createEventValidator(config ValidationConfig) validation.Validator {
-// 	config = checkTimeValidations(config)
+func createEventValidator(config EventValidationConfig) (validation.Validator, error) {
+	validationType := ParseValidationType(config.Key)
+	if validationType == unknown {
+		return nil, errNonExistentKey
+	}
 
-// 	bootTimeValidator := validation.TimeValidator{
-// 		Current:      time.Now,
-// 		ValidFrom:    config.BootTimeValidator.ValidFrom,
-// 		ValidTo:      config.BootTimeValidator.ValidTo,
-// 		MinValidYear: config.BootTimeValidator.MinValidYear,
-// 	}
-// 	birthdateValidator := validation.TimeValidator{
-// 		Current:      time.Now,
-// 		ValidFrom:    config.BirthdateValidator.ValidFrom,
-// 		ValidTo:      config.BirthdateValidator.ValidTo,
-// 		MinValidYear: config.BirthdateValidator.MinValidYear,
-// 	}
+	switch validationType {
+	case bootTimeValidation:
+		config = checkTimeValidations(config)
+		bootTimeValidator := validation.TimeValidator{
+			Current:      time.Now,
+			ValidFrom:    config.BootTimeValidator.ValidFrom,
+			ValidTo:      config.BootTimeValidator.ValidTo,
+			MinValidYear: config.BootTimeValidator.MinValidYear,
+		}
+		return validation.BootTimeValidator(bootTimeValidator), nil
+	case birthdateValidation:
+		config = checkTimeValidations(config)
+		birthdateValidator := validation.TimeValidator{
+			Current:      time.Now,
+			ValidFrom:    config.BootTimeValidator.ValidFrom,
+			ValidTo:      config.BootTimeValidator.ValidTo,
+			MinValidYear: config.BootTimeValidator.MinValidYear,
+		}
+		return validation.BirthdateValidator(birthdateValidator), nil
+	case minBootDuration:
+		config = checkTimeValidations(config)
+		return validation.BootDurationValidator(config.MinBootDuration), nil
+	case birthdateAlignment:
+		config = checkTimeValidations(config)
+		return validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration), nil
+	case validEventType:
+		return validation.EventTypeValidator(config.ValidEventTypes), nil
+	case consistentDeviceID:
+		return validation.ConsistentDeviceIDValidator(), nil
+	default:
+		return nil, errWrongEventValidatorKey
+	}
+}
 
-// 	validators := []validation.Validator{
-// 		validation.EventTypeValidator(config.ValidEventTypes),
-// 		validation.ConsistentDeviceIDValidator(),
-// 		validation.BootDurationValidator(config.MinBootDuration),
-// 		validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration),
-// 		validation.BootTimeValidator(bootTimeValidator),
-// 		validation.BirthdateValidator(birthdateValidator),
-// 	}
+func createCycleValidators(configs []CycleValidationConfig) (history.CycleValidator, error) {
+	// TODO: add for different cycle checks
+	var validators history.CycleValidators
+	for _, config := range configs {
+		validator, err := createCycleValidator(config)
+		if err != nil {
+			return nil, err
+		}
+		validators = append(validators, validator)
+	}
 
-// 	return validation.Validators(validators)
-// }
+	return validators, nil
+}
 
-func checkTimeValidations(config ValidationConfig) ValidationConfig {
+func checkTimeValidations(config EventValidationConfig) EventValidationConfig {
 	if config.BootTimeValidator.ValidFrom == 0 {
 		config.BootTimeValidator.ValidFrom = defaultValidFrom
 	}

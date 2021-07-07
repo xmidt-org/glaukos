@@ -240,32 +240,54 @@ eventMetrics:
 
 # rebootDurationParser details the configuration for the reboot duration parser
 rebootDurationParser:
-  # validEventTypes details all the event types that are deemed valid
-  validEventTypes:
-    - "reboot-pending"
-    - "offline"
-    - "online"
-    - "operational"
-    - "fully-manageable"
-  # metadataValidators contain all of the metadata keys whose values
-  # should be consistent among all events in the cycle or events with just the same boot-time
-  metadataValidators:
-    - "/hw-mac"
-    - "/hw-manufacturer"
-    - "/hw-model"
-    - "/hw-serial-number"
-    - "/partner-id"
-    - "/fw-name"
-    - "/hw-last-reboot-reason"
-    - "/webpa-protocol"
-  bootTimeValidator:
-    validFrom: "-8766h" # 1 year
-    validTo: "1h"
-    minValidYear: 2015
-  birthdateValidator:
-    validFrom: "-8766h" # 1 year
-    validTo: "1h"
-  # minBootDuration is the minimum amount of time between a timestamp in the destination and the boot-time
-  minBootDuration: "10s"
-  # birthdateAlignmentDuration is the maximum amount of time the birthdate can differ from a timestamp in the destination
-  birthdateAlignmentDuration: "60s"
+  eventValidators:
+    - key: "boot-time-validation"
+      bootTimeValidator:
+        validFrom: "-8766h" # 1 year
+        validTo: "1h"
+        minValidYear: 2015
+    - key: "birthdate-validation"
+      birthdateValidator:
+        validFrom: "-8766h" # 1 year
+        validTo: "1h"
+        minValidYear: 2015
+    - key: "valid-event-type"
+      # validEventTypes details all the event types that are deemed valid
+      validEventTypes:
+        - "reboot-pending"
+        - "offline"
+        - "online"
+        - "operational"
+        - "fully-manageable"
+    - key: "min-boot-duration"
+      # minBootDuration is the minimum amount of time between a timestamp in the destination and the boot-time
+      minBootDuration: "10s"
+    - key: "birthdate-alignment"
+      # birthdateAlignmentDuration is the maximum amount of time the birthdate can differ from a timestamp in the destination
+      birthdateAlignmentDuration: "60s"
+    - key: "consistent-device-id"
+  cycleValidators:
+    - key: "consistent-metadata"
+      # metadataValidators contain all of the metadata keys whose values
+      # should be consistent among all events in the cycle or events with just the same boot-time
+      metadataValidators:
+        - "/hw-mac"
+        - "/hw-manufacturer"
+        - "/hw-model"
+        - "/hw-serial-number"
+        - "/partner-id"
+        - "/fw-name"
+        - "/hw-last-reboot-reason"
+        - "/webpa-protocol"
+    - key: "unique-transaction-id"
+    - key: "session-online"
+    - key: "session-offline"
+      metadataValidators:
+        - "/hw-mac"
+        - "/hw-manufacturer"
+        - "/hw-model"
+        - "/hw-serial-number"
+        - "/partner-id"
+        - "/fw-name"
+        - "/hw-last-reboot-reason"
+        - "/webpa-protocol"
