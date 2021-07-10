@@ -18,12 +18,12 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xmidt-org/arrange v0.3.0
-	github.com/xmidt-org/bascule v0.8.1
+	github.com/xmidt-org/bascule v0.10.1
 	github.com/xmidt-org/httpaux v0.2.1
-	github.com/xmidt-org/interpreter v0.0.4
+	github.com/xmidt-org/interpreter v0.0.5
 	github.com/xmidt-org/sallust v0.1.5
-	github.com/xmidt-org/touchstone v0.0.2
-	github.com/xmidt-org/webpa-common v1.11.0
+	github.com/xmidt-org/touchstone v0.0.3
+	github.com/xmidt-org/webpa-common v1.11.8
 	github.com/xmidt-org/wrp-go/v3 v3.0.2
 	github.com/xmidt-org/wrp-listener v0.2.2
 	go.uber.org/fx v1.13.1
@@ -31,4 +31,4 @@ require (
 	go.uber.org/zap v1.16.0
 )
 
-replace github.com/xmidt-org/interpreter v0.0.4 => github.com/xmidt-org/interpreter v0.0.5-0.20210702175641-9d35613b38f9
+replace github.com/xmidt-org/wrp-listener v0.2.2 => github.com/xmidt-org/wrp-listener v0.2.3-0.20210709231821-151d6fa94573

@@ -34,8 +34,9 @@ type Measures struct {
 	MetadataFields              *prometheus.CounterVec `name:"metadata_fields"`
 	TotalUnparsableEvents       *prometheus.CounterVec `name:"total_unparsable_events"`
 	RebootUnparsableCount       *prometheus.CounterVec `name:"reboot_unparsable_count"`
-	RebootEventErrors           *prometheus.CounterVec `name:"reboot_event_errors"`
-	RebootCycleErrors           *prometheus.CounterVec `name:"reboot_cycle_errors"`
+	EventErrorTags              *prometheus.CounterVec `name:"event_errors"`
+	BootCycleErrorTags          *prometheus.CounterVec `name:"boot_cycle_errors"`
+	RebootCycleErrorTags        *prometheus.CounterVec `name:"reboot_cycle_errors"`
 	BootToManageableHistogram   prometheus.ObserverVec `name:"boot_to_manageable"`
 	RebootToManageableHistogram prometheus.ObserverVec `name:"reboot_to_manageable"`
 }
@@ -66,10 +67,17 @@ func ProvideEventMetrics() fx.Option {
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
-				Name: "reboot_event_errors",
+				Name: "event_errors",
 				Help: "individual event errors",
 			},
 			firmwareLabel, hardwareLabel, reasonLabel,
+		),
+		touchstone.CounterVec(
+			prometheus.CounterOpts{
+				Name: "boot_cycle_errors",
+				Help: "cycle errors",
+			},
+			reasonLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
