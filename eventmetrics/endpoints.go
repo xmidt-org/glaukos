@@ -25,10 +25,8 @@ import (
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/validation"
-	"github.com/xmidt-org/sallust"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/go-kit/kit/log"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -76,10 +74,4 @@ func NewEndpoints(eventQueue queue.Queue, validator validation.TimeValidation, t
 			return nil, nil
 		},
 	}
-}
-
-// GetLogger pulls the logger from the context and adds a timestamp to it.
-func GetLogger(ctx context.Context) *zap.Logger {
-	logger := sallust.GetDefault(ctx, defaultLogger).With(zap.Any("ts", log.DefaultTimestampUTC))
-	return logger
 }

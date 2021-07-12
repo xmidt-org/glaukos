@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 func TestEncodeResponseCode(t *testing.T) {
@@ -25,6 +26,10 @@ func TestEncodeResponseCode(t *testing.T) {
 		f(context.Background(), rec, nil)
 		assert.Equal(c, rec.Code)
 	}
+}
+
+func testGetLoggerFunc(_ context.Context) *zap.Logger {
+	return zap.NewNop()
 }
 
 func TestEncodeError(t *testing.T) {
@@ -47,7 +52,7 @@ func TestEncodeError(t *testing.T) {
 		},
 	}
 
-	f := EncodeError(GetLogger)
+	f := EncodeError(testGetLoggerFunc)
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
