@@ -2,7 +2,6 @@ package parsers
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -76,7 +75,6 @@ func (p *RebootDurationParser) Name() string {
 	6. Calculate time elapsed: Go through duration calculators to calculate durations and add to appropriate histograms.
 */
 func (p *RebootDurationParser) Parse(event interpreter.Event) {
-	fmt.Println("PARSE")
 	// get hardware and firmware from metadata to use in metrics as labels
 	hardwareVal, firmwareVal, found := getHardwareFirmware(event)
 	if !found {
