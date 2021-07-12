@@ -3,7 +3,6 @@ package eventmetrics
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -12,32 +11,9 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-func TestGetLogger(t *testing.T) {
-	tests := []struct {
-		description string
-		ctx         context.Context
-	}{
-		{
-			description: "Context Logger",
-			ctx:         context.WithValue(context.Background(), struct{}{}, log.NewJSONLogger(os.Stdout)),
-		},
-		{
-			description: "Default Logger",
-			ctx:         context.Background(),
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert.NotNil(t, GetLogger(tc.ctx))
-		})
-	}
-}
 
 func TestNewEndpoints(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
