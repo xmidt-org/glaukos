@@ -31,10 +31,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	defaultLogger = zap.NewNop()
-)
-
 // GetLoggerFunc is the function used to get a request-specific logger from
 // its context.
 type GetLoggerFunc func(context.Context) *zap.Logger
