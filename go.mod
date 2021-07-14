@@ -7,6 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-kit/kit v0.10.0
 	github.com/gorilla/mux v1.8.0
+	github.com/hashicorp/hcl v1.0.0
 	github.com/influxdata/influxdb1-client v0.0.0-20200827194710-b269163b24ab // indirect
 	github.com/justinas/alice v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect

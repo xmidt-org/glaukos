@@ -14,13 +14,18 @@ var (
 	errEventNotFound = errors.New("event not found")
 )
 
+// CalculatorFunc is a function that calculates a duration and returns an error if there is a
+// problem while performing the calculations.
 type CalculatorFunc func([]interpreter.Event, interpreter.Event) error
 
+// Calculate implements the DurationCalculator interface.
 func (cf CalculatorFunc) Calculate(events []interpreter.Event, event interpreter.Event) error {
 	return cf(events, event)
 }
 
-func BootTimeCalculator(logger *zap.Logger, histogram prometheus.ObserverVec) CalculatorFunc {
+// BootDurationCalculator returns a CalculatorFunc that calculates the time between the birthdate and the boot-time
+// of an event, logging the duration in a prometheus histogram.
+func BootDurationCalculator(logger *zap.Logger, histogram prometheus.ObserverVec) CalculatorFunc {
 	return func(events []interpreter.Event, event interpreter.Event) error {
 		bootTime, _ := event.BootTime()
 		bootTimeUnix := time.Unix(bootTime, 0)
@@ -37,17 +42,21 @@ func BootTimeCalculator(logger *zap.Logger, histogram prometheus.ObserverVec) Ca
 		}
 
 		labels := getTimeElapsedHistogramLabels(event)
-		histogram.With(labels).Observe(bootDuration)
+		if histogram != nil {
+			histogram.With(labels).Observe(bootDuration)
+		}
 		return nil
 	}
 }
 
+// TimeBetweenEventsCalculator calculates the difference between two events' birthdates.
 type TimeBetweenEventsCalculator struct {
 	eventFinder Finder
 	histogram   prometheus.ObserverVec
 	logger      *zap.Logger
 }
 
+// Calculate implements the DurationCalculator interface
 func (c TimeBetweenEventsCalculator) Calculate(events []interpreter.Event, event interpreter.Event) error {
 	currentBirthdate := time.Unix(0, event.Birthdate)
 	startingEvent, err := c.eventFinder.Find(events, event)
@@ -72,7 +81,10 @@ func (c TimeBetweenEventsCalculator) Calculate(events []interpreter.Event, event
 		return errCalculation
 	}
 
-	labels := getTimeElapsedHistogramLabels(event)
-	c.histogram.With(labels).Observe(timeElapsed)
+	if c.histogram != nil {
+		labels := getTimeElapsedHistogramLabels(event)
+		c.histogram.With(labels).Observe(timeElapsed)
+	}
+
 	return nil
 }

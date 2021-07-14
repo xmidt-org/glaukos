@@ -28,7 +28,7 @@ vegetaConfig:
   sleepTime: "0s"
   clientTimeout: "15s"
   messages:
-    fixedCurrentTime: false
+    fixedCurrentTime: true
     messageContents:
       - wrp:
           source: "mac:112233445566"

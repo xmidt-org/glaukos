@@ -18,7 +18,6 @@
 package parsers
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/xmidt-org/interpreter"
@@ -78,15 +77,9 @@ func Provide() fx.Option {
 					history.TransactionUUIDValidator(),
 					history.MetadataValidator(config.MetadataValidators, true),
 					history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
-						// if len(events) > 0 {
-						// 	return id == events[0].SessionID
-						// }
 						return false
 					}),
 					history.SessionOfflineValidator(func(events []interpreter.Event, id string) bool {
-						// if len(events) > 0 {
-						// 	return id == events[len(events)-1].SessionID
-						// }
 						return false
 					}),
 				}
@@ -125,7 +118,7 @@ func provideParsers() fx.Option {
 					relevantEventsParser: history.LastCycleToCurrentParser(comparators),
 					parserValidators:     parserValidators,
 					calculators: []DurationCalculator{
-						BootTimeCalculator(logger, parserIn.Measures.BootToManageableHistogram),
+						BootDurationCalculator(logger, parserIn.Measures.BootToManageableHistogram),
 						TimeBetweenEventsCalculator{
 							logger:      logger,
 							histogram:   parserIn.Measures.RebootToManageableHistogram,
@@ -152,13 +145,11 @@ func createParserValidators(lastCycleValidator history.CycleValidator, eventVali
 				return true
 			},
 			eventsValidationCallback: func(event interpreter.Event, valid bool, err error) {
-				fmt.Println("validating")
 				if !valid {
 					logEventError(logger, measures.EventErrorTags, err, event)
 				}
 			},
 			cycleValidationCallback: func(valid bool, err error) {
-				fmt.Println("cycle validating")
 				if !valid {
 					logCycleErr(err, measures.BootCycleErrorTags, logger)
 				}
@@ -166,12 +157,12 @@ func createParserValidators(lastCycleValidator history.CycleValidator, eventVali
 		},
 		&parserValidator{
 			cycleParser:    history.RebootParser(nil),
-			cycleValidator: history.EventOrderValidator([]string{"reboot-pending", "offline", "online", "operational", "fully-manageable"}),
+			cycleValidator: history.EventOrderValidator([]string{"fully-manageable", "operational", "online", "offline", "reboot-pending"}),
 			shouldActivate: func(events []interpreter.Event, currentEvent interpreter.Event) bool {
 				if _, err := rebootEventFinder.Find(events, currentEvent); err != nil {
-					return true
+					return false
 				}
-				return false
+				return true
 			},
 			cycleValidationCallback: func(valid bool, err error) {
 				if !valid {

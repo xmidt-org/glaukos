@@ -29,10 +29,13 @@ var (
 	errInvalidTimeElapsed = errors.New("invalid time elapsed calculated")
 )
 
+// DurationCalculator calculates the different durations in a boot cycle.
 type DurationCalculator interface {
 	Calculate([]interpreter.Event, interpreter.Event) error
 }
 
+// ParserValidator parses (if needed) the events from the list of events passed in and runs validation on this
+// subset of events.
 type ParserValidator interface {
 	Validate(events []interpreter.Event, currentEvent interpreter.Event) (bool, error)
 }
@@ -74,33 +77,33 @@ func (p *RebootDurationParser) Name() string {
 	5. Parse and Validate: Go through parsers and parse and validate as needed.
 	6. Calculate time elapsed: Go through duration calculators to calculate durations and add to appropriate histograms.
 */
-func (p *RebootDurationParser) Parse(event interpreter.Event) {
+func (p *RebootDurationParser) Parse(currentEvent interpreter.Event) {
 	// get hardware and firmware from metadata to use in metrics as labels
-	hardwareVal, firmwareVal, found := getHardwareFirmware(event)
+	hardwareVal, firmwareVal, found := getHardwareFirmware(currentEvent)
 	if !found {
 		p.measures.RebootUnparsableCount.With(prometheus.Labels{hardwareLabel: hardwareVal,
 			firmwareLabel: firmwareVal, reasonLabel: noHwFwReason}).Add(1.0)
 	}
 
 	// Make sure event is actually a fully-manageable event. Make sure event follows event regex and is a fully-mangeable event.
-	eventType, err := event.EventType()
+	eventType, err := currentEvent.EventType()
 	if err != nil {
 		p.addToUnparsableCounters(firmwareVal, hardwareVal, fatalErrReason)
-		p.logger.Error(invalidIncomingMsg, zap.Error(err), zap.String("event destination", event.Destination))
+		p.logger.Error(invalidIncomingMsg, zap.Error(err), zap.String("event destination", currentEvent.Destination))
 		return
 	} else if eventType != "fully-manageable" {
-		p.logger.Debug("wrong destination", zap.Error(err), zap.String("event destination", event.Destination))
+		p.logger.Debug("wrong destination", zap.Error(err), zap.String("event destination", currentEvent.Destination))
 		return
 	}
 
 	// Check that event passes necessary checks. If it doesn't it is impossible to continue and we should exit.
-	if !p.basicChecks(event) {
+	if !p.basicChecks(currentEvent) {
 		p.addToUnparsableCounters(firmwareVal, hardwareVal, fatalErrReason)
 		return
 	}
 
 	// Get the history of events and parse events relevant to the latest boot-cycle, into a slice.
-	relevantEvents, err := p.getEvents(event)
+	relevantEvents, err := p.getEvents(currentEvent)
 	if err != nil {
 		p.addToUnparsableCounters(firmwareVal, hardwareVal, fatalErrReason)
 		return
@@ -108,7 +111,7 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 
 	allValid := true
 	for _, parserValidator := range p.parserValidators {
-		if valid, _ := parserValidator.Validate(relevantEvents, event); !valid {
+		if valid, _ := parserValidator.Validate(relevantEvents, currentEvent); !valid {
 			allValid = false
 		}
 	}
@@ -120,8 +123,9 @@ func (p *RebootDurationParser) Parse(event interpreter.Event) {
 
 	calculationValid := true
 	for _, calculator := range p.calculators {
-		if err := calculator.Calculate(relevantEvents, event); err != nil {
-			if errors.Is(err, errCalculation) {
+		if err := calculator.Calculate(relevantEvents, currentEvent); err != nil {
+			// no need to log in metrics if event doesn't exist
+			if !errors.Is(err, errEventNotFound) {
 				calculationValid = false
 			}
 		}
@@ -149,17 +153,17 @@ func (p *RebootDurationParser) basicChecks(event interpreter.Event) bool {
 }
 
 // get history of events and return relevant events
-func (p *RebootDurationParser) getEvents(event interpreter.Event) ([]interpreter.Event, error) {
-	deviceID, err := event.DeviceID()
+func (p *RebootDurationParser) getEvents(currentEvent interpreter.Event) ([]interpreter.Event, error) {
+	deviceID, err := currentEvent.DeviceID()
 	if err != nil {
 		p.logger.Error("error getting device id", zap.Error(err))
 		return []interpreter.Event{}, err
 	}
 
 	events := p.client.GetEvents(deviceID)
-	bootCycle, err := p.relevantEventsParser.Parse(events, event)
+	bootCycle, err := p.relevantEventsParser.Parse(events, currentEvent)
 	if err != nil {
-		p.logger.Info("parsing error", zap.Error(err), zap.String("event id", event.TransactionUUID), zap.String("device id", deviceID))
+		p.logger.Info("parsing error", zap.Error(err), zap.String("event id", currentEvent.TransactionUUID), zap.String("device id", deviceID))
 		return []interpreter.Event{}, err
 	}
 

@@ -42,7 +42,6 @@ func (p *parserValidator) Validate(events []interpreter.Event, currentEvent inte
 
 	allValid := true
 	cycle, err := p.cycleParser.Parse(events, currentEvent)
-
 	if err != nil {
 		return false, errFatal
 	}
@@ -94,18 +93,21 @@ func (p *parserValidator) setDefaults() {
 	}
 }
 
+// log an cycle error to metrics
 func logCycleErr(err error, counter *prometheus.CounterVec, logger *zap.Logger) {
-	var allErrors validation.Errors
-	if err != nil {
-		if errors.As(err, &allErrors) {
-			logger.Info("invalid cycle", zap.String("tags", tagsToString(allErrors.UniqueTags())))
-		} else {
-			logger.Info("invalid cycle", zap.Error(err))
+	var taggedErrs validation.TaggedErrors
+	var taggedErr validation.TaggedError
+	if errors.As(err, &taggedErrs) {
+		logger.Info("invalid cycle", zap.String("tags", tagsToString(taggedErrs.UniqueTags())))
+		for _, tag := range taggedErrs.UniqueTags() {
+			counter.With(prometheus.Labels{reasonLabel: tag.String()}).Add(1.0)
 		}
-	}
-
-	for _, tag := range allErrors.UniqueTags() {
-		counter.With(prometheus.Labels{reasonLabel: tag.String()}).Add(1.0)
+	} else if errors.As(err, &taggedErr) {
+		logger.Info("invalid cycle", zap.String("tags", taggedErr.Tag().String()))
+		counter.With(prometheus.Labels{reasonLabel: taggedErr.Tag().String()}).Add(1.0)
+	} else if err != nil {
+		logger.Info("invalid cycle; no tags", zap.Error(err))
+		counter.With(prometheus.Labels{reasonLabel: validation.Unknown.String()}).Add(1.0)
 	}
 }
 
