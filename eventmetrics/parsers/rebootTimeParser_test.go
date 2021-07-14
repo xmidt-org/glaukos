@@ -89,7 +89,7 @@ func TestParseCalculationErr(t *testing.T) {
 						},
 						[]string{firmwareLabel, hardwareLabel, reasonLabel},
 					),
-					TotalUnparsableEvents: prometheus.NewCounterVec(
+					TotalUnparsableCount: prometheus.NewCounterVec(
 						prometheus.CounterOpts{
 							Name: "totalUnparsableEvents",
 							Help: "totalUnparsableEvents",
@@ -104,7 +104,7 @@ func TestParseCalculationErr(t *testing.T) {
 			actualRegistry := prometheus.NewPedanticRegistry()
 			expectedRegistry.Register(expectedTotalUnparsableCounter)
 			expectedRegistry.Register(expectedRebootUnparsableCounter)
-			actualRegistry.Register(m.TotalUnparsableEvents)
+			actualRegistry.Register(m.TotalUnparsableCount)
 			actualRegistry.Register(m.RebootUnparsableCount)
 
 			invalidDurationCalculator := new(mockDurationCalculator)
@@ -159,7 +159,7 @@ func TestParseValidationErr(t *testing.T) {
 				},
 				[]string{firmwareLabel, hardwareLabel, reasonLabel},
 			),
-			TotalUnparsableEvents: prometheus.NewCounterVec(
+			TotalUnparsableCount: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
 					Name: "totalUnparsableEvents",
 					Help: "totalUnparsableEvents",
@@ -207,7 +207,7 @@ func TestParseValidationErr(t *testing.T) {
 	actualRegistry := prometheus.NewPedanticRegistry()
 	expectedRegistry.Register(expectedTotalUnparsableCounter)
 	expectedRegistry.Register(expectedRebootUnparsableCounter)
-	actualRegistry.Register(m.TotalUnparsableEvents)
+	actualRegistry.Register(m.TotalUnparsableCount)
 	actualRegistry.Register(m.RebootUnparsableCount)
 
 	expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
@@ -248,7 +248,7 @@ func TestParseNotFullyManageable(t *testing.T) {
 	)
 
 	m := Measures{
-		TotalUnparsableEvents: prometheus.NewCounterVec(
+		TotalUnparsableCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "totalUnparsableEvents",
 				Help: "totalUnparsableEvents",
@@ -276,7 +276,7 @@ func TestParseNotFullyManageable(t *testing.T) {
 	actualRegistry := prometheus.NewPedanticRegistry()
 	expectedRegistry.Register(expectedTotalUnparsableCounter)
 	expectedRegistry.Register(expectedRebootUnparsableCounter)
-	actualRegistry.Register(m.TotalUnparsableEvents)
+	actualRegistry.Register(m.TotalUnparsableCount)
 	actualRegistry.Register(m.RebootUnparsableCount)
 
 	parser.Parse(event)
@@ -385,7 +385,7 @@ func TestParseFatalErr(t *testing.T) {
 
 			m := Measures{
 				RebootUnparsableCount: rebootUnparsableCounter,
-				TotalUnparsableEvents: totalUnparsableCounter,
+				TotalUnparsableCount:  totalUnparsableCounter,
 			}
 
 			parser := RebootDurationParser{
@@ -400,7 +400,7 @@ func TestParseFatalErr(t *testing.T) {
 			actualRegistry := prometheus.NewPedanticRegistry()
 			expectedRegistry.Register(expectedTotalUnparsableCounter)
 			expectedRegistry.Register(expectedRebootUnparsableCounter)
-			actualRegistry.Register(m.TotalUnparsableEvents)
+			actualRegistry.Register(m.TotalUnparsableCount)
 			actualRegistry.Register(m.RebootUnparsableCount)
 
 			expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()

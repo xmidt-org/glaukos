@@ -92,8 +92,8 @@ func TestParse(t *testing.T) {
 			actualRegistry.Register(actualUnparsableCounter)
 
 			m := Measures{
-				MetadataFields:        actualMetadataCounter,
-				TotalUnparsableEvents: actualUnparsableCounter,
+				MetadataFields:       actualMetadataCounter,
+				TotalUnparsableCount: actualUnparsableCounter,
 			}
 			mp := MetadataParser{
 				measures: m,
@@ -194,8 +194,8 @@ func TestMultipleParse(t *testing.T) {
 	}
 
 	m := Measures{
-		MetadataFields:        actualMetadataCounter,
-		TotalUnparsableEvents: actualUnparsableCounter,
+		MetadataFields:       actualMetadataCounter,
+		TotalUnparsableCount: actualUnparsableCounter,
 	}
 	mp := MetadataParser{
 		measures: m,

@@ -42,7 +42,7 @@ type MetadataParser struct {
 // Parse gathers metrics for each metadata key.
 func (m *MetadataParser) Parse(event interpreter.Event) {
 	if len(event.Metadata) < 1 {
-		m.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: m.name, reasonLabel: noMetadataFoundErr}).Add(1.0)
+		m.measures.TotalUnparsableCount.With(prometheus.Labels{parserLabel: m.name, reasonLabel: noMetadataFoundErr}).Add(1.0)
 		m.logger.Error("no metadata found")
 		return
 	}

@@ -67,7 +67,7 @@ func (p *RebootDurationParser) Name() string {
 /*
 	Steps:
 	1. HW & FW: Get the hardware and firmware values stored in the event's metadata to use as labels in Prometheus metrics.
-	2. Destination check: check that the incoming event is a fully-manageable evenp.
+	2. Destination check: check that the incoming event is a fully-manageable event.
 	3. Basic checks: Check that the boot-time and device id exists.
 	4. Get events: Get history of events from codex, parse into slice with relevant events.
 	5. Parse and Validate: Go through parsers and parse and validate as needed.
@@ -176,7 +176,7 @@ func (p *RebootDurationParser) getEvents(currentEvent interpreter.Event) ([]inte
 }
 
 func (p *RebootDurationParser) addToUnparsableCounters(firmwareVal string, hardwareVal string, reason string) {
-	p.measures.TotalUnparsableEvents.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
+	p.measures.TotalUnparsableCount.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
 	p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
 		hardwareLabel: hardwareVal, reasonLabel: reason}).Add(1.0)
 }
