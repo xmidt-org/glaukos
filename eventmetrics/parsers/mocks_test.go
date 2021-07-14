@@ -6,6 +6,24 @@ import (
 	"github.com/xmidt-org/interpreter/validation"
 )
 
+type mockDurationCalculator struct {
+	mock.Mock
+}
+
+func (m *mockDurationCalculator) Calculate(events []interpreter.Event, event interpreter.Event) error {
+	args := m.Called(events, event)
+	return args.Error(0)
+}
+
+type mockParserValidator struct {
+	mock.Mock
+}
+
+func (m *mockParserValidator) Validate(events []interpreter.Event, event interpreter.Event) (bool, error) {
+	args := m.Called(events, event)
+	return args.Bool(0), args.Error(1)
+}
+
 type mockValidator struct {
 	mock.Mock
 }

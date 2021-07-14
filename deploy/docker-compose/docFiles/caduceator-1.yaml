@@ -32,16 +32,6 @@ vegetaConfig:
     messageContents:
       - wrp:
           source: "mac:112233445566"
-          destination: "event:device-status/mac:112233445566/offline"
-          metadata:
-            - "/hw-model": "hardware1"
-            - "/fw-name": "firmware2"
-            - "/hw-last-reboot-reason": "reboot-reason-2"
-          transactionUUID: "0"
-        bootTimeOffset: "-13m"
-        birthdateOffset: "-1m"
-      - wrp:
-          source: "mac:112233445566"
           destination: "event:device-status/mac:112233445566/fully-manageable"
           metadata:
             - "/hw-model": "hardware1"
