@@ -118,11 +118,11 @@ func provideParsers() fx.Option {
 					relevantEventsParser: history.LastCycleToCurrentParser(comparators),
 					parserValidators:     parserValidators,
 					calculators: []DurationCalculator{
-						BootDurationCalculator(logger, parserIn.Measures.BootToManageableHistogram),
-						TimeBetweenEventsCalculator{
-							logger:      logger,
-							histogram:   parserIn.Measures.RebootToManageableHistogram,
-							eventFinder: rebootEventFinder,
+						BootDurationCalculator(logger, createBootDurationCallback(parserIn.Measures)),
+						&EventToCurrentCalculator{
+							logger:          logger,
+							successCallback: createRebootToManageableCallback(parserIn.Measures),
+							eventFinder:     rebootEventFinder,
 						},
 					},
 					measures: parserIn.Measures,
@@ -132,6 +132,20 @@ func provideParsers() fx.Option {
 			},
 		},
 	)
+}
+
+func createBootDurationCallback(m Measures) func(interpreter.Event, float64) {
+	return func(event interpreter.Event, duration float64) {
+		labels := getTimeElapsedHistogramLabels(event)
+		m.BootToManageableHistogram.With(labels).Observe(duration)
+	}
+}
+
+func createRebootToManageableCallback(m Measures) func(interpreter.Event, interpreter.Event, float64) {
+	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
+		labels := getTimeElapsedHistogramLabels(currentEvent)
+		m.RebootToManageableHistogram.With(labels).Observe(duration)
+	}
 }
 
 func createParserValidators(lastCycleValidator history.CycleValidator, eventValidator validation.Validator, logger *zap.Logger, measures Measures) []ParserValidator {

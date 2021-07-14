@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/interpreter"
 	"go.uber.org/zap"
 )
@@ -24,8 +23,8 @@ func (cf CalculatorFunc) Calculate(events []interpreter.Event, event interpreter
 }
 
 // BootDurationCalculator returns a CalculatorFunc that calculates the time between the birthdate and the boot-time
-// of an event, logging the duration in a prometheus histogram.
-func BootDurationCalculator(logger *zap.Logger, histogram prometheus.ObserverVec) CalculatorFunc {
+// of an event, calling the successCallback if a duration is successfully calculated.
+func BootDurationCalculator(logger *zap.Logger, successCallback func(interpreter.Event, float64)) CalculatorFunc {
 	return func(events []interpreter.Event, event interpreter.Event) error {
 		bootTime, _ := event.BootTime()
 		bootTimeUnix := time.Unix(bootTime, 0)
@@ -41,23 +40,24 @@ func BootDurationCalculator(logger *zap.Logger, histogram prometheus.ObserverVec
 			return errCalculation
 		}
 
-		labels := getTimeElapsedHistogramLabels(event)
-		if histogram != nil {
-			histogram.With(labels).Observe(bootDuration)
-		}
+		successCallback(event, bootDuration)
 		return nil
 	}
 }
 
-// TimeBetweenEventsCalculator calculates the difference between two events' birthdates.
-type TimeBetweenEventsCalculator struct {
-	eventFinder Finder
-	histogram   prometheus.ObserverVec
-	logger      *zap.Logger
+// EventToCurrentCalculator calculates the difference between the current event and a previous event.
+type EventToCurrentCalculator struct {
+	eventFinder     Finder
+	successCallback func(currentEvent interpreter.Event, foundEvent interpreter.Event, duration float64)
+	logger          *zap.Logger
 }
 
-// Calculate implements the DurationCalculator interface
-func (c TimeBetweenEventsCalculator) Calculate(events []interpreter.Event, event interpreter.Event) error {
+// Calculate implements the DurationCalculator interface by subtracting the birthdates of the two events.
+func (c *EventToCurrentCalculator) Calculate(events []interpreter.Event, event interpreter.Event) error {
+	if c.logger == nil {
+		c.logger = zap.NewNop()
+	}
+
 	currentBirthdate := time.Unix(0, event.Birthdate)
 	startingEvent, err := c.eventFinder.Find(events, event)
 	if err != nil {
@@ -81,10 +81,6 @@ func (c TimeBetweenEventsCalculator) Calculate(events []interpreter.Event, event
 		return errCalculation
 	}
 
-	if c.histogram != nil {
-		labels := getTimeElapsedHistogramLabels(event)
-		c.histogram.With(labels).Observe(timeElapsed)
-	}
-
+	c.successCallback(event, startingEvent, timeElapsed)
 	return nil
 }
