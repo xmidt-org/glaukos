@@ -636,6 +636,7 @@ github.com/xmidt-org/wrp-go/v3 v3.0.2 h1:Nm+73REf62gYccYpGx0EkLP0ojgA1DG1x4eRWVf
 github.com/xmidt-org/wrp-go/v3 v3.0.2/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
 github.com/xmidt-org/wrp-listener v0.2.3-0.20210709231821-151d6fa94573 h1:T8/cRDDJDw6/HP5WOcoqNlovlMJ4umPuBYCyArGZIg4=
 github.com/xmidt-org/wrp-listener v0.2.3-0.20210709231821-151d6fa94573/go.mod h1:vJ16Y/4Kn5WSaugl7EKsyoEqX+lae6on8R9j4bYwiyc=
+github.com/xmidt-org/wrp-listener v0.2.3-0.20210712203250-8ef93fe0a8e3 h1:TtXIzEC8aYf+xOjwEoZitcHzU9A9JzWmPrRtWgNeBBY=
 github.com/xmidt-org/wrp-listener v0.2.3-0.20210712203250-8ef93fe0a8e3/go.mod h1:vJ16Y/4Kn5WSaugl7EKsyoEqX+lae6on8R9j4bYwiyc=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

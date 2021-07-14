@@ -21,8 +21,8 @@ type EventsParser interface {
 	Parse(eventsHistory []interpreter.Event, currentEvent interpreter.Event) ([]interpreter.Event, error)
 }
 
-func defaultEventsValidationCallback(_ interpreter.Event, _ bool, _ error) { return }
-func defaultCycleValidationCallback(_ bool, _ error)                       { return }
+func defaultEventsValidationCallback(_ interpreter.Event, _ bool, _ error) {}
+func defaultCycleValidationCallback(_ bool, _ error)                       {}
 func defaultActivateFunc(_ []interpreter.Event, _ interpreter.Event) bool  { return true }
 
 type parserValidator struct {

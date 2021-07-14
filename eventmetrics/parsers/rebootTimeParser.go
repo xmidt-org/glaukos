@@ -25,10 +25,6 @@ const (
 	invalidIncomingMsg      = "invalid incoming event"
 )
 
-var (
-	errInvalidTimeElapsed = errors.New("invalid time elapsed calculated")
-)
-
 // DurationCalculator calculates the different durations in a boot cycle.
 type DurationCalculator interface {
 	Calculate([]interpreter.Event, interpreter.Event) error
