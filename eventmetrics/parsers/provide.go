@@ -36,6 +36,8 @@ const (
 	defaultValidTo                    = time.Hour
 	defaultMinBootDuration            = 10 * time.Second
 	defaultBirthdateAlignmentDuration = 60 * time.Second
+
+	rebootPendingEventType = "reboot-pending"
 )
 
 // RebootParserConfig is the config for the reboot duration parser
@@ -111,7 +113,7 @@ func provideParsers() fx.Option {
 					history.OlderBootTimeComparator(),
 				})
 
-				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator("reboot-pending"))
+				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
 				parserValidators := createParserValidators(cycleValidator, eventValidator, logger, parserIn.Measures)
 				return &RebootDurationParser{
 					name:                 name,
@@ -149,7 +151,7 @@ func createRebootToManageableCallback(m Measures) func(interpreter.Event, interp
 }
 
 func createParserValidators(lastCycleValidator history.CycleValidator, eventValidator validation.Validator, logger *zap.Logger, measures Measures) []ParserValidator {
-	rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator("reboot-pending"))
+	rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
 	parserValidators := []ParserValidator{
 		&parserValidator{
 			cycleParser:     history.LastCycleParser(nil),
@@ -171,7 +173,7 @@ func createParserValidators(lastCycleValidator history.CycleValidator, eventVali
 		},
 		&parserValidator{
 			cycleParser:    history.RebootParser(nil),
-			cycleValidator: history.EventOrderValidator([]string{"fully-manageable", "operational", "online", "offline", "reboot-pending"}),
+			cycleValidator: history.EventOrderValidator([]string{"fully-manageable", "operational", "online", "offline", rebootPendingEventType}),
 			shouldActivate: func(events []interpreter.Event, currentEvent interpreter.Event) bool {
 				if _, err := rebootEventFinder.Find(events, currentEvent); err != nil {
 					return false

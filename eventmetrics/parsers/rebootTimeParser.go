@@ -119,11 +119,9 @@ func (p *RebootDurationParser) Parse(currentEvent interpreter.Event) {
 
 	calculationValid := true
 	for _, calculator := range p.calculators {
-		if err := calculator.Calculate(relevantEvents, currentEvent); err != nil {
+		if err := calculator.Calculate(relevantEvents, currentEvent); err != nil && !errors.Is(err, errEventNotFound) {
 			// no need to log in metrics if event doesn't exist
-			if !errors.Is(err, errEventNotFound) {
-				calculationValid = false
-			}
+			calculationValid = false
 		}
 	}
 
