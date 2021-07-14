@@ -81,10 +81,12 @@ func (p *parserValidator) setDefaults() {
 	}
 
 	if p.eventsValidationCallback == nil {
+		// default empty function
 		p.eventsValidationCallback = func(_ interpreter.Event, _ bool, _ error) {}
 	}
 
 	if p.cycleValidationCallback == nil {
+		// default empty function
 		p.cycleValidationCallback = func(_ bool, _ error) {}
 	}
 }
