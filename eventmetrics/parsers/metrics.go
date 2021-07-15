@@ -32,7 +32,7 @@ const (
 type Measures struct {
 	fx.In
 	MetadataFields              *prometheus.CounterVec `name:"metadata_fields"`
-	TotalUnparsableEvents       *prometheus.CounterVec `name:"total_unparsable_events"`
+	TotalUnparsableCount        *prometheus.CounterVec `name:"total_unparsable_count"`
 	RebootUnparsableCount       *prometheus.CounterVec `name:"reboot_unparsable_count"`
 	EventErrorTags              *prometheus.CounterVec `name:"event_errors"`
 	BootCycleErrorTags          *prometheus.CounterVec `name:"boot_cycle_errors"`
@@ -53,7 +53,7 @@ func ProvideEventMetrics() fx.Option {
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
-				Name: "total_unparsable_events",
+				Name: "total_unparsable_count",
 				Help: "events that are unparsable, labelled by the parser name",
 			},
 			parserLabel,
