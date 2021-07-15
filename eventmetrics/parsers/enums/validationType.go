@@ -1,21 +1,22 @@
-package parsers
+package enums
 
 import "strings"
 
 type ValidationType int
 
 const (
-	unknown ValidationType = iota
-	bootTimeValidation
-	birthdateValidation
-	minBootDuration
-	birthdateAlignment
-	consistentMetadata
-	uniqueTransactionID
-	sessionOnline
-	sessionOffline
-	validEventType
-	consistentDeviceID
+	Unknown ValidationType = iota
+	BootTimeValidation
+	BirthdateValidation
+	MinBootDuration
+	BirthdateAlignment
+	ConsistentMetadata
+	UniqueTransactionID
+	SessionOnline
+	SessionOffline
+	ValidEventType
+	ConsistentDeviceID
+	EventOrder
 )
 
 const (
@@ -30,30 +31,33 @@ const (
 	uniqueTransactionIDStr = "unique-transaction-id"
 	sessionOnlineStr       = "session-online"
 	sessionOfflineStr      = "session-offline"
+	eventOrderStr          = "event-order"
 )
 
 func (v ValidationType) String() string {
 	switch v {
-	case bootTimeValidation:
+	case BootTimeValidation:
 		return bootTimeValidationStr
-	case birthdateValidation:
+	case BirthdateValidation:
 		return birthdateValidationStr
-	case minBootDuration:
+	case MinBootDuration:
 		return minBootDurationStr
-	case birthdateAlignment:
+	case BirthdateAlignment:
 		return birthdateAlignmentStr
-	case validEventType:
+	case ValidEventType:
 		return validEventTypeStr
-	case consistentDeviceID:
+	case ConsistentDeviceID:
 		return consistentDeviceIDStr
-	case consistentMetadata:
+	case ConsistentMetadata:
 		return consistentMetadataStr
-	case uniqueTransactionID:
+	case UniqueTransactionID:
 		return uniqueTransactionIDStr
-	case sessionOnline:
+	case SessionOnline:
 		return sessionOnlineStr
-	case sessionOffline:
+	case SessionOffline:
 		return sessionOfflineStr
+	case EventOrder:
+		return eventOrderStr
 	}
 
 	return unknownStr
@@ -64,26 +68,28 @@ func ParseValidationType(s string) ValidationType {
 
 	switch s {
 	case bootTimeValidationStr:
-		return bootTimeValidation
+		return BootTimeValidation
 	case birthdateValidationStr:
-		return birthdateValidation
+		return BirthdateValidation
 	case minBootDurationStr:
-		return minBootDuration
+		return MinBootDuration
 	case birthdateAlignmentStr:
-		return birthdateAlignment
+		return BirthdateAlignment
 	case validEventTypeStr:
-		return validEventType
+		return ValidEventType
 	case consistentDeviceIDStr:
-		return consistentDeviceID
+		return ConsistentDeviceID
 	case consistentMetadataStr:
-		return consistentMetadata
+		return ConsistentMetadata
 	case uniqueTransactionIDStr:
-		return uniqueTransactionID
+		return UniqueTransactionID
 	case sessionOnlineStr:
-		return sessionOnline
+		return SessionOnline
 	case sessionOfflineStr:
-		return sessionOffline
+		return SessionOffline
+	case eventOrderStr:
+		return EventOrder
 	}
 
-	return unknown
+	return Unknown
 }

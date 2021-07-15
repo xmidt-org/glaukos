@@ -26,6 +26,7 @@ import (
 	"github.com/xmidt-org/interpreter/validation"
 
 	"github.com/xmidt-org/arrange"
+	"github.com/xmidt-org/glaukos/eventmetrics/parsers/enums"
 	"github.com/xmidt-org/glaukos/eventmetrics/queue"
 	"github.com/xmidt-org/glaukos/events"
 	"go.uber.org/fx"
@@ -47,18 +48,21 @@ var (
 	errNonExistentKey         = errors.New("key does not exist")
 )
 
+// RebootParserConfig contains the information for which validators should be created.
 type RebootParserConfig struct {
 	EventValidators []EventValidationConfig
 	CycleValidators []CycleValidationConfig
 }
 
+// CycleValidationConfig is the config for a cycle validator.
 type CycleValidationConfig struct {
 	Key                string
-	CycleType          string
+	CycleType          string // validate reboot events or last cycle events
 	MetadataValidators []string
+	EventOrder         []string // the cycle will be sorted in descending order by boot-time, then birthdate
 }
 
-// ValidationConfig is the config for each of the validators
+// EventValidationConfig is the config for each of the validators.
 type EventValidationConfig struct {
 	Key                        string
 	BootTimeValidator          TimeValidationConfig
@@ -77,9 +81,12 @@ type TimeValidationConfig struct {
 
 type RebootParserIn struct {
 	fx.In
-	Logger      *zap.Logger
-	Measures    Measures
-	CodexClient *events.CodexClient
+	BootCycleValidator   history.CycleValidator `name:"boot_cycle_validator"`
+	RebootCycleValidator history.CycleValidator `name:"reboot_cycle_validator"`
+	EventValidator       validation.Validator
+	Logger               *zap.Logger
+	Measures             Measures
+	CodexClient          *events.CodexClient
 }
 
 // Provide bundles everything needed for setting up all of the event objects
@@ -91,8 +98,17 @@ func Provide() fx.Option {
 		provideParsers(),
 		fx.Provide(
 			arrange.UnmarshalKey("rebootDurationParser", RebootParserConfig{}),
-			func(config RebootParserConfig) (history.CycleValidator, error) {
-				return createCycleValidators(config.CycleValidators)
+			fx.Annotated{
+				Name: "boot_cycle_validator",
+				Target: func(config RebootParserConfig) (history.CycleValidator, error) {
+					return createCycleValidators(config.CycleValidators, enums.BootTime)
+				},
+			},
+			fx.Annotated{
+				Name: "reboot_cycle_validator",
+				Target: func(config RebootParserConfig) (history.CycleValidator, error) {
+					return createCycleValidators(config.CycleValidators, enums.Reboot)
+				},
 			},
 			func(config RebootParserConfig) (validation.Validator, error) {
 				var validators validation.Validators
@@ -124,7 +140,7 @@ func provideParsers() fx.Option {
 		},
 		fx.Annotated{
 			Group: "parsers",
-			Target: func(cycleValidator history.CycleValidator, eventValidator validation.Validator, parserIn RebootParserIn) queue.Parser {
+			Target: func(parserIn RebootParserIn) queue.Parser {
 				name := "reboot_duration_parser"
 				logger := parserIn.Logger.With(zap.String("parser", name))
 				comparators := history.Comparators([]history.Comparator{
@@ -132,7 +148,7 @@ func provideParsers() fx.Option {
 				})
 
 				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
-				parserValidators := createParserValidators(cycleValidator, eventValidator, logger, parserIn.Measures)
+				parserValidators := createParserValidators(parserIn, logger)
 				return &RebootDurationParser{
 					name:                 name,
 					relevantEventsParser: history.LastCycleToCurrentParser(comparators),
@@ -154,35 +170,6 @@ func provideParsers() fx.Option {
 	)
 }
 
-func createCycleValidator(config CycleValidationConfig) (history.CycleValidator, error) {
-	validationType := ParseValidationType(config.Key)
-	if validationType == unknown {
-		return nil, errNonExistentKey
-	}
-
-	switch validationType {
-	case consistentMetadata:
-		return history.MetadataValidator(config.MetadataValidators, true), nil
-	case uniqueTransactionID:
-		return history.TransactionUUIDValidator(), nil
-	case sessionOnline:
-		return history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
-			if len(events) > 0 {
-				return id == events[0].SessionID
-			}
-			return false
-		}), nil
-	case sessionOffline:
-		return history.SessionOfflineValidator(func(events []interpreter.Event, id string) bool {
-			if len(events) > 0 {
-				return id == events[len(events)-1].SessionID
-			}
-			return false
-		}), nil
-	default:
-		return nil, errWrongCycleValidatorKey
-	}
-}
 func createBootDurationCallback(m Measures) func(interpreter.Event, float64) {
 	return func(event interpreter.Event, duration float64) {
 		labels := getTimeElapsedHistogramLabels(event)
@@ -197,30 +184,30 @@ func createRebootToManageableCallback(m Measures) func(interpreter.Event, interp
 	}
 }
 
-func createParserValidators(lastCycleValidator history.CycleValidator, eventValidator validation.Validator, logger *zap.Logger, measures Measures) []ParserValidator {
+func createParserValidators(parserIn RebootParserIn, logger *zap.Logger) []ParserValidator {
 	rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
 	parserValidators := []ParserValidator{
 		&parserValidator{
 			cycleParser:     history.LastCycleParser(nil),
-			cycleValidator:  lastCycleValidator,
-			eventsValidator: eventValidator,
+			cycleValidator:  parserIn.BootCycleValidator,
+			eventsValidator: parserIn.EventValidator,
 			shouldActivate: func(_ []interpreter.Event, _ interpreter.Event) bool {
 				return true
 			},
 			eventsValidationCallback: func(event interpreter.Event, valid bool, err error) {
 				if !valid {
-					logEventError(logger, measures.EventErrorTags, err, event)
+					logEventError(logger, parserIn.Measures.EventErrorTags, err, event)
 				}
 			},
 			cycleValidationCallback: func(valid bool, err error) {
 				if !valid {
-					logCycleErr(err, measures.BootCycleErrorTags, logger)
+					logCycleErr(err, parserIn.Measures.BootCycleErrorTags, logger)
 				}
 			},
 		},
 		&parserValidator{
 			cycleParser:    history.RebootParser(nil),
-			cycleValidator: history.EventOrderValidator([]string{"fully-manageable", "operational", "online", "offline", rebootPendingEventType}),
+			cycleValidator: parserIn.RebootCycleValidator,
 			shouldActivate: func(events []interpreter.Event, currentEvent interpreter.Event) bool {
 				if _, err := rebootEventFinder.Find(events, currentEvent); err != nil {
 					return false
@@ -229,7 +216,7 @@ func createParserValidators(lastCycleValidator history.CycleValidator, eventVali
 			},
 			cycleValidationCallback: func(valid bool, err error) {
 				if !valid {
-					logCycleErr(err, measures.RebootCycleErrorTags, logger)
+					logCycleErr(err, parserIn.Measures.RebootCycleErrorTags, logger)
 				}
 			},
 		},
@@ -239,13 +226,13 @@ func createParserValidators(lastCycleValidator history.CycleValidator, eventVali
 }
 
 func createEventValidator(config EventValidationConfig) (validation.Validator, error) {
-	validationType := ParseValidationType(config.Key)
-	if validationType == unknown {
+	validationType := enums.ParseValidationType(config.Key)
+	if validationType == enums.Unknown {
 		return nil, errNonExistentKey
 	}
 
 	switch validationType {
-	case bootTimeValidation:
+	case enums.BootTimeValidation:
 		config = checkTimeValidations(config)
 		bootTimeValidator := validation.TimeValidator{
 			Current:      time.Now,
@@ -254,7 +241,7 @@ func createEventValidator(config EventValidationConfig) (validation.Validator, e
 			MinValidYear: config.BootTimeValidator.MinValidYear,
 		}
 		return validation.BootTimeValidator(bootTimeValidator), nil
-	case birthdateValidation:
+	case enums.BirthdateValidation:
 		config = checkTimeValidations(config)
 		birthdateValidator := validation.TimeValidator{
 			Current:      time.Now,
@@ -263,30 +250,57 @@ func createEventValidator(config EventValidationConfig) (validation.Validator, e
 			MinValidYear: config.BootTimeValidator.MinValidYear,
 		}
 		return validation.BirthdateValidator(birthdateValidator), nil
-	case minBootDuration:
+	case enums.MinBootDuration:
 		config = checkTimeValidations(config)
 		return validation.BootDurationValidator(config.MinBootDuration), nil
-	case birthdateAlignment:
+	case enums.BirthdateAlignment:
 		config = checkTimeValidations(config)
 		return validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration), nil
-	case validEventType:
+	case enums.ValidEventType:
 		return validation.EventTypeValidator(config.ValidEventTypes), nil
-	case consistentDeviceID:
+	case enums.ConsistentDeviceID:
 		return validation.ConsistentDeviceIDValidator(), nil
 	default:
 		return nil, errWrongEventValidatorKey
 	}
 }
 
-func createCycleValidators(configs []CycleValidationConfig) (history.CycleValidator, error) {
-	// TODO: add for different cycle checks
+func createCycleValidator(config CycleValidationConfig) (history.CycleValidator, error) {
+	validationType := enums.ParseValidationType(config.Key)
+	if validationType == enums.Unknown {
+		return nil, errNonExistentKey
+	}
+
+	switch validationType {
+	case enums.ConsistentMetadata:
+		return history.MetadataValidator(config.MetadataValidators, true), nil
+	case enums.UniqueTransactionID:
+		return history.TransactionUUIDValidator(), nil
+	case enums.SessionOnline:
+		return history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
+			return false
+		}), nil
+	case enums.SessionOffline:
+		return history.SessionOfflineValidator(func(events []interpreter.Event, id string) bool {
+			return false
+		}), nil
+	case enums.EventOrder:
+		return history.EventOrderValidator(config.EventOrder), nil
+	default:
+		return nil, errWrongCycleValidatorKey
+	}
+}
+
+func createCycleValidators(configs []CycleValidationConfig, cycleType enums.CycleType) (history.CycleValidator, error) {
 	var validators history.CycleValidators
 	for _, config := range configs {
-		validator, err := createCycleValidator(config)
-		if err != nil {
-			return nil, err
+		if enums.ParseCycleType(config.CycleType) == cycleType {
+			validator, err := createCycleValidator(config)
+			if err != nil {
+				return nil, err
+			}
+			validators = append(validators, validator)
 		}
-		validators = append(validators, validator)
 	}
 
 	return validators, nil

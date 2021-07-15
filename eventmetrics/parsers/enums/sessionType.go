@@ -15,7 +15,7 @@
  *
  */
 
-package parsers
+package enums
 
 import "strings"
 
