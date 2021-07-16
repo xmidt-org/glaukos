@@ -170,20 +170,6 @@ func provideParsers() fx.Option {
 	)
 }
 
-func createBootDurationCallback(m Measures) func(interpreter.Event, float64) {
-	return func(event interpreter.Event, duration float64) {
-		labels := getTimeElapsedHistogramLabels(event)
-		m.BootToManageableHistogram.With(labels).Observe(duration)
-	}
-}
-
-func createRebootToManageableCallback(m Measures) func(interpreter.Event, interpreter.Event, float64) {
-	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
-		labels := getTimeElapsedHistogramLabels(currentEvent)
-		m.RebootToManageableHistogram.With(labels).Observe(duration)
-	}
-}
-
 func createParserValidators(parserIn RebootParserIn, logger *zap.Logger) []ParserValidator {
 	rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
 	parserValidators := []ParserValidator{
@@ -225,9 +211,28 @@ func createParserValidators(parserIn RebootParserIn, logger *zap.Logger) []Parse
 	return parserValidators
 }
 
+func createBootDurationCallback(m Measures) func(interpreter.Event, float64) {
+	return func(event interpreter.Event, duration float64) {
+		if m.BootToManageableHistogram != nil {
+			labels := getTimeElapsedHistogramLabels(event)
+			m.BootToManageableHistogram.With(labels).Observe(duration)
+		}
+
+	}
+}
+
+func createRebootToManageableCallback(m Measures) func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
+	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
+		if m.RebootToManageableHistogram != nil {
+			labels := getTimeElapsedHistogramLabels(currentEvent)
+			m.RebootToManageableHistogram.With(labels).Observe(duration)
+		}
+	}
+}
+
 func createEventValidator(config EventValidationConfig) (validation.Validator, error) {
 	validationType := enums.ParseValidationType(config.Key)
-	if validationType == enums.Unknown {
+	if validationType == enums.UnknownValidation {
 		return nil, errNonExistentKey
 	}
 
@@ -267,7 +272,7 @@ func createEventValidator(config EventValidationConfig) (validation.Validator, e
 
 func createCycleValidator(config CycleValidationConfig) (history.CycleValidator, error) {
 	validationType := enums.ParseValidationType(config.Key)
-	if validationType == enums.Unknown {
+	if validationType == enums.UnknownValidation {
 		return nil, errNonExistentKey
 	}
 

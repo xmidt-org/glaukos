@@ -5,7 +5,7 @@ import "strings"
 type ValidationType int
 
 const (
-	Unknown ValidationType = iota
+	UnknownValidation ValidationType = iota
 	BootTimeValidation
 	BirthdateValidation
 	MinBootDuration
@@ -20,76 +20,77 @@ const (
 )
 
 const (
-	unknownStr             = "unknown"
-	bootTimeValidationStr  = "boot-time-validation"
-	birthdateValidationStr = "birthdate-validation"
-	minBootDurationStr     = "min-boot-duration"
-	birthdateAlignmentStr  = "birthdate-alignment"
-	validEventTypeStr      = "valid-event-type"
-	consistentDeviceIDStr  = "consistent-device-id"
-	consistentMetadataStr  = "consistent-metadata"
-	uniqueTransactionIDStr = "unique-transaction-id"
-	sessionOnlineStr       = "session-online"
-	sessionOfflineStr      = "session-offline"
-	eventOrderStr          = "event-order"
+	UnknownValidationStr   = "unknown"
+	BootTimeValidationStr  = "boot-time-validation"
+	BirthdateValidationStr = "birthdate-validation"
+	MinBootDurationStr     = "min-boot-duration"
+	BirthdateAlignmentStr  = "birthdate-alignment"
+	ValidEventTypeStr      = "valid-event-type"
+	ConsistentDeviceIDStr  = "consistent-device-id"
+	ConsistentMetadataStr  = "consistent-metadata"
+	UniqueTransactionIDStr = "unique-transaction-id"
+	SessionOnlineStr       = "session-online"
+	SessionOfflineStr      = "session-offline"
+	EventOrderStr          = "event-order"
 )
 
 func (v ValidationType) String() string {
 	switch v {
 	case BootTimeValidation:
-		return bootTimeValidationStr
+		return BootTimeValidationStr
 	case BirthdateValidation:
-		return birthdateValidationStr
+		return BirthdateValidationStr
 	case MinBootDuration:
-		return minBootDurationStr
+		return MinBootDurationStr
 	case BirthdateAlignment:
-		return birthdateAlignmentStr
+		return BirthdateAlignmentStr
 	case ValidEventType:
-		return validEventTypeStr
+		return ValidEventTypeStr
 	case ConsistentDeviceID:
-		return consistentDeviceIDStr
+		return ConsistentDeviceIDStr
 	case ConsistentMetadata:
-		return consistentMetadataStr
+		return ConsistentMetadataStr
 	case UniqueTransactionID:
-		return uniqueTransactionIDStr
+		return UniqueTransactionIDStr
 	case SessionOnline:
-		return sessionOnlineStr
+		return SessionOnlineStr
 	case SessionOffline:
-		return sessionOfflineStr
+		return SessionOfflineStr
 	case EventOrder:
-		return eventOrderStr
+		return EventOrderStr
 	}
 
-	return unknownStr
+	return UnknownValidationStr
 }
 
+// ParseValidationType returns the ValidationType enum when given a string.
 func ParseValidationType(s string) ValidationType {
 	s = strings.ToLower(s)
 
 	switch s {
-	case bootTimeValidationStr:
+	case BootTimeValidationStr:
 		return BootTimeValidation
-	case birthdateValidationStr:
+	case BirthdateValidationStr:
 		return BirthdateValidation
-	case minBootDurationStr:
+	case MinBootDurationStr:
 		return MinBootDuration
-	case birthdateAlignmentStr:
+	case BirthdateAlignmentStr:
 		return BirthdateAlignment
-	case validEventTypeStr:
+	case ValidEventTypeStr:
 		return ValidEventType
-	case consistentDeviceIDStr:
+	case ConsistentDeviceIDStr:
 		return ConsistentDeviceID
-	case consistentMetadataStr:
+	case ConsistentMetadataStr:
 		return ConsistentMetadata
-	case uniqueTransactionIDStr:
+	case UniqueTransactionIDStr:
 		return UniqueTransactionID
-	case sessionOnlineStr:
+	case SessionOnlineStr:
 		return SessionOnline
-	case sessionOfflineStr:
+	case SessionOfflineStr:
 		return SessionOffline
-	case eventOrderStr:
+	case EventOrderStr:
 		return EventOrder
 	}
 
-	return Unknown
+	return UnknownValidation
 }
