@@ -615,6 +615,8 @@ github.com/xmidt-org/httpaux v0.2.1 h1:SFK+Bab5c6r70VxMfJcDR49aBHIUs0uQJruC+nMpA
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
 github.com/xmidt-org/interpreter v0.0.5 h1:FMJsVt+bIRtnG+1A2fiWu6omNlz/P+rU5FjiBAlOYf4=
 github.com/xmidt-org/interpreter v0.0.5/go.mod h1:ATGm0T0u1X6sL0TLzNtDsz+Y4hba8SGXNSt8hABwseY=
+github.com/xmidt-org/interpreter v0.0.6-0.20210716221517-3e9e5d5fc4e5 h1:DMEquuFVtR46yCm5XNDnmWZ8kllx9HVVr7txnQrEkYI=
+github.com/xmidt-org/interpreter v0.0.6-0.20210716221517-3e9e5d5fc4e5/go.mod h1:ATGm0T0u1X6sL0TLzNtDsz+Y4hba8SGXNSt8hABwseY=
 github.com/xmidt-org/sallust v0.1.5 h1:yf95DXZUYnS+Td3w+jV3oO7XmhMbViMYK0A/WVM4QYo=
 github.com/xmidt-org/sallust v0.1.5/go.mod h1:azcKBypudADIeZ3Em8zGjVq3yQ7n4ueSvM/degHMIxo=
 github.com/xmidt-org/themis v0.4.4 h1:KewitRxStW1xOehDBi0YyGZyRv3PjFdYUEDvQFf1Nmk=

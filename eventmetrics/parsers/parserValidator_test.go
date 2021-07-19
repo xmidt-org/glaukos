@@ -2,7 +2,6 @@ package parsers
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -87,14 +86,17 @@ func TestValidate(t *testing.T) {
 			eventCallbackCalled := false
 			cycleCallbackCalled := false
 
-			p := parserValidator{
-				cycleParser:              mockParser,
-				cycleValidator:           mockCycleValidator,
-				eventsValidator:          mockEventsValidator,
-				shouldActivate:           tc.shouldActivate,
-				eventsValidationCallback: func(_ interpreter.Event, _ bool, _ error) { eventCallbackCalled = true },
-				cycleValidationCallback:  func(_ bool, _ error) { cycleCallbackCalled = true },
+			cycleValidator := cycleValidation{
+				validator: mockCycleValidator,
+				parser:    mockParser,
+				callback:  func(_ interpreter.Event, _ bool, _ error) { cycleCallbackCalled = true },
 			}
+
+			eventValidator := eventValidation{
+				validator: mockEventsValidator,
+				callback:  func(_ interpreter.Event, _ bool, _ error) { eventCallbackCalled = true },
+			}
+			p := NewParserValidator(cycleValidator, eventValidator, tc.shouldActivate)
 
 			valid, err := p.Validate([]interpreter.Event{}, interpreter.Event{})
 			if (p.shouldActivate([]interpreter.Event{}, interpreter.Event{}) && tc.parserErr == nil) {
@@ -111,15 +113,14 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestSetDefaults(t *testing.T) {
+func TestNewParserValidator(t *testing.T) {
 	assert := assert.New(t)
-	p := parserValidator{}
-	p.setDefaults()
+	p := NewParserValidator(cycleValidation{}, eventValidation{}, nil)
 	assert.NotNil(p.shouldActivate)
 	assert.NotNil(p.cycleParser)
-	assert.NotNil(p.eventsValidator)
+	assert.NotNil(p.eventValidator)
 	assert.NotNil(p.cycleValidator)
-	assert.NotNil(p.eventsValidationCallback)
+	assert.NotNil(p.eventValidationCallback)
 	assert.NotNil(p.cycleValidationCallback)
 }
 
@@ -170,7 +171,7 @@ func TestLogCycleError(t *testing.T) {
 			expectedRegistry.Register(expectedCounter)
 			logger := zap.NewNop()
 
-			logCycleErr(tc.err, actualCounter, logger)
+			logCycleErr(interpreter.Event{}, tc.err, actualCounter, logger)
 			for _, tag := range tc.expectedTags {
 				expectedCounter.WithLabelValues(tag).Inc()
 			}
@@ -275,7 +276,7 @@ func TestGetHardwareFirmware(t *testing.T) {
 					firmwareMetadataKey: "testFw",
 				},
 			},
-			expectedHwVal: unknownReason,
+			expectedHwVal: unknownLabelValue,
 			expectedFwVal: "testFw",
 			expectedFound: false,
 		},
@@ -287,7 +288,7 @@ func TestGetHardwareFirmware(t *testing.T) {
 				},
 			},
 			expectedHwVal: "testHw",
-			expectedFwVal: unknownReason,
+			expectedFwVal: unknownLabelValue,
 			expectedFound: false,
 		},
 		{
@@ -295,8 +296,8 @@ func TestGetHardwareFirmware(t *testing.T) {
 			event: interpreter.Event{
 				Metadata: map[string]string{},
 			},
-			expectedHwVal: unknownReason,
-			expectedFwVal: unknownReason,
+			expectedHwVal: unknownLabelValue,
+			expectedFwVal: unknownLabelValue,
 			expectedFound: false,
 		},
 	}
@@ -308,42 +309,6 @@ func TestGetHardwareFirmware(t *testing.T) {
 			assert.Equal(tc.expectedHwVal, hwVal)
 			assert.Equal(tc.expectedFwVal, fwVal)
 			assert.Equal(tc.expectedFound, found)
-		})
-	}
-}
-
-func TestTagsToString(t *testing.T) {
-	tests := []struct {
-		description    string
-		tags           []validation.Tag
-		expectedString string
-	}{
-		{
-			description:    "multiple tags",
-			tags:           []validation.Tag{validation.RepeatedTransactionUUID, validation.Unknown, validation.DuplicateEvent},
-			expectedString: fmt.Sprintf("[%s, %s, %s]", validation.RepeatedTransactionUUIDStr, validation.UnknownStr, validation.DuplicateEventStr),
-		},
-		{
-			description:    "one tag",
-			tags:           []validation.Tag{validation.RepeatedTransactionUUID},
-			expectedString: fmt.Sprintf("[%s]", validation.RepeatedTransactionUUIDStr),
-		},
-		{
-			description:    "empty list",
-			tags:           []validation.Tag{},
-			expectedString: "[]",
-		},
-		{
-			description:    "nil list",
-			expectedString: "[]",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			str := tagsToString(tc.tags)
-			assert.Equal(tc.expectedString, str)
 		})
 	}
 }
@@ -380,7 +345,7 @@ func TestGetTimeElapsedHistogramLabels(t *testing.T) {
 			expectedLabels: prometheus.Labels{
 				hardwareLabel:     "testHw",
 				firmwareLabel:     "testFw",
-				rebootReasonLabel: unknownReason,
+				rebootReasonLabel: unknownLabelValue,
 			},
 		},
 	}

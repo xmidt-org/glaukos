@@ -18,6 +18,7 @@
 package parsers
 
 import (
+	"errors"
 	"time"
 
 	"github.com/xmidt-org/interpreter"
@@ -40,7 +41,12 @@ const (
 	rebootPendingEventType = "reboot-pending"
 )
 
-// RebootParserConfig is the config for the reboot duration parser
+var (
+	errNilRebootHistogram = errors.New("reboot_to_manageable histogram cannot be nil")
+	errNilBootHistogram   = errors.New("boot_to_manageable histogram cannot be nil")
+)
+
+// RebootParserConfig is the config for the reboot duration parser.
 type RebootParserConfig struct {
 	ValidEventTypes            []string
 	MetadataValidators         []string
@@ -57,11 +63,29 @@ type TimeValidationConfig struct {
 	MinValidYear int
 }
 
+type RebootParserNameIn struct {
+	fx.In
+	Name string `name:"reboot_parser_name"`
+}
+
+type RebootLoggerIn struct {
+	fx.In
+	Logger *zap.Logger `name:"reboot_parser_logger"`
+}
+
 type RebootParserIn struct {
 	fx.In
-	Logger      *zap.Logger
-	Measures    Measures
-	CodexClient *events.CodexClient
+	Name             string               `name:"reboot_parser_name"`
+	Logger           *zap.Logger          `name:"reboot_parser_logger"`
+	ParserValidators []ParserValidator    `group:"reboot_parser_validators"`
+	Calculators      []DurationCalculator `group:"duration_calculators"`
+	Measures         Measures
+	CodexClient      *events.CodexClient
+}
+
+type CalculatorsIn struct {
+	fx.In
+	Calculators []DurationCalculator `group:"duration_calculators"`
 }
 
 // Provide bundles everything needed for setting up all of the event objects
@@ -71,8 +95,22 @@ func Provide() fx.Option {
 		ProvideEventMetrics(),
 		events.Provide(),
 		provideParsers(),
+		provideDurationCalculators(),
+		provideParserValidators(),
 		fx.Provide(
 			arrange.UnmarshalKey("rebootDurationParser", RebootParserConfig{}),
+			fx.Annotated{
+				Name: "reboot_parser_name",
+				Target: func() string {
+					return "reboot_duration_parser"
+				},
+			},
+			fx.Annotated{
+				Name: "reboot_parser_logger",
+				Target: func(parserName RebootParserNameIn, logger *zap.Logger) *zap.Logger {
+					return logger.With(zap.String("parser", parserName.Name))
+				},
+			},
 			createEventValidator,
 			func(config RebootParserConfig) history.CycleValidator {
 				validators := []history.CycleValidator{
@@ -106,89 +144,127 @@ func provideParsers() fx.Option {
 		},
 		fx.Annotated{
 			Group: "parsers",
-			Target: func(cycleValidator history.CycleValidator, eventValidator validation.Validator, parserIn RebootParserIn) queue.Parser {
-				name := "reboot_duration_parser"
-				logger := parserIn.Logger.With(zap.String("parser", name))
+			Target: func(parserIn RebootParserIn) queue.Parser {
 				comparators := history.Comparators([]history.Comparator{
 					history.OlderBootTimeComparator(),
 				})
 
-				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
-				parserValidators := createParserValidators(cycleValidator, eventValidator, logger, parserIn.Measures)
 				return &RebootDurationParser{
-					name:                 name,
+					name:                 parserIn.Name,
 					relevantEventsParser: history.LastCycleToCurrentParser(comparators),
-					parserValidators:     parserValidators,
-					calculators: []DurationCalculator{
-						BootDurationCalculator(logger, createBootDurationCallback(parserIn.Measures)),
-						&EventToCurrentCalculator{
-							logger:          logger,
-							successCallback: createRebootToManageableCallback(parserIn.Measures),
-							eventFinder:     rebootEventFinder,
-						},
-					},
-					measures: parserIn.Measures,
-					client:   parserIn.CodexClient,
-					logger:   logger,
+					parserValidators:     parserIn.ParserValidators,
+					calculators:          parserIn.Calculators,
+					measures:             parserIn.Measures,
+					client:               parserIn.CodexClient,
+					logger:               parserIn.Logger,
 				}
 			},
 		},
 	)
 }
 
-func createBootDurationCallback(m Measures) func(interpreter.Event, float64) {
+func provideDurationCalculators() fx.Option {
+	return fx.Provide(
+		createBootDurationCallback,
+		createRebootToManageableCallback,
+		fx.Annotated{
+			Group: "duration_calculators",
+			Target: func(callback func(interpreter.Event, float64), loggerIn RebootLoggerIn) DurationCalculator {
+				return BootDurationCalculator(loggerIn.Logger, callback)
+			},
+		},
+		fx.Annotated{
+			Group: "duration_calculators",
+			Target: func(callback func(interpreter.Event, interpreter.Event, float64), loggerIn RebootLoggerIn) (DurationCalculator, error) {
+				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
+				return NewEventToCurrentCalculator(rebootEventFinder, callback, loggerIn.Logger)
+			},
+		},
+	)
+}
+
+func provideParserValidators() fx.Option {
+	return fx.Provide(
+		fx.Annotated{
+			Group: "reboot_parser_validators",
+			Target: func(lastCycleValidator history.CycleValidator, eventValidator validation.Validator, loggerIn RebootLoggerIn, m Measures) ParserValidator {
+				cycleValidation := cycleValidation{
+					validator: lastCycleValidator,
+					parser:    history.LastCycleParser(nil),
+					callback: func(event interpreter.Event, valid bool, err error) {
+						if !valid {
+							logCycleErr(event, err, m.BootCycleErrorTags, loggerIn.Logger)
+						}
+					},
+				}
+
+				eventValidation := eventValidation{
+					validator: eventValidator,
+					callback: func(event interpreter.Event, valid bool, err error) {
+						if !valid {
+							logEventError(loggerIn.Logger, m.EventErrorTags, err, event)
+						}
+					},
+				}
+
+				return NewParserValidator(
+					cycleValidation,
+					eventValidation,
+					func(_ []interpreter.Event, _ interpreter.Event) bool {
+						return true
+					},
+				)
+			},
+		},
+		fx.Annotated{
+			Group: "reboot_parser_validators",
+			Target: func(lastCycleValidator history.CycleValidator, eventValidator validation.Validator, loggerIn RebootLoggerIn, m Measures) ParserValidator {
+				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
+				cycleValidation := cycleValidation{
+					validator: history.EventOrderValidator([]string{"fully-manageable", "operational", "online", "offline", rebootPendingEventType}),
+					parser:    history.RebootParser(nil),
+					callback: func(event interpreter.Event, valid bool, err error) {
+						if !valid {
+							logCycleErr(event, err, m.RebootCycleErrorTags, loggerIn.Logger)
+						}
+					},
+				}
+
+				return NewParserValidator(
+					cycleValidation,
+					eventValidation{},
+					func(events []interpreter.Event, currentEvent interpreter.Event) bool {
+						if _, err := rebootEventFinder.Find(events, currentEvent); err != nil {
+							return false
+						}
+						return true
+					},
+				)
+			},
+		},
+	)
+}
+
+func createBootDurationCallback(m Measures) (func(interpreter.Event, float64), error) {
+	if m.BootToManageableHistogram == nil {
+		return nil, errNilBootHistogram
+	}
+
 	return func(event interpreter.Event, duration float64) {
 		labels := getTimeElapsedHistogramLabels(event)
 		m.BootToManageableHistogram.With(labels).Observe(duration)
-	}
+	}, nil
 }
 
-func createRebootToManageableCallback(m Measures) func(interpreter.Event, interpreter.Event, float64) {
+func createRebootToManageableCallback(m Measures) (func(interpreter.Event, interpreter.Event, float64), error) {
+	if m.RebootToManageableHistogram == nil {
+		return nil, errNilRebootHistogram
+	}
+
 	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
 		labels := getTimeElapsedHistogramLabels(currentEvent)
 		m.RebootToManageableHistogram.With(labels).Observe(duration)
-	}
-}
-
-func createParserValidators(lastCycleValidator history.CycleValidator, eventValidator validation.Validator, logger *zap.Logger, measures Measures) []ParserValidator {
-	rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
-	parserValidators := []ParserValidator{
-		&parserValidator{
-			cycleParser:     history.LastCycleParser(nil),
-			cycleValidator:  lastCycleValidator,
-			eventsValidator: eventValidator,
-			shouldActivate: func(_ []interpreter.Event, _ interpreter.Event) bool {
-				return true
-			},
-			eventsValidationCallback: func(event interpreter.Event, valid bool, err error) {
-				if !valid {
-					logEventError(logger, measures.EventErrorTags, err, event)
-				}
-			},
-			cycleValidationCallback: func(valid bool, err error) {
-				if !valid {
-					logCycleErr(err, measures.BootCycleErrorTags, logger)
-				}
-			},
-		},
-		&parserValidator{
-			cycleParser:    history.RebootParser(nil),
-			cycleValidator: history.EventOrderValidator([]string{"fully-manageable", "operational", "online", "offline", rebootPendingEventType}),
-			shouldActivate: func(events []interpreter.Event, currentEvent interpreter.Event) bool {
-				if _, err := rebootEventFinder.Find(events, currentEvent); err != nil {
-					return false
-				}
-				return true
-			},
-			cycleValidationCallback: func(valid bool, err error) {
-				if !valid {
-					logCycleErr(err, measures.RebootCycleErrorTags, logger)
-				}
-			},
-		},
-	}
-
-	return parserValidators
+	}, nil
 }
 
 func createEventValidator(config RebootParserConfig) validation.Validator {

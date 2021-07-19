@@ -34,7 +34,6 @@ const (
 	fatalErrReason       = "incoming_event_fatal_error"
 	calculationErrReason = "time_elapsed_calculation_error"
 	noHwFwReason         = "no_firmware_or_hardware_key"
-	unknownReason        = "unknown"
 
 	hardwareMetadataKey     = "/hw-model"
 	firmwareMetadataKey     = "/fw-name"

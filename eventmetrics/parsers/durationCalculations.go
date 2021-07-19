@@ -28,6 +28,8 @@ import (
 var (
 	errCalculation   = errors.New("time elapsed calculation error")
 	errEventNotFound = errors.New("event not found")
+
+	errMissingFinder = errors.New("missing Finder")
 )
 
 // CalculatorFunc is a function that calculates a duration and returns an error if there is a
@@ -57,7 +59,10 @@ func BootDurationCalculator(logger *zap.Logger, successCallback func(interpreter
 			return errCalculation
 		}
 
-		successCallback(event, bootDuration)
+		if successCallback != nil {
+			successCallback(event, bootDuration)
+		}
+
 		return nil
 	}
 }
@@ -69,10 +74,37 @@ type EventToCurrentCalculator struct {
 	logger          *zap.Logger
 }
 
+// NewEventToCurrentCalculator creates a new EventToCurrentCalculator and an error if the finder is nil.
+func NewEventToCurrentCalculator(eventFinder Finder, successCallback func(currentEvent interpreter.Event, foundEvent interpreter.Event, duration float64), logger *zap.Logger) (*EventToCurrentCalculator, error) {
+	if eventFinder == nil {
+		return nil, errMissingFinder
+	}
+
+	if successCallback == nil {
+		successCallback = func(_ interpreter.Event, _ interpreter.Event, _ float64) {
+			// default empty function
+		}
+	}
+
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	return &EventToCurrentCalculator{
+		eventFinder:     eventFinder,
+		successCallback: successCallback,
+		logger:          logger,
+	}, nil
+}
+
 // Calculate implements the DurationCalculator interface by subtracting the birthdates of the two events.
 func (c *EventToCurrentCalculator) Calculate(events []interpreter.Event, event interpreter.Event) error {
 	if c.logger == nil {
 		c.logger = zap.NewNop()
+	}
+
+	if c.eventFinder == nil {
+		return errMissingFinder
 	}
 
 	currentBirthdate := time.Unix(0, event.Birthdate)
@@ -98,6 +130,9 @@ func (c *EventToCurrentCalculator) Calculate(events []interpreter.Event, event i
 		return errCalculation
 	}
 
-	c.successCallback(event, startingEvent, timeElapsed)
+	if c.successCallback != nil {
+		c.successCallback(event, startingEvent, timeElapsed)
+	}
+
 	return nil
 }
