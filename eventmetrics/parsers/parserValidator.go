@@ -145,15 +145,22 @@ func logCycleErr(currentEvent interpreter.Event, err error, counter *prometheus.
 	var taggedErr validation.TaggedError
 	if errors.As(err, &taggedErrs) {
 		logger.Info("invalid cycle", zap.String(deviceIDKey, deviceID), zap.Strings("tags", validation.TagsToStrings(taggedErrs.UniqueTags())))
-		for _, tag := range taggedErrs.UniqueTags() {
-			counter.With(prometheus.Labels{reasonLabel: tag.String()}).Add(1.0)
+		if counter != nil {
+			for _, tag := range taggedErrs.UniqueTags() {
+				counter.With(prometheus.Labels{reasonLabel: tag.String()}).Add(1.0)
+			}
 		}
 	} else if errors.As(err, &taggedErr) {
 		logger.Info("invalid cycle", zap.String(deviceIDKey, deviceID), zap.String("tags", taggedErr.Tag().String()))
-		counter.With(prometheus.Labels{reasonLabel: taggedErr.Tag().String()}).Add(1.0)
+		if counter != nil {
+			counter.With(prometheus.Labels{reasonLabel: taggedErr.Tag().String()}).Add(1.0)
+		}
+
 	} else if err != nil {
 		logger.Info("invalid cycle; no tags", zap.String(deviceIDKey, deviceID), zap.Error(err))
-		counter.With(prometheus.Labels{reasonLabel: validation.Unknown.String()}).Add(1.0)
+		if counter != nil {
+			counter.With(prometheus.Labels{reasonLabel: validation.Unknown.String()}).Add(1.0)
+		}
 	}
 }
 
@@ -172,18 +179,24 @@ func logEventError(logger *zap.Logger, counter *prometheus.CounterVec, err error
 	var taggedErr validation.TaggedError
 	if errors.As(err, &taggedErrs) {
 		logger.Info("event validation error", zap.Strings("tags", validation.TagsToStrings(taggedErrs.UniqueTags())), zap.String(eventIDKey, eventID), zap.String(deviceIDKey, deviceID))
-		for _, tag := range taggedErrs.UniqueTags() {
-			counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
-				hardwareLabel: hardwareVal, reasonLabel: tag.String()}).Add(1.0)
+		if counter != nil {
+			for _, tag := range taggedErrs.UniqueTags() {
+				counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
+					hardwareLabel: hardwareVal, reasonLabel: tag.String()}).Add(1.0)
+			}
 		}
 	} else if errors.As(err, &taggedErr) {
 		logger.Info("event validation error", zap.String("tags", taggedErr.Tag().String()), zap.String(eventIDKey, eventID), zap.String(deviceIDKey, deviceID))
-		counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
-			hardwareLabel: hardwareVal, reasonLabel: taggedErr.Tag().String()}).Add(1.0)
+		if counter != nil {
+			counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
+				hardwareLabel: hardwareVal, reasonLabel: taggedErr.Tag().String()}).Add(1.0)
+		}
 	} else if err != nil {
 		logger.Info("event validation error; no tags", zap.Error(err), zap.String(eventIDKey, eventID), zap.String(deviceIDKey, deviceID))
-		counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
-			hardwareLabel: hardwareVal, reasonLabel: validation.Unknown.String()}).Add(1.0)
+		if counter != nil {
+			counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
+				hardwareLabel: hardwareVal, reasonLabel: validation.Unknown.String()}).Add(1.0)
+		}
 	}
 }
 

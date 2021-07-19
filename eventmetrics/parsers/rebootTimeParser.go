@@ -192,7 +192,12 @@ func (p *RebootDurationParser) getEvents(currentEvent interpreter.Event) ([]inte
 }
 
 func (p *RebootDurationParser) addToUnparsableCounters(firmwareVal string, hardwareVal string, reason string) {
-	p.measures.TotalUnparsableCount.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
-	p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
-		hardwareLabel: hardwareVal, reasonLabel: reason}).Add(1.0)
+	if p.measures.TotalUnparsableCount != nil {
+		p.measures.TotalUnparsableCount.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
+	}
+
+	if p.measures.RebootUnparsableCount != nil {
+		p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
+			hardwareLabel: hardwareVal, reasonLabel: reason}).Add(1.0)
+	}
 }
