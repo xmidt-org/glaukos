@@ -96,6 +96,41 @@ func TestBootTimeCalculator(t *testing.T) {
 	}
 }
 
+func TestNewEventToCurrentCalculator(t *testing.T) {
+	tests := []struct {
+		description string
+		expectedErr error
+		logger      *zap.Logger
+		successFunc func(currentEvent interpreter.Event, foundEvent interpreter.Event, duration float64)
+		eventFinder Finder
+	}{
+		{
+			description: "nil finder",
+			logger:      zap.NewNop(),
+			successFunc: func(_ interpreter.Event, _ interpreter.Event, _ float64) {},
+			expectedErr: errMissingFinder,
+		},
+		{
+			description: "missing success func and logger",
+			logger:      zap.NewNop(),
+			eventFinder: new(mockFinder),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			calculator, err := NewEventToCurrentCalculator(tc.eventFinder, tc.successFunc, tc.logger)
+			assert.Equal(tc.expectedErr, err)
+			if tc.expectedErr == nil {
+				assert.NotNil(calculator.eventFinder)
+				assert.NotNil(calculator.logger)
+				assert.NotNil(calculator.successCallback)
+			}
+		})
+	}
+}
+
 func TestEventToCurrentCalculator(t *testing.T) {
 	now, err := time.Parse(time.RFC3339Nano, "2021-03-02T18:00:01Z")
 	assert.Nil(t, err)

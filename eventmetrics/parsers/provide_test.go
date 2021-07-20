@@ -53,12 +53,17 @@ func TestCreateBootDurationCallback(t *testing.T) {
 	actualRegistry := prometheus.NewPedanticRegistry()
 	expectedRegistry.Register(expectedHistogram)
 	actualRegistry.Register(m.BootToManageableHistogram)
-	callback := createBootDurationCallback(m)
+	callback, err := createBootDurationCallback(m)
+	assert.Nil(err)
 	callback(currentEvent, 5.0)
 	expectedHistogram.WithLabelValues(fwVal, hwVal, rebootReason).Observe(5.0)
 	testAssert := touchtest.New(t)
 	testAssert.Expect(expectedRegistry)
 	assert.True(testAssert.GatherAndCompare(actualRegistry))
+
+	nilCallback, err := createBootDurationCallback(Measures{})
+	assert.Nil(nilCallback)
+	assert.Equal(errNilBootHistogram, err)
 }
 
 func TestCreateRebootToManageableCallback(t *testing.T) {
@@ -101,12 +106,17 @@ func TestCreateRebootToManageableCallback(t *testing.T) {
 	actualRegistry := prometheus.NewPedanticRegistry()
 	expectedRegistry.Register(expectedHistogram)
 	actualRegistry.Register(m.RebootToManageableHistogram)
-	callback := createRebootToManageableCallback(m)
+	callback, err := createRebootToManageableCallback(m)
+	assert.Nil(err)
 	callback(currentEvent, interpreter.Event{}, 5.0)
 	expectedHistogram.WithLabelValues(fwVal, hwVal, rebootReason).Observe(5.0)
 	testAssert := touchtest.New(t)
 	testAssert.Expect(expectedRegistry)
 	assert.True(testAssert.GatherAndCompare(actualRegistry))
+
+	nilCallback, err := createRebootToManageableCallback(Measures{})
+	assert.Nil(nilCallback)
+	assert.Equal(errNilRebootHistogram, err)
 }
 
 func TestCreateEventValidator(t *testing.T) {
