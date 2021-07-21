@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/validation"
 	"github.com/xmidt-org/touchstone/touchtest"
@@ -157,14 +158,14 @@ func TestLogCycleError(t *testing.T) {
 						Name: "cycleErrs",
 						Help: "cycleErrs",
 					},
-					[]string{reasonLabel},
+					[]string{reasonLabel, partnerIDLabel},
 				)
 				actualCounter = prometheus.NewCounterVec(
 					prometheus.CounterOpts{
 						Name: "cycleErrs",
 						Help: "cycleErrs",
 					},
-					[]string{reasonLabel},
+					[]string{reasonLabel, partnerIDLabel},
 				)
 			)
 
@@ -173,7 +174,7 @@ func TestLogCycleError(t *testing.T) {
 
 			logCycleErr(interpreter.Event{}, tc.err, actualCounter, logger)
 			for _, tag := range tc.expectedTags {
-				expectedCounter.WithLabelValues(tag).Inc()
+				expectedCounter.WithLabelValues(tag, basculechecks.DeterminePartnerMetric([]string{})).Inc()
 			}
 
 			metricsAssert := touchtest.New(t)
@@ -223,14 +224,14 @@ func TestLogEventError(t *testing.T) {
 						Name: "eventErrs",
 						Help: "eventErrs",
 					},
-					[]string{firmwareLabel, hardwareLabel, reasonLabel},
+					[]string{firmwareLabel, hardwareLabel, reasonLabel, partnerIDLabel},
 				)
 				actualCounter = prometheus.NewCounterVec(
 					prometheus.CounterOpts{
 						Name: "eventErrs",
 						Help: "eventErrs",
 					},
-					[]string{firmwareLabel, hardwareLabel, reasonLabel},
+					[]string{firmwareLabel, hardwareLabel, reasonLabel, partnerIDLabel},
 				)
 			)
 
@@ -239,122 +240,12 @@ func TestLogEventError(t *testing.T) {
 
 			logEventError(logger, actualCounter, tc.err, testEvent)
 			for _, tag := range tc.expectedTags {
-				expectedCounter.WithLabelValues("fw", "hw", tag).Inc()
+				expectedCounter.WithLabelValues("fw", "hw", tag, basculechecks.DeterminePartnerMetric(testEvent.PartnerIDs)).Inc()
 			}
 
 			metricsAssert := touchtest.New(t)
 			metricsAssert.Expect(expectedRegistry)
 			assert.True(metricsAssert.CollectAndCompare(actualCounter))
-		})
-	}
-}
-
-func TestGetHardwareFirmware(t *testing.T) {
-	tests := []struct {
-		description   string
-		event         interpreter.Event
-		expectedHwVal string
-		expectedFwVal string
-		expectedFound bool
-	}{
-		{
-			description: "all exists",
-			event: interpreter.Event{
-				Metadata: map[string]string{
-					hardwareMetadataKey: "testHw",
-					firmwareMetadataKey: "testFw",
-				},
-			},
-			expectedHwVal: "testHw",
-			expectedFwVal: "testFw",
-			expectedFound: true,
-		},
-		{
-			description: "missing hw",
-			event: interpreter.Event{
-				Metadata: map[string]string{
-					firmwareMetadataKey: "testFw",
-				},
-			},
-			expectedHwVal: unknownLabelValue,
-			expectedFwVal: "testFw",
-			expectedFound: false,
-		},
-		{
-			description: "missing fw",
-			event: interpreter.Event{
-				Metadata: map[string]string{
-					hardwareMetadataKey: "testHw",
-				},
-			},
-			expectedHwVal: "testHw",
-			expectedFwVal: unknownLabelValue,
-			expectedFound: false,
-		},
-		{
-			description: "missing both",
-			event: interpreter.Event{
-				Metadata: map[string]string{},
-			},
-			expectedHwVal: unknownLabelValue,
-			expectedFwVal: unknownLabelValue,
-			expectedFound: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			hwVal, fwVal, found := getHardwareFirmware(tc.event)
-			assert.Equal(tc.expectedHwVal, hwVal)
-			assert.Equal(tc.expectedFwVal, fwVal)
-			assert.Equal(tc.expectedFound, found)
-		})
-	}
-}
-
-func TestGetTimeElapsedHistogramLabels(t *testing.T) {
-	tests := []struct {
-		description    string
-		event          interpreter.Event
-		expectedLabels prometheus.Labels
-	}{
-		{
-			description: "all exists",
-			event: interpreter.Event{
-				Metadata: map[string]string{
-					hardwareMetadataKey:     "testHw",
-					firmwareMetadataKey:     "testFw",
-					rebootReasonMetadataKey: "testReboot",
-				},
-			},
-			expectedLabels: prometheus.Labels{
-				hardwareLabel:     "testHw",
-				firmwareLabel:     "testFw",
-				rebootReasonLabel: "testReboot",
-			},
-		},
-		{
-			description: "missing reboot reason",
-			event: interpreter.Event{
-				Metadata: map[string]string{
-					hardwareMetadataKey: "testHw",
-					firmwareMetadataKey: "testFw",
-				},
-			},
-			expectedLabels: prometheus.Labels{
-				hardwareLabel:     "testHw",
-				firmwareLabel:     "testFw",
-				rebootReasonLabel: unknownLabelValue,
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			labels := getTimeElapsedHistogramLabels(tc.event)
-			assert.Equal(tc.expectedLabels, labels)
 		})
 	}
 }

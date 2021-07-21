@@ -280,8 +280,7 @@ func createBootDurationCallback(m Measures) (func(interpreter.Event, float64), e
 	}
 
 	return func(event interpreter.Event, duration float64) {
-		labels := getTimeElapsedHistogramLabels(event)
-		m.BootToManageableHistogram.With(labels).Observe(duration)
+		AddDuration(m.BootToManageableHistogram, duration, event)
 	}, nil
 }
 
@@ -291,8 +290,7 @@ func createRebootToManageableCallback(m Measures) (func(interpreter.Event, inter
 	}
 
 	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
-		labels := getTimeElapsedHistogramLabels(currentEvent)
-		m.RebootToManageableHistogram.With(labels).Observe(duration)
+		AddDuration(m.RebootToManageableHistogram, duration, currentEvent)
 	}, nil
 }
 

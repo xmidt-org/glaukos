@@ -145,22 +145,17 @@ func logCycleErr(currentEvent interpreter.Event, err error, counter *prometheus.
 	var taggedErr validation.TaggedError
 	if errors.As(err, &taggedErrs) {
 		logger.Info("invalid cycle", zap.String(deviceIDKey, deviceID), zap.Strings("tags", validation.TagsToStrings(taggedErrs.UniqueTags())))
-		if counter != nil {
-			for _, tag := range taggedErrs.UniqueTags() {
-				counter.With(prometheus.Labels{reasonLabel: tag.String()}).Add(1.0)
-			}
+		for _, tag := range taggedErrs.UniqueTags() {
+			AddCycleError(counter, currentEvent, tag.String())
 		}
+
 	} else if errors.As(err, &taggedErr) {
 		logger.Info("invalid cycle", zap.String(deviceIDKey, deviceID), zap.String("tags", taggedErr.Tag().String()))
-		if counter != nil {
-			counter.With(prometheus.Labels{reasonLabel: taggedErr.Tag().String()}).Add(1.0)
-		}
+		AddCycleError(counter, currentEvent, taggedErr.Tag().String())
 
 	} else if err != nil {
 		logger.Info("invalid cycle; no tags", zap.String(deviceIDKey, deviceID), zap.Error(err))
-		if counter != nil {
-			counter.With(prometheus.Labels{reasonLabel: validation.Unknown.String()}).Add(1.0)
-		}
+		AddCycleError(counter, currentEvent, validation.Unknown.String())
 	}
 }
 
@@ -171,7 +166,6 @@ func logEventError(logger *zap.Logger, counter *prometheus.CounterVec, err error
 		deviceIDKey = "device id"
 	)
 
-	hardwareVal, firmwareVal, _ := getHardwareFirmware(event)
 	deviceID, _ := event.DeviceID()
 	eventID := event.TransactionUUID
 
@@ -179,56 +173,14 @@ func logEventError(logger *zap.Logger, counter *prometheus.CounterVec, err error
 	var taggedErr validation.TaggedError
 	if errors.As(err, &taggedErrs) {
 		logger.Info("event validation error", zap.Strings("tags", validation.TagsToStrings(taggedErrs.UniqueTags())), zap.String(eventIDKey, eventID), zap.String(deviceIDKey, deviceID))
-		if counter != nil {
-			for _, tag := range taggedErrs.UniqueTags() {
-				counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
-					hardwareLabel: hardwareVal, reasonLabel: tag.String()}).Add(1.0)
-			}
+		for _, tag := range taggedErrs.UniqueTags() {
+			AddEventError(counter, event, tag.String())
 		}
 	} else if errors.As(err, &taggedErr) {
 		logger.Info("event validation error", zap.String("tags", taggedErr.Tag().String()), zap.String(eventIDKey, eventID), zap.String(deviceIDKey, deviceID))
-		if counter != nil {
-			counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
-				hardwareLabel: hardwareVal, reasonLabel: taggedErr.Tag().String()}).Add(1.0)
-		}
+		AddEventError(counter, event, taggedErr.Tag().String())
 	} else if err != nil {
 		logger.Info("event validation error; no tags", zap.Error(err), zap.String(eventIDKey, eventID), zap.String(deviceIDKey, deviceID))
-		if counter != nil {
-			counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
-				hardwareLabel: hardwareVal, reasonLabel: validation.Unknown.String()}).Add(1.0)
-		}
-	}
-}
-
-// get hardware and firmware values from event metadata, returning false if either one or both are not found
-func getHardwareFirmware(event interpreter.Event) (hardwareVal string, firmwareVal string, found bool) {
-	hardwareVal, hardwareFound := event.GetMetadataValue(hardwareMetadataKey)
-	firmwareVal, firmwareFound := event.GetMetadataValue(firmwareMetadataKey)
-
-	found = true
-	if !hardwareFound {
-		hardwareVal = unknownLabelValue
-		found = false
-	}
-	if !firmwareFound {
-		firmwareVal = unknownLabelValue
-		found = false
-	}
-
-	return
-}
-
-// grab relevant information from event metadata and return prometheus labels
-func getTimeElapsedHistogramLabels(event interpreter.Event) prometheus.Labels {
-	hardwareVal, firmwareVal, _ := getHardwareFirmware(event)
-	rebootReason, reasonFound := event.GetMetadataValue(rebootReasonMetadataKey)
-	if !reasonFound {
-		rebootReason = unknownLabelValue
-	}
-
-	return prometheus.Labels{
-		hardwareLabel:     hardwareVal,
-		firmwareLabel:     firmwareVal,
-		rebootReasonLabel: rebootReason,
+		AddEventError(counter, event, validation.Unknown.String())
 	}
 }

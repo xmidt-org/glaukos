@@ -30,6 +30,7 @@ const (
 	firmwareLabel        = "firmware"
 	hardwareLabel        = "hardware"
 	rebootReasonLabel    = "reboot_reason"
+	partnerIDLabel       = "partner_id"
 	validationErrReason  = "validation_error"
 	fatalErrReason       = "incoming_event_fatal_error"
 	calculationErrReason = "time_elapsed_calculation_error"
@@ -100,7 +101,7 @@ func (p *RebootDurationParser) Parse(currentEvent interpreter.Event) {
 	// Make sure event is actually a fully-manageable event. Make sure event follows event regex and is a fully-mangeable event.
 	eventType, err := currentEvent.EventType()
 	if err != nil {
-		p.addToUnparsableCounters(firmwareVal, hardwareVal, fatalErrReason)
+		p.addToUnparsableCounters(currentEvent, fatalErrReason)
 		p.logger.Error(invalidIncomingMsg, zap.Error(err), zap.String("event destination", currentEvent.Destination))
 		return
 	} else if eventType != "fully-manageable" {
@@ -110,14 +111,14 @@ func (p *RebootDurationParser) Parse(currentEvent interpreter.Event) {
 
 	// Check that event passes necessary checks. If it doesn't it is impossible to continue and we should exit.
 	if !p.basicChecks(currentEvent) {
-		p.addToUnparsableCounters(firmwareVal, hardwareVal, fatalErrReason)
+		p.addToUnparsableCounters(currentEvent, fatalErrReason)
 		return
 	}
 
 	// Get the history of events and parse events relevant to the latest boot-cycle, into a slice.
 	relevantEvents, err := p.getEvents(currentEvent)
 	if err != nil {
-		p.addToUnparsableCounters(firmwareVal, hardwareVal, fatalErrReason)
+		p.addToUnparsableCounters(currentEvent, fatalErrReason)
 		return
 	}
 
@@ -129,7 +130,7 @@ func (p *RebootDurationParser) Parse(currentEvent interpreter.Event) {
 	}
 
 	if !allValid {
-		p.addToUnparsableCounters(firmwareVal, hardwareVal, validationErrReason)
+		p.addToUnparsableCounters(currentEvent, validationErrReason)
 		return
 	}
 
@@ -142,7 +143,7 @@ func (p *RebootDurationParser) Parse(currentEvent interpreter.Event) {
 	}
 
 	if !calculationValid {
-		p.addToUnparsableCounters(firmwareVal, hardwareVal, calculationErrReason)
+		p.addToUnparsableCounters(currentEvent, calculationErrReason)
 	}
 }
 
@@ -191,13 +192,7 @@ func (p *RebootDurationParser) getEvents(currentEvent interpreter.Event) ([]inte
 
 }
 
-func (p *RebootDurationParser) addToUnparsableCounters(firmwareVal string, hardwareVal string, reason string) {
-	if p.measures.TotalUnparsableCount != nil {
-		p.measures.TotalUnparsableCount.With(prometheus.Labels{parserLabel: p.name}).Add(1.0)
-	}
-
-	if p.measures.RebootUnparsableCount != nil {
-		p.measures.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
-			hardwareLabel: hardwareVal, reasonLabel: reason}).Add(1.0)
-	}
+func (p *RebootDurationParser) addToUnparsableCounters(event interpreter.Event, reason string) {
+	p.measures.AddTotalUnparsable(p.name)
+	p.measures.AddRebootUnparsable(reason, event)
 }
