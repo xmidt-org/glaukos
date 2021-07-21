@@ -301,8 +301,15 @@ rebootDurationParser:
         - "online"
         - "offline"
         - "reboot-pending"
-
+  # timeElapesdCalculations are the events that time elapsed durations should be calculated for and added to a histogram.
+  # Time elapsed refers to the time duration between the fully-manageable event and another event.
   timeElapsedCalculations:
+    # name refers to the name of the histogram metric. There cannot be duplicates in the list,
+    # and 'boot_to_mangeable' is already taken by another metric.
     - name: "reboot_to_manageable"
+      # sessionType refers to which session glaukos should use when searching for the event
+      # options: previous or current
+      # previous refers to the cycle with the previous boot-time, while current refers to the cycle with the current boot-time.
       sessionType: "previous"
+      # eventType is the event that glaukos should look for
       eventType: "reboot-pending"
