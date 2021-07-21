@@ -18,6 +18,9 @@
 package parsers
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
@@ -28,17 +31,22 @@ const (
 	reasonLabel = "reason"
 )
 
+var (
+	errNilFactory   = errors.New("factory cannot be nil")
+	errNewHistogram = errors.New("unable to create new histogram")
+)
+
 // Measures tracks the various event-related metrics.
 type Measures struct {
 	fx.In
-	MetadataFields              *prometheus.CounterVec `name:"metadata_fields"`
-	TotalUnparsableCount        *prometheus.CounterVec `name:"total_unparsable_count"`
-	RebootUnparsableCount       *prometheus.CounterVec `name:"reboot_unparsable_count"`
-	EventErrorTags              *prometheus.CounterVec `name:"event_errors"`
-	BootCycleErrorTags          *prometheus.CounterVec `name:"boot_cycle_errors"`
-	RebootCycleErrorTags        *prometheus.CounterVec `name:"reboot_cycle_errors"`
-	BootToManageableHistogram   prometheus.ObserverVec `name:"boot_to_manageable"`
-	RebootToManageableHistogram prometheus.ObserverVec `name:"reboot_to_manageable"`
+	MetadataFields            *prometheus.CounterVec            `name:"metadata_fields"`
+	TotalUnparsableCount      *prometheus.CounterVec            `name:"total_unparsable_count"`
+	RebootUnparsableCount     *prometheus.CounterVec            `name:"reboot_unparsable_count"`
+	EventErrorTags            *prometheus.CounterVec            `name:"event_errors"`
+	BootCycleErrorTags        *prometheus.CounterVec            `name:"boot_cycle_errors"`
+	RebootCycleErrorTags      *prometheus.CounterVec            `name:"reboot_cycle_errors"`
+	BootToManageableHistogram prometheus.ObserverVec            `name:"boot_to_manageable"`
+	TimeElapsedHistograms     map[string]prometheus.ObserverVec `name:"time_elapsed_histograms"`
 }
 
 // ProvideEventMetrics builds the event-related metrics and makes them available to the container.
@@ -94,13 +102,35 @@ func ProvideEventMetrics() fx.Option {
 			},
 			firmwareLabel, hardwareLabel, rebootReasonLabel,
 		),
-		touchstone.HistogramVec(
-			prometheus.HistogramOpts{
-				Name:    "reboot_to_manageable",
-				Help:    "time elapsed between a reboot-pending and fully-manageable event",
-				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		fx.Provide(
+			fx.Annotated{
+				Name: "time_elapsed_histograms",
+				Target: func() map[string]prometheus.ObserverVec {
+					return make(map[string]prometheus.ObserverVec)
+				},
 			},
-			firmwareLabel, hardwareLabel, rebootReasonLabel,
 		),
 	)
+}
+
+func (m *Measures) addTimeElapsedHistogram(f *touchstone.Factory, o prometheus.HistogramOpts, labelNames ...string) error {
+	if f == nil {
+		return errNilFactory
+	}
+
+	histogram, err := f.NewHistogramVec(o, labelNames...)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errNewHistogram, err)
+	}
+
+	if m.TimeElapsedHistograms == nil {
+		m.TimeElapsedHistograms = make(map[string]prometheus.ObserverVec)
+	}
+
+	if _, found := m.TimeElapsedHistograms[o.Name]; found {
+		return fmt.Errorf("%w: histogram already exists", errNewHistogram)
+	}
+
+	m.TimeElapsedHistograms[o.Name] = histogram
+	return nil
 }

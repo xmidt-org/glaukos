@@ -301,3 +301,8 @@ rebootDurationParser:
         - "online"
         - "offline"
         - "reboot-pending"
+
+  timeElapsedCalculations:
+    - name: "reboot_to_manageable"
+      sessionType: "previous"
+      eventType: "reboot-pending"

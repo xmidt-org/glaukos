@@ -19,11 +19,14 @@ package parsers
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/history"
 	"github.com/xmidt-org/interpreter/validation"
+	"github.com/xmidt-org/touchstone"
 
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/glaukos/eventmetrics/parsers/enums"
@@ -46,14 +49,23 @@ var (
 	errWrongEventValidatorKey = errors.New("not an event validator key")
 	errWrongCycleValidatorKey = errors.New("not a cycle validator key")
 	errNonExistentKey         = errors.New("key does not exist")
-	errNilRebootHistogram     = errors.New("reboot_to_manageable histogram cannot be nil")
+	errBlankHistogramName     = errors.New("name cannot be blank")
+	errNilHistogram           = errors.New("histogram missing")
 	errNilBootHistogram       = errors.New("boot_to_manageable histogram cannot be nil")
 )
 
 // RebootParserConfig contains the information for which validators should be created.
 type RebootParserConfig struct {
-	EventValidators []EventValidationConfig
-	CycleValidators []CycleValidationConfig
+	EventValidators         []EventValidationConfig
+	CycleValidators         []CycleValidationConfig
+	TimeElapsedCalculations []TimeElapsedConfig
+}
+
+// TimeElapsedConfig contains information for calculating the time between a fully-manageable event and another event.
+type TimeElapsedConfig struct {
+	Name        string
+	SessionType string
+	EventType   string
 }
 
 // CycleValidationConfig is the config for a cycle validator.
@@ -119,6 +131,7 @@ func Provide() fx.Option {
 		provideParserValidators(),
 		fx.Provide(
 			arrange.UnmarshalKey("rebootDurationParser", RebootParserConfig{}),
+			arrange.UnmarshalKey("rebootDurationParser.timeElapsedCalculations", []TimeElapsedConfig{}),
 			fx.Annotated{
 				Name: "reboot_parser_name",
 				Target: func() string {
@@ -195,7 +208,7 @@ func provideParsers() fx.Option {
 func provideDurationCalculators() fx.Option {
 	return fx.Provide(
 		createBootDurationCallback,
-		createRebootToManageableCallback,
+		// createRebootToManageableCallback,
 		fx.Annotated{
 			Group: "duration_calculators",
 			Target: func(callback func(interpreter.Event, float64), loggerIn RebootLoggerIn) DurationCalculator {
@@ -203,11 +216,8 @@ func provideDurationCalculators() fx.Option {
 			},
 		},
 		fx.Annotated{
-			Group: "duration_calculators",
-			Target: func(callback func(interpreter.Event, interpreter.Event, float64), loggerIn RebootLoggerIn) (DurationCalculator, error) {
-				rebootEventFinder := history.LastSessionFinder(validation.DestinationValidator(rebootPendingEventType))
-				return NewEventToCurrentCalculator(rebootEventFinder, callback, loggerIn.Logger)
-			},
+			Group:  "duration_calculators,flatten",
+			Target: createDurationCalculators,
 		},
 	)
 }
@@ -274,6 +284,47 @@ func provideParserValidators() fx.Option {
 	)
 }
 
+func createDurationCalculators(f *touchstone.Factory, configs []TimeElapsedConfig, m Measures, loggerIn RebootLoggerIn) ([]DurationCalculator, error) {
+	calculators := make([]DurationCalculator, len(configs))
+	for i, config := range configs {
+		if len(config.Name) == 0 {
+			return nil, errBlankHistogramName
+		}
+
+		options := prometheus.HistogramOpts{
+			Name:    config.Name,
+			Help:    fmt.Sprintf("time elapsed between a %s event and fully-manageable event in s", config.EventType),
+			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		}
+
+		if err := m.addTimeElapsedHistogram(f, options, firmwareLabel, hardwareLabel, rebootReasonLabel); err != nil {
+			return nil, err
+		}
+
+		sessionType := enums.ParseSessionType(config.SessionType)
+		var finder Finder
+		if sessionType == enums.Previous {
+			finder = history.LastSessionFinder(validation.DestinationValidator(config.EventType))
+		} else {
+			finder = history.CurrentSessionFinder(validation.DestinationValidator(config.EventType))
+		}
+
+		callback, err := createTimeElapsedCallback(m, config.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		calculator, err := NewEventToCurrentCalculator(finder, callback, loggerIn.Logger)
+		if err != nil {
+			return nil, err
+		}
+
+		calculators[i] = calculator
+	}
+
+	return calculators, nil
+}
+
 func createBootDurationCallback(m Measures) (func(interpreter.Event, float64), error) {
 	if m.BootToManageableHistogram == nil {
 		return nil, errNilBootHistogram
@@ -285,14 +336,19 @@ func createBootDurationCallback(m Measures) (func(interpreter.Event, float64), e
 	}, nil
 }
 
-func createRebootToManageableCallback(m Measures) (func(interpreter.Event, interpreter.Event, float64), error) {
-	if m.RebootToManageableHistogram == nil {
-		return nil, errNilRebootHistogram
+func createTimeElapsedCallback(m Measures, name string) (func(interpreter.Event, interpreter.Event, float64), error) {
+	if m.TimeElapsedHistograms == nil {
+		return nil, errNilHistogram
+	}
+
+	if _, found := m.TimeElapsedHistograms[name]; !found {
+		return nil, errNilHistogram
 	}
 
 	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
 		labels := getTimeElapsedHistogramLabels(currentEvent)
-		m.RebootToManageableHistogram.With(labels).Observe(duration)
+		histogram := m.TimeElapsedHistograms[name]
+		histogram.With(labels).Observe(duration)
 	}, nil
 }
 
