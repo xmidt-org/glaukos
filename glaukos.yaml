@@ -112,7 +112,8 @@ webhook:
     # events provides a list of regular expressions that tells the webhook
     # which endpoints to send to Glaukos.  If the destination of an event
     # matches a regular expression in this list, it is sent to Glaukos
-    events: ["device-status.*"]
+    events:
+      # - ""
 
     # matcher provides regular expressions to match against the event source.
     # (Optional) default is [".*"]
