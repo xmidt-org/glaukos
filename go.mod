@@ -21,7 +21,7 @@ require (
 	github.com/xmidt-org/arrange v0.3.0
 	github.com/xmidt-org/bascule v0.10.1
 	github.com/xmidt-org/httpaux v0.2.1
-	github.com/xmidt-org/interpreter v0.0.5
+	github.com/xmidt-org/interpreter v0.0.6
 	github.com/xmidt-org/sallust v0.1.5
 	github.com/xmidt-org/touchstone v0.0.3
 	github.com/xmidt-org/webpa-common v1.11.5
@@ -31,5 +31,3 @@ require (
 	go.uber.org/ratelimit v0.2.0
 	go.uber.org/zap v1.16.0
 )
-
-replace github.com/xmidt-org/interpreter v0.0.5 => github.com/xmidt-org/interpreter v0.0.6-0.20210716221517-3e9e5d5fc4e5
