@@ -137,7 +137,9 @@ webhook:
     # events provides a list of regular expressions that tells the webhook
     # which endpoints to send to Glaukos.  If the destination of an event
     # matches a regular expression in this list, it is sent to Glaukos
-    events: ["device-status.*"]
+    events:
+      - (( prepend ))
+      - "device-status/.*/fully-manageable.*"
 
   # the below configuration values provide a way to add an Authorization header
   # to the request to the webhook.  If both basic and sat contain empty values,
