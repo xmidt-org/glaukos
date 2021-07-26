@@ -34,42 +34,6 @@ services:
     networks:
       - xmidt
 
-  caduceator2:
-    image: xmidt/caduceator:${CADUCEATOR_VERSION}
-    container_name: caduceator-2
-    ports:
-      - 5020-5023:5020-5023
-    depends_on:
-      - caduceus
-    volumes:
-      - ./docFiles/caduceator-2.yaml:/etc/caduceator/caduceator.yaml
-    networks:
-      - xmidt
-
-  caduceator3:
-    image: xmidt/caduceator:${CADUCEATOR_VERSION}
-    container_name: caduceator-3
-    ports:
-      - 5030-5033:5030-5033
-    depends_on:
-      - caduceus
-    volumes:
-      - ./docFiles/caduceator-3.yaml:/etc/caduceator/caduceator.yaml
-    networks:
-      - xmidt
-
-  caduceator4:
-    image: xmidt/caduceator:${CADUCEATOR_VERSION}
-    container_name: caduceator-4
-    ports:
-      - 5040-5043:5040-5043
-    depends_on:
-      - caduceus
-    volumes:
-      - ./docFiles/caduceator-4.yaml:/etc/caduceator/caduceator.yaml
-    networks:
-      - xmidt
-
   svalinn:
     image: xmidt/svalinn:${SVALINN_VERSION}
     container_name: svalinn

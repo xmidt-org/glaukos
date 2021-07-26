@@ -7,6 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-kit/kit v0.10.0
 	github.com/gorilla/mux v1.8.0
+	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/influxdata/influxdb1-client v0.0.0-20200827194710-b269163b24ab // indirect
 	github.com/justinas/alice v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
@@ -20,7 +21,7 @@ require (
 	github.com/xmidt-org/arrange v0.3.0
 	github.com/xmidt-org/bascule v0.10.1
 	github.com/xmidt-org/httpaux v0.2.1
-	github.com/xmidt-org/interpreter v0.0.3
+	github.com/xmidt-org/interpreter v0.0.6
 	github.com/xmidt-org/sallust v0.1.5
 	github.com/xmidt-org/touchstone v0.0.3
 	github.com/xmidt-org/webpa-common v1.11.5

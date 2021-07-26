@@ -1,130 +1,63 @@
 package parsers
 
 import (
-	"errors"
-	"io/ioutil"
-	"log"
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/glaukos/events"
-	"github.com/xmidt-org/touchstone"
-	"go.uber.org/zap"
 )
 
-func TestValidNames(t *testing.T) {
+func TestCheckTimeValidations(t *testing.T) {
 	tests := []struct {
-		description   string
-		parsers       []TimeElapsedConfig
-		expectedErr   error
-		expectedValid bool
+		description    string
+		config         RebootParserConfig
+		expectedConfig RebootParserConfig
 	}{
 		{
-			description: "valid",
-			parsers: []TimeElapsedConfig{
-				TimeElapsedConfig{Name: "test"},
-				TimeElapsedConfig{Name: "test1"},
-				TimeElapsedConfig{Name: "random_parser"},
-			},
-			expectedValid: true,
-		},
-		{
-			description: "repeated names",
-			parsers: []TimeElapsedConfig{
-				TimeElapsedConfig{Name: "test"},
-				TimeElapsedConfig{Name: "test1"},
-				TimeElapsedConfig{Name: "test"},
-				TimeElapsedConfig{Name: "test1"},
-			},
-			expectedValid: false,
-			expectedErr:   errors.New("test"),
-		},
-		{
-			description: "blank name",
-			parsers: []TimeElapsedConfig{
-				TimeElapsedConfig{Name: "test"},
-				TimeElapsedConfig{Name: ""},
-				TimeElapsedConfig{Name: "test"},
-				TimeElapsedConfig{Name: "test1"},
-			},
-			expectedValid: false,
-			expectedErr:   errInvalidName,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			valid, err := validNames(tc.parsers)
-			assert.Equal(tc.expectedValid, valid)
-			if tc.expectedErr == nil || err == nil {
-				assert.Equal(tc.expectedErr, err)
-			} else {
-				assert.Contains(err.Error(), tc.expectedErr.Error())
-			}
-		})
-	}
-
-}
-
-func TestTimeElapsedParsersSuccess(t *testing.T) {
-	tests := []struct {
-		description string
-		config      TimeElapsedParsersConfig
-	}{
-		{
-			description: "success",
-			config: TimeElapsedParsersConfig{
-				DefaultValidFrom: -2 * time.Hour,
-				Parsers: []TimeElapsedConfig{
-					TimeElapsedConfig{
-						Name: "test",
-						IncomingEvent: EventConfig{
-							Regex:     ".*/online$",
-							ValidFrom: -1 * time.Hour,
-						},
-						SearchedEvent: EventConfig{
-							Regex:     ".*/offline$",
-							ValidFrom: -1 * time.Hour,
-						},
-					},
-					TimeElapsedConfig{
-						Name: "test2",
-						IncomingEvent: EventConfig{
-							Regex: ".*/some-event/",
-						},
-						SearchedEvent: EventConfig{
-							Regex: ".*/some-event-2/",
-						},
-					},
+			description: "no changes",
+			config: RebootParserConfig{
+				BootTimeValidator: TimeValidationConfig{
+					ValidFrom:    -1 * time.Hour,
+					ValidTo:      2 * time.Hour,
+					MinValidYear: 2015,
 				},
+				BirthdateValidator: TimeValidationConfig{
+					ValidFrom:    -1 * time.Hour,
+					ValidTo:      2 * time.Hour,
+					MinValidYear: 2015,
+				},
+				MinBootDuration:            5 * time.Second,
+				BirthdateAlignmentDuration: 2 * time.Minute,
+			},
+			expectedConfig: RebootParserConfig{
+				BootTimeValidator: TimeValidationConfig{
+					ValidFrom:    -1 * time.Hour,
+					ValidTo:      2 * time.Hour,
+					MinValidYear: 2015,
+				},
+				BirthdateValidator: TimeValidationConfig{
+					ValidFrom:    -1 * time.Hour,
+					ValidTo:      2 * time.Hour,
+					MinValidYear: 2015,
+				},
+				MinBootDuration:            5 * time.Second,
+				BirthdateAlignmentDuration: 2 * time.Minute,
 			},
 		},
 		{
-			description: "success with defaults",
-			config: TimeElapsedParsersConfig{
-				Parsers: []TimeElapsedConfig{
-					TimeElapsedConfig{
-						Name: "test",
-						IncomingEvent: EventConfig{
-							Regex: ".*/online$",
-						},
-						SearchedEvent: EventConfig{
-							Regex: ".*/offline$",
-						},
-					},
-					TimeElapsedConfig{
-						Name: "test2",
-						IncomingEvent: EventConfig{
-							Regex: ".*/some-event/",
-						},
-						SearchedEvent: EventConfig{
-							Regex: ".*/some-event-2/",
-						},
-					},
+			description: "defaults",
+			config:      RebootParserConfig{},
+			expectedConfig: RebootParserConfig{
+				BootTimeValidator: TimeValidationConfig{
+					ValidFrom: defaultValidFrom,
+					ValidTo:   defaultValidTo,
 				},
+				BirthdateValidator: TimeValidationConfig{
+					ValidFrom: defaultValidFrom,
+					ValidTo:   defaultValidTo,
+				},
+				MinBootDuration:            defaultMinBootDuration,
+				BirthdateAlignmentDuration: defaultBirthdateAlignmentDuration,
 			},
 		},
 	}
@@ -132,142 +65,33 @@ func TestTimeElapsedParsersSuccess(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
-
-			testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
-			timeElapsedParsersIn := TimeElapsedParsersIn{
-				Config:      tc.config,
-				Logger:      zap.NewNop(),
-				Measures:    testMeasures,
-				CodexClient: &events.CodexClient{},
-				Factory:     testFactory,
-			}
-
-			timeElapsedParsers, err := TimeElapsedParsers(timeElapsedParsersIn)
-			assert.Len(timeElapsedParsers, len(tc.config.Parsers))
-			assert.Nil(err)
-
-			for _, parser := range timeElapsedParsers {
-				histogram, found := testMeasures.TimeElapsedHistograms[parser.Name()]
-				assert.True(found)
-				assert.NotNil(histogram)
-			}
+			resultingConfig := checkTimeValidations(tc.config)
+			assert.Equal(tc.expectedConfig, resultingConfig)
 		})
 	}
 }
 
-func TestCreateTimeElapsedParsersErrors(t *testing.T) {
-	t.Run("histogram error", testHistogramError)
-	t.Run("parser error", testParserError)
-	t.Run("repeated parser names", testRepeatedNamesError)
-}
-
-func testHistogramError(t *testing.T) {
-	assert := assert.New(t)
-	config := TimeElapsedParsersConfig{
-		DefaultValidFrom: -2 * time.Hour,
-		Parsers: []TimeElapsedConfig{
-			TimeElapsedConfig{
-				Name: "test1",
-				IncomingEvent: EventConfig{
-					Regex: ".*/online$",
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/offline$",
-				},
+func TestCreateEventValidator(t *testing.T) {
+	configs := []RebootParserConfig{
+		RebootParserConfig{},
+		RebootParserConfig{
+			ValidEventTypes: []string{"testEvent1", "testEvent2"},
+			BootTimeValidator: TimeValidationConfig{
+				ValidFrom: -1 * time.Hour,
+				ValidTo:   time.Hour,
 			},
-		},
-	}
-	timeElapsedParsersIn := TimeElapsedParsersIn{
-		Config:      config,
-		Logger:      zap.NewNop(),
-		Measures:    Measures{},
-		CodexClient: &events.CodexClient{},
-		Factory:     nil,
-	}
-
-	parsers, err := TimeElapsedParsers(timeElapsedParsersIn)
-	assert.Nil(parsers)
-	assert.NotNil(err)
-}
-
-func testParserError(t *testing.T) {
-	assert := assert.New(t)
-	config := TimeElapsedParsersConfig{
-		DefaultValidFrom: -2 * time.Hour,
-		Parsers: []TimeElapsedConfig{
-			TimeElapsedConfig{
-				Name: "test1",
-				IncomingEvent: EventConfig{
-					Regex: ".*/online$",
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/offline$",
-				},
+			BirthdateValidator: TimeValidationConfig{
+				ValidFrom: -1 * time.Hour,
+				ValidTo:   time.Hour,
 			},
-			TimeElapsedConfig{
-				Name: "test2",
-				IncomingEvent: EventConfig{
-					Regex: `[`,
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/offline$",
-				},
-			},
+			MetadataValidators:         []string{"key1"},
+			MinBootDuration:            10 * time.Second,
+			BirthdateAlignmentDuration: time.Hour,
 		},
 	}
 
-	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
-	timeElapsedParsersIn := TimeElapsedParsersIn{
-		Config:      config,
-		Logger:      zap.NewNop(),
-		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
-		CodexClient: &events.CodexClient{},
-		Factory:     testFactory,
+	for _, config := range configs {
+		validator := createEventValidator(config)
+		assert.NotNil(t, validator)
 	}
-
-	parsers, err := TimeElapsedParsers(timeElapsedParsersIn)
-	assert.Nil(parsers)
-	assert.NotNil(err)
-}
-
-func testRepeatedNamesError(t *testing.T) {
-	assert := assert.New(t)
-	config := TimeElapsedParsersConfig{
-		DefaultValidFrom: -2 * time.Hour,
-		Parsers: []TimeElapsedConfig{
-			TimeElapsedConfig{
-				Name: "test1",
-				IncomingEvent: EventConfig{
-					Regex: ".*/online$",
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/offline$",
-				},
-			},
-			TimeElapsedConfig{
-				Name: "test1",
-				IncomingEvent: EventConfig{
-					Regex: ".*/online$",
-				},
-				SearchedEvent: EventConfig{
-					Regex: ".*/offline$",
-				},
-			},
-		},
-	}
-
-	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
-	timeElapsedParsersIn := TimeElapsedParsersIn{
-		Config:      config,
-		Logger:      zap.NewNop(),
-		Measures:    Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)},
-		CodexClient: &events.CodexClient{},
-		Factory:     testFactory,
-	}
-
-	parsers, err := TimeElapsedParsers(timeElapsedParsersIn)
-	assert.Nil(parsers)
-	assert.NotNil(err)
-
 }
