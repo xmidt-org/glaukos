@@ -266,7 +266,7 @@ rebootDurationParser:
     # consistent-device-id validates that all device id occurances in an event's destination, metadata, and source are consistent
     - key: "consistent-device-id"
   # cycleValidators are validators that validate a list of events (a cycle). There are two types of cycles that will be
-  # validated: events with the boot-time that the just before the current event's boot-time and the cycle containing reboot events.
+  # validated: events with the boot-time just before the current event's boot-time and the cycle containing reboot events.
   # cycleType options: boot-time or reboot
   # boot-time: informs glaukos that this validator should validate events from the last cycle only
   # reboot: informs glaukos that this validator should validate reboot events only

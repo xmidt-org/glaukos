@@ -6,21 +6,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidationTypeString(t *testing.T) {
+func TestCycleValidationTypeString(t *testing.T) {
 	tests := []struct {
 		description    string
-		validationType ValidationType
+		validationType CycleValidationType
 		expectedString string
 	}{
 		{
 			description:    "valid type",
-			validationType: BootTimeValidation,
-			expectedString: BootTimeValidationStr,
+			validationType: ConsistentMetadataValidation,
+			expectedString: ConsistentMetadataValidationStr,
 		},
 		{
 			description:    "random type",
-			validationType: ValidationType(2000),
-			expectedString: UnknownValidationStr,
+			validationType: CycleValidationType(2000),
+			expectedString: UnknownCycleValidationStr,
 		},
 	}
 
@@ -32,25 +32,26 @@ func TestValidationTypeString(t *testing.T) {
 	}
 }
 
-func TestParseValidationType(t *testing.T) {
+func TestCycleValidationUnmarshalText(t *testing.T) {
 	tests := []struct {
 		key          string
-		expectedType ValidationType
+		expectedType CycleValidationType
 	}{
 		{
-			key:          BootTimeValidationStr,
-			expectedType: BootTimeValidation,
+			key:          ConsistentMetadataValidationStr,
+			expectedType: ConsistentMetadataValidation,
 		},
 		{
 			key:          "abc-random-efg",
-			expectedType: UnknownValidation,
+			expectedType: UnknownCycleValidation,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.key, func(t *testing.T) {
 			assert := assert.New(t)
-			valType := ParseValidationType(tc.key)
+			valType := CycleValidationType(1000)
+			valType.UnmarshalText([]byte(tc.key))
 			assert.Equal(tc.expectedType, valType)
 		})
 	}

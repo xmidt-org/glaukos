@@ -19,14 +19,11 @@ package parsers
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/interpreter/history"
 	"github.com/xmidt-org/interpreter/validation"
-	"github.com/xmidt-org/touchstone"
 
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/glaukos/eventmetrics/parsers/enums"
@@ -46,12 +43,9 @@ const (
 )
 
 var (
-	errWrongEventValidatorKey = errors.New("not an event validator key")
-	errWrongCycleValidatorKey = errors.New("not a cycle validator key")
-	errNonExistentKey         = errors.New("key does not exist")
-	errBlankHistogramName     = errors.New("name cannot be blank")
-	errNilHistogram           = errors.New("histogram missing")
-	errNilBootHistogram       = errors.New("boot_to_manageable histogram cannot be nil")
+	errBlankHistogramName = errors.New("name cannot be blank")
+	errNilHistogram       = errors.New("histogram missing")
+	errNilBootHistogram   = errors.New("boot_to_manageable histogram cannot be nil")
 )
 
 // RebootParserConfig contains the information for which validators should be created.
@@ -66,24 +60,6 @@ type TimeElapsedConfig struct {
 	Name        string
 	SessionType string
 	EventType   string
-}
-
-// CycleValidationConfig is the config for a cycle validator.
-type CycleValidationConfig struct {
-	Key                string
-	CycleType          string // validate reboot events or last cycle events
-	MetadataValidators []string
-	EventOrder         []string // the cycle will be sorted in descending order by boot-time, then birthdate
-}
-
-// EventValidationConfig is the config for each of the validators.
-type EventValidationConfig struct {
-	Key                        string
-	BootTimeValidator          TimeValidationConfig
-	BirthdateValidator         TimeValidationConfig
-	ValidEventTypes            []string
-	MinBootDuration            time.Duration
-	BirthdateAlignmentDuration time.Duration
 }
 
 // TimeValidationConfig is the config used for time validation.
@@ -105,7 +81,7 @@ type RebootLoggerIn struct {
 
 type ValidatorsIn struct {
 	fx.In
-	EventValidator       validation.Validator
+	EventValidator       validation.Validator   `name:"event_validator"`
 	LastCycleValidator   history.CycleValidator `name:"last_cycle_validator"`
 	RebootCycleValidator history.CycleValidator `name:"reboot_cycle_validator"`
 }
@@ -138,17 +114,19 @@ func Provide() fx.Option {
 					return "reboot_duration_parser"
 				},
 			},
-			func(config RebootParserConfig) (validation.Validator, error) {
-				var validators validation.Validators
-				for _, config := range config.EventValidators {
-					validator, err := createEventValidator(config)
-					if err != nil {
-						return nil, err
+			fx.Annotated{
+				Name: "event_validator",
+				Target: func(config RebootParserConfig) (validation.Validator, error) {
+					var validators validation.Validators
+					for _, config := range config.EventValidators {
+						validator, err := createEventValidator(config)
+						if err != nil {
+							return nil, err
+						}
+						validators = append(validators, validator)
 					}
-					validators = append(validators, validator)
-				}
-
-				return validators, nil
+					return validators, nil
+				},
 			},
 			fx.Annotated{
 				Name: "last_cycle_validator",
@@ -208,7 +186,6 @@ func provideParsers() fx.Option {
 func provideDurationCalculators() fx.Option {
 	return fx.Provide(
 		createBootDurationCallback,
-		// createRebootToManageableCallback,
 		fx.Annotated{
 			Group: "duration_calculators",
 			Target: func(callback func(interpreter.Event, float64), loggerIn RebootLoggerIn) DurationCalculator {
@@ -282,155 +259,6 @@ func provideParserValidators() fx.Option {
 			},
 		},
 	)
-}
-
-func createDurationCalculators(f *touchstone.Factory, configs []TimeElapsedConfig, m Measures, loggerIn RebootLoggerIn) ([]DurationCalculator, error) {
-	calculators := make([]DurationCalculator, len(configs))
-	for i, config := range configs {
-		if len(config.Name) == 0 {
-			return nil, errBlankHistogramName
-		}
-
-		options := prometheus.HistogramOpts{
-			Name:    config.Name,
-			Help:    fmt.Sprintf("time elapsed between a %s event and fully-manageable event in s", config.EventType),
-			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
-		}
-
-		if err := m.addTimeElapsedHistogram(f, options, firmwareLabel, hardwareLabel, rebootReasonLabel); err != nil {
-			return nil, err
-		}
-
-		sessionType := enums.ParseSessionType(config.SessionType)
-		var finder Finder
-		if sessionType == enums.Previous {
-			finder = history.LastSessionFinder(validation.DestinationValidator(config.EventType))
-		} else {
-			finder = history.CurrentSessionFinder(validation.DestinationValidator(config.EventType))
-		}
-
-		callback, err := createTimeElapsedCallback(m, config.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		calculator, err := NewEventToCurrentCalculator(finder, callback, loggerIn.Logger)
-		if err != nil {
-			return nil, err
-		}
-
-		calculators[i] = calculator
-	}
-
-	return calculators, nil
-}
-
-func createBootDurationCallback(m Measures) (func(interpreter.Event, float64), error) {
-	if m.BootToManageableHistogram == nil {
-		return nil, errNilBootHistogram
-	}
-
-	return func(event interpreter.Event, duration float64) {
-		labels := getTimeElapsedHistogramLabels(event)
-		m.BootToManageableHistogram.With(labels).Observe(duration)
-	}, nil
-}
-
-func createTimeElapsedCallback(m Measures, name string) (func(interpreter.Event, interpreter.Event, float64), error) {
-	if m.TimeElapsedHistograms == nil {
-		return nil, errNilHistogram
-	}
-
-	if _, found := m.TimeElapsedHistograms[name]; !found {
-		return nil, errNilHistogram
-	}
-
-	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
-		labels := getTimeElapsedHistogramLabels(currentEvent)
-		histogram := m.TimeElapsedHistograms[name]
-		histogram.With(labels).Observe(duration)
-	}, nil
-}
-
-func createEventValidator(config EventValidationConfig) (validation.Validator, error) {
-	validationType := enums.ParseValidationType(config.Key)
-	if validationType == enums.UnknownValidation {
-		return nil, errNonExistentKey
-	}
-
-	switch validationType {
-	case enums.BootTimeValidation:
-		config = checkTimeValidations(config)
-		bootTimeValidator := validation.TimeValidator{
-			Current:      time.Now,
-			ValidFrom:    config.BootTimeValidator.ValidFrom,
-			ValidTo:      config.BootTimeValidator.ValidTo,
-			MinValidYear: config.BootTimeValidator.MinValidYear,
-		}
-		return validation.BootTimeValidator(bootTimeValidator), nil
-	case enums.BirthdateValidation:
-		config = checkTimeValidations(config)
-		birthdateValidator := validation.TimeValidator{
-			Current:      time.Now,
-			ValidFrom:    config.BootTimeValidator.ValidFrom,
-			ValidTo:      config.BootTimeValidator.ValidTo,
-			MinValidYear: config.BootTimeValidator.MinValidYear,
-		}
-		return validation.BirthdateValidator(birthdateValidator), nil
-	case enums.MinBootDuration:
-		config = checkTimeValidations(config)
-		return validation.BootDurationValidator(config.MinBootDuration), nil
-	case enums.BirthdateAlignment:
-		config = checkTimeValidations(config)
-		return validation.BirthdateAlignmentValidator(config.BirthdateAlignmentDuration), nil
-	case enums.ValidEventType:
-		return validation.EventTypeValidator(config.ValidEventTypes), nil
-	case enums.ConsistentDeviceID:
-		return validation.ConsistentDeviceIDValidator(), nil
-	default:
-		return nil, errWrongEventValidatorKey
-	}
-}
-
-func createCycleValidator(config CycleValidationConfig) (history.CycleValidator, error) {
-	validationType := enums.ParseValidationType(config.Key)
-	if validationType == enums.UnknownValidation {
-		return nil, errNonExistentKey
-	}
-
-	switch validationType {
-	case enums.ConsistentMetadata:
-		return history.MetadataValidator(config.MetadataValidators, true), nil
-	case enums.UniqueTransactionID:
-		return history.TransactionUUIDValidator(), nil
-	case enums.SessionOnline:
-		return history.SessionOnlineValidator(func(events []interpreter.Event, id string) bool {
-			return false
-		}), nil
-	case enums.SessionOffline:
-		return history.SessionOfflineValidator(func(events []interpreter.Event, id string) bool {
-			return false
-		}), nil
-	case enums.EventOrder:
-		return history.EventOrderValidator(config.EventOrder), nil
-	default:
-		return nil, errWrongCycleValidatorKey
-	}
-}
-
-func createCycleValidators(configs []CycleValidationConfig, cycleType enums.CycleType) (history.CycleValidator, error) {
-	var validators history.CycleValidators
-	for _, config := range configs {
-		if enums.ParseCycleType(config.CycleType) == cycleType {
-			validator, err := createCycleValidator(config)
-			if err != nil {
-				return nil, err
-			}
-			validators = append(validators, validator)
-		}
-	}
-
-	return validators, nil
 }
 
 func checkTimeValidations(config EventValidationConfig) EventValidationConfig {
