@@ -8,7 +8,7 @@
         * Transaction_uuid between events in this list are different.
         * An online and offline event exists for each session id in this list.
         * Among events with the same boot-time: the `metadata/fw-name`, `metadata/hw-last-reboot-reason`, `metadata/webpa-protocol` are all the same.
-    * Checks that, upon failure, result in individual tags for each event in the list. For each tag per event, a counter is incremented with the tag and event type as label values.
+    * Checks that, upon failure, result in individual tags for each event in the list. For each tag per event, a counter is incremented with the tag as label value.
         * Event-type matches one of the possible outcomes.
         * Boot-time is present and within the configured time frame.
         * Birthdate is present and within the configured time frame.
@@ -16,6 +16,6 @@
         * All device-id occurrences within the source, destination, and metadata of the event are consistent. The first device ID found is considered the correct one.
         * All time values in the destination are at least 10s after the boot-time.
         * Timestamps in the destination are within 60s of the birthdate.
-4. If there are no cycle-tags:
+4. If there are no error tags:
     * Subtract the birthdate of the `fully-manageable` event from the boot-time and calculate the time elapsed. If no errors arise during the calculation, add the time duration to the proper histogram.
     * Find the reboot-pending event (if it exists) and calculate the time elapsed. If no errors arise during the calculation, add the time duration to the proper histogram.
