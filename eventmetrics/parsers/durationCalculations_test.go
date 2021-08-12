@@ -3,12 +3,17 @@ package parsers
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/touchstone"
+	"github.com/xmidt-org/touchstone/touchtest"
 	"go.uber.org/zap"
 )
 
@@ -252,4 +257,213 @@ func TestEventToCurrentCalculator(t *testing.T) {
 			assert.Equal(tc.expectedErr, err)
 		})
 	}
+}
+
+func TestCreateDurationCalculators(t *testing.T) {
+	tests := []struct {
+		description string
+		configs     []TimeElapsedConfig
+		expectedErr error
+	}{
+		{
+			description: "success",
+			configs: []TimeElapsedConfig{
+				TimeElapsedConfig{
+					Name:        "test",
+					SessionType: "current",
+					EventType:   "test-event-type",
+				},
+				TimeElapsedConfig{
+					Name:        "test1",
+					SessionType: "previous",
+					EventType:   "test-event-type2",
+				},
+			},
+		},
+		{
+			description: "duplicate Name",
+			configs: []TimeElapsedConfig{
+				TimeElapsedConfig{
+					Name:        "test",
+					SessionType: "current",
+					EventType:   "test-event-type",
+				},
+				TimeElapsedConfig{
+					Name:        "test",
+					SessionType: "previous",
+					EventType:   "test-event-type2",
+				},
+			},
+			expectedErr: errNewHistogram,
+		},
+		{
+			description: "blank name",
+			configs: []TimeElapsedConfig{
+				TimeElapsedConfig{
+					Name:        "test",
+					SessionType: "current",
+					EventType:   "test-event-type",
+				},
+				TimeElapsedConfig{
+					Name:        "",
+					SessionType: "previous",
+					EventType:   "test-event-type2",
+				},
+			},
+			expectedErr: errBlankHistogramName,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+
+			testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
+			durationCalculators, err := createDurationCalculators(testFactory, tc.configs, testMeasures, RebootLoggerIn{Logger: zap.NewNop()})
+
+			if tc.expectedErr != nil {
+				assert.True(errors.Is(err, tc.expectedErr))
+			} else {
+				assert.NotNil(durationCalculators)
+				assert.Equal(len(tc.configs), len(durationCalculators))
+				for _, config := range tc.configs {
+					histogram, found := testMeasures.TimeElapsedHistograms[config.Name]
+					assert.True(found)
+					assert.NotNil(histogram)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateDurationCalculatorsHistogramErr(t *testing.T) {
+	assert := assert.New(t)
+	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+	testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
+	testName := "test_hist"
+	config := TimeElapsedConfig{
+		Name: testName,
+	}
+	options := prometheus.HistogramOpts{
+		Name:    testName,
+		Help:    "test_help",
+		Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+	}
+
+	testMeasures.addTimeElapsedHistogram(testFactory, options)
+	durationCalculators, err := createDurationCalculators(testFactory, []TimeElapsedConfig{config}, testMeasures, RebootLoggerIn{Logger: zap.NewNop()})
+	assert.True(errors.Is(err, errNewHistogram))
+	assert.Nil(durationCalculators)
+}
+
+func TestCreateBootDurationCallback(t *testing.T) {
+	const (
+		hwVal        = "hw"
+		fwVal        = "fw"
+		rebootReason = "reboot"
+	)
+
+	assert := assert.New(t)
+	m := Measures{
+		BootToManageableHistogram: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "bootHistogram",
+				Help:    "bootHistogram",
+				Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+			},
+			[]string{firmwareLabel, hardwareLabel, rebootReasonLabel},
+		),
+	}
+
+	expectedHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "bootHistogram",
+			Help:    "bootHistogram",
+			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		},
+		[]string{firmwareLabel, hardwareLabel, rebootReasonLabel},
+	)
+
+	currentEvent := interpreter.Event{
+		Metadata: map[string]string{
+			hardwareMetadataKey:     hwVal,
+			firmwareMetadataKey:     fwVal,
+			rebootReasonMetadataKey: rebootReason,
+		},
+	}
+
+	expectedRegistry := prometheus.NewPedanticRegistry()
+	actualRegistry := prometheus.NewPedanticRegistry()
+	expectedRegistry.Register(expectedHistogram)
+	actualRegistry.Register(m.BootToManageableHistogram)
+	callback, err := createBootDurationCallback(m)
+	assert.Nil(err)
+	callback(currentEvent, 5.0)
+	expectedHistogram.WithLabelValues(fwVal, hwVal, rebootReason).Observe(5.0)
+	testAssert := touchtest.New(t)
+	testAssert.Expect(expectedRegistry)
+	assert.True(testAssert.GatherAndCompare(actualRegistry))
+
+	nilCallback, err := createBootDurationCallback(Measures{})
+	assert.Nil(nilCallback)
+	assert.Equal(errNilBootHistogram, err)
+}
+
+func TestCreateTimeElapsedCallback(t *testing.T) {
+	const (
+		hwVal        = "hw"
+		fwVal        = "fw"
+		rebootReason = "reboot"
+		histogramKey = "test_histogram"
+	)
+
+	assert := assert.New(t)
+	actualHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "rebootHistogram",
+			Help:    "rebootHistogram",
+			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		},
+		[]string{firmwareLabel, hardwareLabel, rebootReasonLabel},
+	)
+
+	expectedHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "rebootHistogram",
+			Help:    "rebootHistogram",
+			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		},
+		[]string{firmwareLabel, hardwareLabel, rebootReasonLabel},
+	)
+
+	m := Measures{
+		TimeElapsedHistograms: map[string]prometheus.ObserverVec{
+			histogramKey: actualHistogram,
+		},
+	}
+
+	currentEvent := interpreter.Event{
+		Metadata: map[string]string{
+			hardwareMetadataKey:     hwVal,
+			firmwareMetadataKey:     fwVal,
+			rebootReasonMetadataKey: rebootReason,
+		},
+	}
+
+	expectedRegistry := prometheus.NewPedanticRegistry()
+	actualRegistry := prometheus.NewPedanticRegistry()
+	expectedRegistry.Register(expectedHistogram)
+	actualRegistry.Register(actualHistogram)
+	callback, err := createTimeElapsedCallback(m, histogramKey)
+	assert.Nil(err)
+	callback(currentEvent, interpreter.Event{}, 5.0)
+	expectedHistogram.WithLabelValues(fwVal, hwVal, rebootReason).Observe(5.0)
+	testAssert := touchtest.New(t)
+	testAssert.Expect(expectedRegistry)
+	assert.True(testAssert.GatherAndCompare(actualRegistry))
+
+	nilCallback, err := createTimeElapsedCallback(Measures{}, histogramKey)
+	assert.Nil(nilCallback)
+	assert.Equal(errNilHistogram, err)
 }

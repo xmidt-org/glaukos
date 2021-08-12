@@ -64,6 +64,13 @@ scrape_configs:
     static_configs:
       - targets: ["caduceator1:5013"]
 
+  - job_name: "gungnir"
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["gungnir:7003"]
+
   - job_name: "glaukos"
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.

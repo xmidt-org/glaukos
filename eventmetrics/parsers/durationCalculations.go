@@ -19,9 +19,15 @@ package parsers
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/glaukos/eventmetrics/parsers/enums"
 	"github.com/xmidt-org/interpreter"
+	"github.com/xmidt-org/interpreter/history"
+	"github.com/xmidt-org/interpreter/validation"
+	"github.com/xmidt-org/touchstone"
 	"go.uber.org/zap"
 )
 
@@ -135,4 +141,75 @@ func (c *EventToCurrentCalculator) Calculate(events []interpreter.Event, event i
 	}
 
 	return nil
+}
+
+// createDurationCalculators creates a list of DurationCalculators from config.
+func createDurationCalculators(f *touchstone.Factory, configs []TimeElapsedConfig, m Measures, loggerIn RebootLoggerIn) ([]DurationCalculator, error) {
+	calculators := make([]DurationCalculator, len(configs))
+	for i, config := range configs {
+		if len(config.Name) == 0 {
+			return nil, errBlankHistogramName
+		}
+
+		options := prometheus.HistogramOpts{
+			Name:    config.Name,
+			Help:    fmt.Sprintf("time elapsed between a %s event and fully-manageable event in s", config.EventType),
+			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
+		}
+
+		if err := m.addTimeElapsedHistogram(f, options, firmwareLabel, hardwareLabel, rebootReasonLabel); err != nil {
+			return nil, err
+		}
+
+		sessionType := enums.ParseSessionType(config.SessionType)
+		var finder Finder
+		if sessionType == enums.Previous {
+			finder = history.LastSessionFinder(validation.DestinationValidator(config.EventType))
+		} else {
+			finder = history.CurrentSessionFinder(validation.DestinationValidator(config.EventType))
+		}
+
+		callback, err := createTimeElapsedCallback(m, config.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		calculator, err := NewEventToCurrentCalculator(finder, callback, loggerIn.Logger)
+		if err != nil {
+			return nil, err
+		}
+
+		calculators[i] = calculator
+	}
+
+	return calculators, nil
+}
+
+// returns a callback that adds to the bootToManageable histogram for boot duration calculations
+func createBootDurationCallback(m Measures) (func(interpreter.Event, float64), error) {
+	if m.BootToManageableHistogram == nil {
+		return nil, errNilBootHistogram
+	}
+
+	return func(event interpreter.Event, duration float64) {
+		labels := getTimeElapsedHistogramLabels(event)
+		m.BootToManageableHistogram.With(labels).Observe(duration)
+	}, nil
+}
+
+// returns a callback for time elapsed calculations
+func createTimeElapsedCallback(m Measures, name string) (func(interpreter.Event, interpreter.Event, float64), error) {
+	if m.TimeElapsedHistograms == nil {
+		return nil, errNilHistogram
+	}
+
+	if _, found := m.TimeElapsedHistograms[name]; !found {
+		return nil, errNilHistogram
+	}
+
+	return func(currentEvent interpreter.Event, startingEvent interpreter.Event, duration float64) {
+		labels := getTimeElapsedHistogramLabels(currentEvent)
+		histogram := m.TimeElapsedHistograms[name]
+		histogram.With(labels).Observe(duration)
+	}, nil
 }
