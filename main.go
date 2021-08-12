@@ -27,6 +27,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
@@ -78,8 +79,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	decodeOption := viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.TextUnmarshallerHookFunc(),
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		),
+	)
+
 	app := fx.New(
-		arrange.ForViper(v),
+		arrange.ForViper(v, decodeOption),
 		eventmetrics.Provide(),
 		basculehttp.ProvideLogger(),
 		touchhttp.Provide(),

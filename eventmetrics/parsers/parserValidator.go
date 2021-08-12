@@ -32,8 +32,9 @@ const (
 )
 
 var (
-	errFatal      = errors.New("fatal error")
-	errValidation = errors.New("validation error")
+	errFatal          = errors.New("fatal error")
+	errValidation     = errors.New("validation error")
+	errNonExistentKey = errors.New("key does not exist")
 )
 
 // EventsParser parses the relevant events from a device's history of events and returns those events.

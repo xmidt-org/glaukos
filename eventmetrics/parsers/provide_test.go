@@ -10,12 +10,12 @@ import (
 func TestCheckTimeValidations(t *testing.T) {
 	tests := []struct {
 		description    string
-		config         RebootParserConfig
-		expectedConfig RebootParserConfig
+		config         EventValidationConfig
+		expectedConfig EventValidationConfig
 	}{
 		{
 			description: "no changes",
-			config: RebootParserConfig{
+			config: EventValidationConfig{
 				BootTimeValidator: TimeValidationConfig{
 					ValidFrom:    -1 * time.Hour,
 					ValidTo:      2 * time.Hour,
@@ -29,7 +29,7 @@ func TestCheckTimeValidations(t *testing.T) {
 				MinBootDuration:            5 * time.Second,
 				BirthdateAlignmentDuration: 2 * time.Minute,
 			},
-			expectedConfig: RebootParserConfig{
+			expectedConfig: EventValidationConfig{
 				BootTimeValidator: TimeValidationConfig{
 					ValidFrom:    -1 * time.Hour,
 					ValidTo:      2 * time.Hour,
@@ -46,8 +46,8 @@ func TestCheckTimeValidations(t *testing.T) {
 		},
 		{
 			description: "defaults",
-			config:      RebootParserConfig{},
-			expectedConfig: RebootParserConfig{
+			config:      EventValidationConfig{},
+			expectedConfig: EventValidationConfig{
 				BootTimeValidator: TimeValidationConfig{
 					ValidFrom: defaultValidFrom,
 					ValidTo:   defaultValidTo,
@@ -68,30 +68,5 @@ func TestCheckTimeValidations(t *testing.T) {
 			resultingConfig := checkTimeValidations(tc.config)
 			assert.Equal(tc.expectedConfig, resultingConfig)
 		})
-	}
-}
-
-func TestCreateEventValidator(t *testing.T) {
-	configs := []RebootParserConfig{
-		RebootParserConfig{},
-		RebootParserConfig{
-			ValidEventTypes: []string{"testEvent1", "testEvent2"},
-			BootTimeValidator: TimeValidationConfig{
-				ValidFrom: -1 * time.Hour,
-				ValidTo:   time.Hour,
-			},
-			BirthdateValidator: TimeValidationConfig{
-				ValidFrom: -1 * time.Hour,
-				ValidTo:   time.Hour,
-			},
-			MetadataValidators:         []string{"key1"},
-			MinBootDuration:            10 * time.Second,
-			BirthdateAlignmentDuration: time.Hour,
-		},
-	}
-
-	for _, config := range configs {
-		validator := createEventValidator(config)
-		assert.NotNil(t, validator)
 	}
 }
