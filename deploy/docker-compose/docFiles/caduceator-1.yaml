@@ -38,7 +38,6 @@ vegetaConfig:
             - "/fw-name": "firmware1"
             - "/hw-last-reboot-reason": "reboot-reason-1"
           transactionUUID: "1"
-          sessionID: "1"
         bootTimeOffset: "-10m"
         birthdateOffset: "-2m"
       - wrp:
@@ -49,7 +48,6 @@ vegetaConfig:
             - "/fw-name": "firmware1"
             - "/hw-last-reboot-reason": "reboot-reason-1"
           transactionUUID: "2"
-          sessionID: "1"
         bootTimeOffset: "-10m"
         birthdateOffset: "-3m"
       - wrp:
@@ -60,7 +58,6 @@ vegetaConfig:
             - "/fw-name": "firmware1"
             - "/hw-last-reboot-reason": "reboot-reason-1"
           transactionUUID: "3"
-          sessionID: "1"
         bootTimeOffset: "-10m"
         birthdateOffset: "-4m"
       - wrp:
@@ -71,7 +68,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "4"
-          sessionID: "2"
         bootTimeOffset: "-13m"
         birthdateOffset: "-14m"
       - wrp:
@@ -82,7 +78,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "5"
-          sessionID: "2"
         bootTimeOffset: "-13m"
         birthdateOffset: "-15m"
       - wrp:
@@ -93,7 +88,6 @@ vegetaConfig:
             - "fw-name": "firmware2"
             - "hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "6"
-          sessionID: "2"
         bootTimeOffset: "-13m"
         birthdateOffset: "-15m"
       - wrp:
@@ -104,7 +98,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "7"
-          sessionID: "2"
         bootTimeOffset: "-13m"
         birthdateOffset: "-16m"
       - wrp:
@@ -115,7 +108,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "8"
-          sessionID: "3"
         bootTimeOffset: "-13m"
         birthdateOffset: "-17m"
       - wrp:
@@ -126,7 +118,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "9"
-          sessionID: "3"
         bootTimeOffset: "-13m"
         birthdateOffset: "-18m"
       - wrp:
@@ -137,7 +128,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "10"
-          sessionID: "4"
         bootTimeOffset: "-9000h"
         birthdateOffset: "-18m"
       - wrp:
@@ -148,7 +138,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "11"
-          sessionID: "5"
         bootTimeOffset: "-23m"
         birthdateOffset: "-18m"
       - wrp:
@@ -159,7 +148,6 @@ vegetaConfig:
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
           transactionUUID: "12"
-          sessionID: "6"
         bootTimeOffset: "-23m"
         birthdateOffset: "-20m"
   # simulates talaria rehash
