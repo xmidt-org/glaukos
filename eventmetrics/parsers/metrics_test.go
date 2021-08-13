@@ -15,6 +15,10 @@ import (
 	"github.com/xmidt-org/touchstone/touchtest"
 )
 
+const (
+	testReason = "testReason"
+)
+
 func TestAddMetadata(t *testing.T) {
 	m := Measures{
 		MetadataFields: prometheus.NewCounterVec(
@@ -83,7 +87,6 @@ func TestAddRebootUnparsable(t *testing.T) {
 			"partner",
 		},
 	}
-	reason := "testReason"
 
 	expectedRegistry := prometheus.NewPedanticRegistry()
 	actualRegistry := prometheus.NewPedanticRegistry()
@@ -91,14 +94,14 @@ func TestAddRebootUnparsable(t *testing.T) {
 	actualRegistry.Register(m.RebootUnparsableCount)
 
 	expectedRebootUnparsableCount.With(prometheus.Labels{firmwareLabel: "fw",
-		hardwareLabel: "hw", partnerIDLabel: "partner", reasonLabel: reason}).Add(1.0)
-	m.AddRebootUnparsable(reason, testEvent)
+		hardwareLabel: "hw", partnerIDLabel: "partner", reasonLabel: testReason}).Add(1.0)
+	m.AddRebootUnparsable(testReason, testEvent)
 	testAssert := touchtest.New(t)
 	testAssert.Expect(expectedRegistry)
 	assert.True(t, testAssert.GatherAndCompare(actualRegistry))
 
 	m = Measures{}
-	m.AddRebootUnparsable(reason, testEvent)
+	m.AddRebootUnparsable(testReason, testEvent)
 }
 
 func TestAddEventError(t *testing.T) {
@@ -128,7 +131,6 @@ func TestAddEventError(t *testing.T) {
 			"partner",
 		},
 	}
-	reason := "testReason"
 
 	expectedRegistry := prometheus.NewPedanticRegistry()
 	actualRegistry := prometheus.NewPedanticRegistry()
@@ -136,13 +138,13 @@ func TestAddEventError(t *testing.T) {
 	actualRegistry.Register(eventErrorTags)
 
 	expectedEventErrorTags.With(prometheus.Labels{firmwareLabel: "fw",
-		hardwareLabel: "hw", partnerIDLabel: "partner", reasonLabel: reason}).Add(1.0)
-	AddEventError(eventErrorTags, testEvent, reason)
+		hardwareLabel: "hw", partnerIDLabel: "partner", reasonLabel: testReason}).Add(1.0)
+	AddEventError(eventErrorTags, testEvent, testReason)
 	testAssert := touchtest.New(t)
 	testAssert.Expect(expectedRegistry)
 	assert.True(t, testAssert.GatherAndCompare(actualRegistry))
 
-	AddEventError(nil, testEvent, reason)
+	AddEventError(nil, testEvent, testReason)
 }
 
 func TestAddCycleError(t *testing.T) {
@@ -167,20 +169,19 @@ func TestAddCycleError(t *testing.T) {
 			"partner",
 		},
 	}
-	reason := "testReason"
 
 	expectedRegistry := prometheus.NewPedanticRegistry()
 	actualRegistry := prometheus.NewPedanticRegistry()
 	expectedRegistry.Register(expectedCycleErrorTags)
 	actualRegistry.Register(cycleErrorCount)
 
-	expectedCycleErrorTags.With(prometheus.Labels{partnerIDLabel: "partner", reasonLabel: reason}).Add(1.0)
-	AddCycleError(cycleErrorCount, testEvent, reason)
+	expectedCycleErrorTags.With(prometheus.Labels{partnerIDLabel: "partner", reasonLabel: testReason}).Add(1.0)
+	AddCycleError(cycleErrorCount, testEvent, testReason)
 	testAssert := touchtest.New(t)
 	testAssert.Expect(expectedRegistry)
 	assert.True(t, testAssert.GatherAndCompare(actualRegistry))
 
-	AddCycleError(nil, testEvent, reason)
+	AddCycleError(nil, testEvent, testReason)
 }
 
 func TestAddDuration(t *testing.T) {
