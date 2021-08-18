@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
 ## [Unreleased]
+
+## [v0.3.0]
 
 ### Added
 - Add time validation struct and interface. [#44](https://github.com/xmidt-org/glaukos/pull/45)
@@ -60,8 +63,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.0.1]
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.2.4..HEAD
-[v0.2.3]: https://github.com/xmidt-org/glaukos/compare/v0.2.3..v0.2.4
+[Unreleased]: https://github.com/xmidt-org/glaukos/compare/v0.3.0..HEAD
+[v0.3.0]: https://github.com/xmidt-org/glaukos/compare/v0.2.4..v0.3.0
+[v0.2.4]: https://github.com/xmidt-org/glaukos/compare/v0.2.3..v0.2.4
 [v0.2.3]: https://github.com/xmidt-org/glaukos/compare/v0.2.2..v0.2.3
 [v0.2.2]: https://github.com/xmidt-org/glaukos/compare/v0.2.1..v0.2.2
 [v0.2.1]: https://github.com/xmidt-org/glaukos/compare/v0.2.0..v0.2.1
