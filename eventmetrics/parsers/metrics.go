@@ -22,6 +22,8 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/bascule/basculechecks"
+	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 )
@@ -71,28 +73,28 @@ func ProvideEventMetrics() fx.Option {
 				Name: "reboot_unparsable_count",
 				Help: "events that are not able to be fully processed, labelled by reason",
 			},
-			firmwareLabel, hardwareLabel, reasonLabel,
+			firmwareLabel, hardwareLabel, partnerIDLabel, reasonLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "event_errors",
 				Help: "individual event errors",
 			},
-			firmwareLabel, hardwareLabel, reasonLabel,
+			firmwareLabel, hardwareLabel, partnerIDLabel, reasonLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "boot_cycle_errors",
 				Help: "cycle errors",
 			},
-			reasonLabel,
+			reasonLabel, partnerIDLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "reboot_cycle_errors",
 				Help: "cycle errors",
 			},
-			reasonLabel,
+			reasonLabel, partnerIDLabel,
 		),
 		touchstone.HistogramVec(
 			prometheus.HistogramOpts{
@@ -133,4 +135,87 @@ func (m *Measures) addTimeElapsedHistogram(f *touchstone.Factory, o prometheus.H
 
 	m.TimeElapsedHistograms[o.Name] = histogram
 	return nil
+}
+
+// AddMetadata adds to the metadata parser.
+func (m *Measures) AddMetadata(metadataKey string) {
+	if m.MetadataFields != nil {
+		m.MetadataFields.With(prometheus.Labels{metadataKeyLabel: metadataKey}).Add(1.0)
+	}
+}
+
+// AddTotalUnparsable adds to the total unparsable counter.
+func (m *Measures) AddTotalUnparsable(parserName string) {
+	if m.TotalUnparsableCount != nil {
+		m.TotalUnparsableCount.With(prometheus.Labels{parserLabel: parserName}).Add(1.0)
+	}
+}
+
+// AddRebootUnparsable adds to the RebootUnparsable counter.
+func (m *Measures) AddRebootUnparsable(reason string, event interpreter.Event) {
+	if m.RebootUnparsableCount != nil {
+		hardwareVal, firmwareVal, _ := getHardwareFirmware(event)
+		partner := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
+		m.RebootUnparsableCount.With(prometheus.Labels{firmwareLabel: firmwareVal,
+			hardwareLabel: hardwareVal, partnerIDLabel: partner, reasonLabel: reason}).Add(1.0)
+	}
+}
+
+// AddEventError adds a error tag to the event error counter.
+func AddEventError(counter *prometheus.CounterVec, event interpreter.Event, errorTag string) {
+	if counter != nil {
+		hardwareVal, firmwareVal, _ := getHardwareFirmware(event)
+		partner := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
+		counter.With(prometheus.Labels{firmwareLabel: firmwareVal,
+			hardwareLabel: hardwareVal, partnerIDLabel: partner, reasonLabel: errorTag}).Add(1.0)
+	}
+}
+
+// AddCycleError adds a cycle error tag to the cycle error counter.
+func AddCycleError(counter *prometheus.CounterVec, event interpreter.Event, errorTag string) {
+	if counter != nil {
+		partner := basculechecks.DeterminePartnerMetric(event.PartnerIDs)
+		counter.With(prometheus.Labels{partnerIDLabel: partner, reasonLabel: errorTag}).Add(1.0)
+	}
+}
+
+// AddDuration adds the duration to the specific histogram.
+func AddDuration(histogram prometheus.ObserverVec, duration float64, event interpreter.Event) {
+	if histogram != nil {
+		labels := getTimeElapsedHistogramLabels(event)
+		histogram.With(labels).Observe(duration)
+	}
+}
+
+// get hardware and firmware values from event metadata, returning false if either one or both are not found
+func getHardwareFirmware(event interpreter.Event) (hardwareVal string, firmwareVal string, found bool) {
+	hardwareVal, hardwareFound := event.GetMetadataValue(hardwareMetadataKey)
+	firmwareVal, firmwareFound := event.GetMetadataValue(firmwareMetadataKey)
+
+	found = true
+	if !hardwareFound {
+		hardwareVal = unknownLabelValue
+		found = false
+	}
+	if !firmwareFound {
+		firmwareVal = unknownLabelValue
+		found = false
+	}
+
+	return
+}
+
+// grab relevant information from event metadata and return prometheus labels
+func getTimeElapsedHistogramLabels(event interpreter.Event) prometheus.Labels {
+	hardwareVal, firmwareVal, _ := getHardwareFirmware(event)
+	rebootReason, reasonFound := event.GetMetadataValue(rebootReasonMetadataKey)
+	if !reasonFound {
+		rebootReason = unknownLabelValue
+	}
+
+	return prometheus.Labels{
+		hardwareLabel:     hardwareVal,
+		firmwareLabel:     firmwareVal,
+		rebootReasonLabel: rebootReason,
+	}
 }

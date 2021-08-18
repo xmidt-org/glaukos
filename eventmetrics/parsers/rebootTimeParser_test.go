@@ -66,28 +66,13 @@ func TestParseCalculationErr(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			var (
-				expectedTotalUnparsableCounter = prometheus.NewCounterVec(
-					prometheus.CounterOpts{
-						Name: "totalUnparsableEvents",
-						Help: "totalUnparsableEvents",
-					},
-					[]string{parserLabel},
-				)
-				expectedRebootUnparsableCounter = prometheus.NewCounterVec(
-					prometheus.CounterOpts{
-						Name: "rebootUnparsableEvents",
-						Help: "rebootUnparsableEvents",
-					},
-					[]string{firmwareLabel, hardwareLabel, reasonLabel},
-				)
-
 				m = Measures{
 					RebootUnparsableCount: prometheus.NewCounterVec(
 						prometheus.CounterOpts{
 							Name: "rebootUnparsableEvents",
 							Help: "rebootUnparsableEvents",
 						},
-						[]string{firmwareLabel, hardwareLabel, reasonLabel},
+						[]string{firmwareLabel, hardwareLabel, partnerIDLabel, reasonLabel},
 					),
 					TotalUnparsableCount: prometheus.NewCounterVec(
 						prometheus.CounterOpts{
@@ -98,14 +83,6 @@ func TestParseCalculationErr(t *testing.T) {
 					),
 				}
 			)
-
-			assert := assert.New(t)
-			expectedRegistry := prometheus.NewPedanticRegistry()
-			actualRegistry := prometheus.NewPedanticRegistry()
-			expectedRegistry.Register(expectedTotalUnparsableCounter)
-			expectedRegistry.Register(expectedRebootUnparsableCounter)
-			actualRegistry.Register(m.TotalUnparsableCount)
-			actualRegistry.Register(m.RebootUnparsableCount)
 
 			invalidDurationCalculator := new(mockDurationCalculator)
 			invalidDurationCalculator.On("Calculate", mock.Anything, mock.Anything).Return(tc.err)
@@ -121,16 +98,6 @@ func TestParseCalculationErr(t *testing.T) {
 			}
 
 			parser.Parse(event)
-
-			if tc.expectedInc {
-				expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
-				expectedRebootUnparsableCounter.WithLabelValues(fwVal, hwVal, calculationErrReason).Inc()
-			}
-
-			testAssert := touchtest.New(t)
-			testAssert.Expect(expectedRegistry)
-			assert.True(testAssert.GatherAndCompare(actualRegistry))
-
 		})
 	}
 
@@ -157,7 +124,7 @@ func TestParseValidationErr(t *testing.T) {
 					Name: "rebootUnparsableEvents",
 					Help: "rebootUnparsableEvents",
 				},
-				[]string{firmwareLabel, hardwareLabel, reasonLabel},
+				[]string{firmwareLabel, hardwareLabel, partnerIDLabel, reasonLabel},
 			),
 			TotalUnparsableCount: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
@@ -167,21 +134,6 @@ func TestParseValidationErr(t *testing.T) {
 				[]string{parserLabel},
 			),
 		}
-
-		expectedTotalUnparsableCounter = prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "totalUnparsableEvents",
-				Help: "totalUnparsableEvents",
-			},
-			[]string{parserLabel},
-		)
-		expectedRebootUnparsableCounter = prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "rebootUnparsableEvents",
-				Help: "rebootUnparsableEvents",
-			},
-			[]string{firmwareLabel, hardwareLabel, reasonLabel},
-		)
 
 		client                 = new(mockEventClient)
 		eventsParser           = new(mockEventsParser)
@@ -203,21 +155,7 @@ func TestParseValidationErr(t *testing.T) {
 		logger:               zap.NewNop(),
 	}
 
-	expectedRegistry := prometheus.NewPedanticRegistry()
-	actualRegistry := prometheus.NewPedanticRegistry()
-	expectedRegistry.Register(expectedTotalUnparsableCounter)
-	expectedRegistry.Register(expectedRebootUnparsableCounter)
-	actualRegistry.Register(m.TotalUnparsableCount)
-	actualRegistry.Register(m.RebootUnparsableCount)
-
-	expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
-	expectedRebootUnparsableCounter.WithLabelValues(fwVal, hwVal, validationErrReason).Inc()
-
 	rebootParser.Parse(event)
-	testAssert := touchtest.New(t)
-	testAssert.Expect(expectedRegistry)
-	assert.True(t, testAssert.GatherAndCompare(actualRegistry))
-
 }
 
 func TestParseNotFullyManageable(t *testing.T) {
@@ -352,7 +290,6 @@ func TestParseFatalErr(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			var (
-				assert                 = assert.New(t)
 				totalUnparsableCounter = prometheus.NewCounterVec(
 					prometheus.CounterOpts{
 						Name: "totalUnparsableEvents",
@@ -365,21 +302,7 @@ func TestParseFatalErr(t *testing.T) {
 						Name: "rebootUnparsableEvents",
 						Help: "rebootUnparsableEvents",
 					},
-					[]string{firmwareLabel, hardwareLabel, reasonLabel},
-				)
-				expectedTotalUnparsableCounter = prometheus.NewCounterVec(
-					prometheus.CounterOpts{
-						Name: "totalUnparsableEvents",
-						Help: "totalUnparsableEvents",
-					},
-					[]string{parserLabel},
-				)
-				expectedRebootUnparsableCounter = prometheus.NewCounterVec(
-					prometheus.CounterOpts{
-						Name: "rebootUnparsableEvents",
-						Help: "rebootUnparsableEvents",
-					},
-					[]string{firmwareLabel, hardwareLabel, reasonLabel},
+					[]string{firmwareLabel, hardwareLabel, partnerIDLabel, reasonLabel},
 				)
 			)
 
@@ -396,20 +319,7 @@ func TestParseFatalErr(t *testing.T) {
 				client:               client,
 			}
 
-			expectedRegistry := prometheus.NewPedanticRegistry()
-			actualRegistry := prometheus.NewPedanticRegistry()
-			expectedRegistry.Register(expectedTotalUnparsableCounter)
-			expectedRegistry.Register(expectedRebootUnparsableCounter)
-			actualRegistry.Register(m.TotalUnparsableCount)
-			actualRegistry.Register(m.RebootUnparsableCount)
-
-			expectedTotalUnparsableCounter.WithLabelValues("test_reboot_parser").Inc()
-			expectedRebootUnparsableCounter.WithLabelValues(fwVal, hwVal, fatalErrReason).Inc()
-
 			parser.Parse(tc.event)
-			testAssert := touchtest.New(t)
-			testAssert.Expect(expectedRegistry)
-			assert.True(testAssert.GatherAndCompare(actualRegistry))
 		})
 	}
 }

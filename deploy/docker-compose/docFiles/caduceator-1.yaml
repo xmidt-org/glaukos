@@ -82,12 +82,22 @@ vegetaConfig:
         birthdateOffset: "-15m"
       - wrp:
           source: "mac:112233445566"
+          destination: "event:device-status/mac:112233445566/offline"
+          metadata:
+            - "hw-model": "hardware1"
+            - "fw-name": "firmware2"
+            - "hw-last-reboot-reason": "reboot-reason-2"
+          transactionUUID: "6"
+        bootTimeOffset: "-13m"
+        birthdateOffset: "-15m"
+      - wrp:
+          source: "mac:112233445566"
           destination: "event:device-status/mac:112233445566/online"
           metadata:
             - "/hw-model": "hardware1"
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
-          transactionUUID: "6"
+          transactionUUID: "7"
         bootTimeOffset: "-13m"
         birthdateOffset: "-16m"
       - wrp:
@@ -97,7 +107,7 @@ vegetaConfig:
             - "/hw-model": "hardware1"
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
-          transactionUUID: "7"
+          transactionUUID: "8"
         bootTimeOffset: "-13m"
         birthdateOffset: "-17m"
       - wrp:
@@ -107,9 +117,39 @@ vegetaConfig:
             - "/hw-model": "hardware1"
             - "/fw-name": "firmware2"
             - "/hw-last-reboot-reason": "reboot-reason-2"
-          transactionUUID: "8"
+          transactionUUID: "9"
         bootTimeOffset: "-13m"
         birthdateOffset: "-18m"
+      - wrp:
+          source: "mac:112233445566"
+          destination: "event:device-status/mac:112233445566/invalid-event-type"
+          metadata:
+            - "/hw-model": "hardware1"
+            - "/fw-name": "firmware2"
+            - "/hw-last-reboot-reason": "reboot-reason-2"
+          transactionUUID: "10"
+        bootTimeOffset: "-9000h"
+        birthdateOffset: "-18m"
+      - wrp:
+          source: "uuid:112233445566"
+          destination: "event:device-status/mac:112233445566/online"
+          metadata:
+            - "/hw-model": "hardware1"
+            - "/fw-name": "firmware2"
+            - "/hw-last-reboot-reason": "reboot-reason-2"
+          transactionUUID: "11"
+        bootTimeOffset: "-23m"
+        birthdateOffset: "-18m"
+      - wrp:
+          source: "mac:112233445566"
+          destination: "event:device-status/mac:112233445566/offline/123"
+          metadata:
+            - "/hw-model": "hardware1"
+            - "/fw-name": "firmware2"
+            - "/hw-last-reboot-reason": "reboot-reason-2"
+          transactionUUID: "12"
+        bootTimeOffset: "-23m"
+        birthdateOffset: "-20m"
   # simulates talaria rehash
   vegetaRehash:
     routines: 0
