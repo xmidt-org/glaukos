@@ -17,11 +17,11 @@ require (
 	github.com/xmidt-org/httpaux v0.3.0
 	github.com/xmidt-org/interpreter v0.0.7
 	github.com/xmidt-org/sallust v0.1.5
-	github.com/xmidt-org/touchstone v0.0.3
+	github.com/xmidt-org/touchstone v0.1.1
 	github.com/xmidt-org/webpa-common v1.11.5
 	github.com/xmidt-org/wrp-go/v3 v3.1.3
 	github.com/xmidt-org/wrp-listener v0.2.3-0.20210712203250-8ef93fe0a8e3
-	go.uber.org/fx v1.13.1
+	go.uber.org/fx v1.17.1
 	go.uber.org/ratelimit v0.2.0
 	go.uber.org/zap v1.22.0
 )
