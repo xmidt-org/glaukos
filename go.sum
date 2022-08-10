@@ -812,6 +812,7 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1FQKckRals=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
@@ -847,8 +848,9 @@ github.com/xmidt-org/bascule v0.10.2 h1:Z51Qu4BAh/tk4fccQ/Xv3gCuqjYcPKZ8kYCw03rg
 github.com/xmidt-org/bascule v0.10.2/go.mod h1:8Mx4EW1AXTWnvh2rDl+/GYPLH4QSJIuPB6r94IWoKxg=
 github.com/xmidt-org/httpaux v0.1.2/go.mod h1:qZnH2uObGPwHnOz8HcPNlbcd3gKEvdmxbIK3rgbQhto=
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
-github.com/xmidt-org/httpaux v0.3.0 h1:JdV4QceiE8EMA1Qf5rnJzHdkIPzQV12ddARHLU8hrTs=
 github.com/xmidt-org/httpaux v0.3.0/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
+github.com/xmidt-org/httpaux v0.3.2 h1:CC8FPiGVtThSRj3fEr9lk2e1bzhhw+l6Vb3BfzfaMG0=
+github.com/xmidt-org/httpaux v0.3.2/go.mod h1:qmlPisXf80FTi3y4gX43eYbCVruSQyvu+FPx1jzvQG8=
 github.com/xmidt-org/interpreter v0.0.7 h1:Qiekg+YF0vGqRYSHKKd2iLmvXz0QjC5u9KeeqLQ6B+A=
 github.com/xmidt-org/interpreter v0.0.7/go.mod h1:ATGm0T0u1X6sL0TLzNtDsz+Y4hba8SGXNSt8hABwseY=
 github.com/xmidt-org/sallust v0.1.5/go.mod h1:azcKBypudADIeZ3Em8zGjVq3yQ7n4ueSvM/degHMIxo=
