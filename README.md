@@ -2,12 +2,13 @@
 
 Glaukos is a service that produces metrics about the XMiDT cluster as a whole.
 
-[![Build Status](https://github.com/xmidt-org/glaukos/workflows/CI/badge.svg)](https://github.com/xmidt-org/glaukos/actions)
+[![Build Status](https://github.com/xmidt-org/glaukos/actions/workflows/ci.yml/badge.svg)](https://github.com/xmidt-org/glaukos/actions/workflows/ci.yml)
+[![Dependency Updateer](https://github.com/xmidt-org/glaukos/actions/workflows/updater.yml/badge.svg)](https://github.com/xmidt-org/glaukos/actions/workflows/updater.yml)
 [![codecov.io](http://codecov.io/github/xmidt-org/glaukos/coverage.svg?branch=main)](http://codecov.io/github/xmidt-org/glaukos?branch=main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/glaukos)](https://goreportcard.com/report/github.com/xmidt-org/glaukos)
-[![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/glaukos/blob/main/LICENSE)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=xmidt-org_glaukos&metric=alert_status)](https://sonarcloud.io/dashboard?id=xmidt-org_glaukos)
-[![GitHub release](https://img.shields.io/github/release/xmidt-org/glaukos.svg)](CHANGELOG.md)
+[![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/glaukos/blob/main/LICENSE)
+[![GitHub Release](https://img.shields.io/github/release/xmidt-org/glaukos.svg)](CHANGELOG.md)
 
 ## Summary
 
