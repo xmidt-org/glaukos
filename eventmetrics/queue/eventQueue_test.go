@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/touchstone/touchtest"
-	"github.com/xmidt-org/webpa-common/semaphore"
+	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )

@@ -26,8 +26,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/xmidt-org/interpreter"
-	"github.com/xmidt-org/webpa-common/basculechecks"
-	"github.com/xmidt-org/webpa-common/semaphore"
+	"github.com/xmidt-org/webpa-common/v2/basculechecks"
+	"github.com/xmidt-org/webpa-common/v2/semaphore"
 )
 
 var (
