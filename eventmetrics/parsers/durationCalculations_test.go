@@ -3,7 +3,7 @@ package parsers
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"testing"
 	"time"
@@ -317,7 +317,7 @@ func TestCreateDurationCalculators(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+			testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(io.Discard, "", 0), prometheus.NewPedanticRegistry())
 
 			testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 			durationCalculators, err := createDurationCalculators(testFactory, tc.configs, testMeasures, RebootLoggerIn{Logger: zap.NewNop()})
@@ -339,7 +339,7 @@ func TestCreateDurationCalculators(t *testing.T) {
 
 func TestCreateDurationCalculatorsHistogramErr(t *testing.T) {
 	assert := assert.New(t)
-	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(io.Discard, "", 0), prometheus.NewPedanticRegistry())
 	testMeasures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 	testName := "test_hist"
 	config := TimeElapsedConfig{
