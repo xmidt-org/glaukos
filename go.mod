@@ -23,5 +23,5 @@ require (
 	github.com/xmidt-org/wrp-listener v0.2.3-0.20210712203250-8ef93fe0a8e3
 	go.uber.org/fx v1.18.1
 	go.uber.org/ratelimit v0.2.0
-	go.uber.org/zap v1.22.0
+	go.uber.org/zap v1.23.0
 )
