@@ -25,6 +25,7 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchhttp"
 	"go.uber.org/fx"
 )
@@ -63,7 +64,10 @@ type RoutesIn struct {
 // ConfigureRoutes sets up the router provided to handle traffic for the events parsing endpoint.
 func ConfigureRoutes(in RoutesIn) {
 	path := fmt.Sprintf("/%s/events", in.APIBase)
-	instrumenter := in.ServerBundle.ForServer("servers.primary")
+	instrumenter, err := in.ServerBundle.NewInstrumenter("servers.primary")(&touchstone.Factory{})
+	if err != nil {
+		return
+	}
 	in.Router.Use(in.AuthChain.Then)
 	in.Router.Handle(path, instrumenter.Then(in.Handler.Event)).
 		Name("events").

@@ -19,6 +19,7 @@ package main
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchhttp"
 	"go.uber.org/fx"
 )
@@ -32,7 +33,10 @@ type MetricsRoutesIn struct {
 
 func BuildMetricsRoutes(in MetricsRoutesIn) {
 	if in.Router != nil && in.Handler != nil {
-		instrumenter := in.ServerBundle.ForServer("servers.metrics")
+		instrumenter, err := in.ServerBundle.NewInstrumenter("servers.metrics")(&touchstone.Factory{})
+		if err != nil {
+			return
+		}
 		in.Router.Handle("/metrics", instrumenter.Then(in.Handler)).Methods("GET")
 	}
 }
