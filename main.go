@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculehttp"

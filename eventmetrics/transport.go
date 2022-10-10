@@ -21,7 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -65,7 +65,7 @@ func EncodeError(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 func DecodeEvent(_ context.Context, r *http.Request) (interface{}, error) {
 	var msg wrp.Message
 	var err error
-	msgBytes, err := ioutil.ReadAll(r.Body)
+	msgBytes, err := io.ReadAll(r.Body)
 	r.Body.Close()
 	if err != nil {
 		return nil, BadRequestErr{Message: fmt.Sprintf("could not read request body: %v", err)}

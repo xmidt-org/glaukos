@@ -3,8 +3,6 @@ package parsers
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,6 +11,7 @@ import (
 	"github.com/xmidt-org/interpreter"
 	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchtest"
+	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -368,7 +367,7 @@ func TestAddTimeElapsedHistogramSuccess(t *testing.T) {
 			Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 		}
 		assert := assert.New(t)
-		testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+		testFactory := touchstone.NewFactory(touchstone.Config{}, zaptest.NewLogger(t), prometheus.NewPedanticRegistry())
 		err := tc.measures.addTimeElapsedHistogram(testFactory, o, tc.labelNames...)
 		assert.Equal(tc.expectedErr, err)
 		assert.NotNil(tc.measures.TimeElapsedHistograms[tc.name])
@@ -402,7 +401,7 @@ func testNewHistogramErr(t *testing.T) {
 		Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 	}
 	labelNames := []string{"key1", "key2"}
-	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+	testFactory := touchstone.NewFactory(touchstone.Config{}, zaptest.NewLogger(t), prometheus.NewPedanticRegistry())
 	measures := Measures{TimeElapsedHistograms: make(map[string]prometheus.ObserverVec)}
 	testFactory.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    name,
@@ -423,7 +422,7 @@ func testHistogramExistsErr(t *testing.T) {
 		Buckets: []float64{60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 900, 1200, 1500, 1800, 3600, 7200, 14400, 21600},
 	}
 	assert := assert.New(t)
-	testFactory := touchstone.NewFactory(touchstone.Config{}, log.New(ioutil.Discard, "", 0), prometheus.NewPedanticRegistry())
+	testFactory := touchstone.NewFactory(touchstone.Config{}, zaptest.NewLogger(t), prometheus.NewPedanticRegistry())
 	testHistogram := prometheus.NewHistogramVec(o, nil)
 	measures.TimeElapsedHistograms[o.Name] = testHistogram
 	err := measures.addTimeElapsedHistogram(testFactory, o, []string{"key1", "key2"}...)

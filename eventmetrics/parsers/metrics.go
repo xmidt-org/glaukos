@@ -64,14 +64,14 @@ func ProvideEventMetrics() fx.Option {
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "total_unparsable_count",
-				Help: "events that are unparsable, labelled by the parser name",
+				Help: "events that are unparsable, labeled by the parser name",
 			},
 			parserLabel,
 		),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: "reboot_unparsable_count",
-				Help: "events that are not able to be fully processed, labelled by reason",
+				Help: "events that are not able to be fully processed, labeled by reason",
 			},
 			firmwareLabel, hardwareLabel, partnerIDLabel, reasonLabel,
 		),
