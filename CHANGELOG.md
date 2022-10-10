@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 - Updated spec file and rpkg version macro to be able to choose when the 'v' is included in the version. [#77](https://github.com/xmidt-org/glaukos/pull/77)
 - Patch failing Dockerfile, fix linter issues [#103](https://github.com/xmidt-org/glaukos/pull/103)
+- Remove the automatic dependency updater in favor of dependabot. [#109](https://github.com/xmidt-org/glaukos/pull/109)
 
 ## [v0.3.0]
 
