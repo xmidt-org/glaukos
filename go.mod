@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/go-kit/kit v0.12.0
+	github.com/go-kit/log v0.2.1
 	github.com/gorilla/mux v1.8.0
 	github.com/justinas/alice v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -21,7 +22,7 @@ require (
 	github.com/xmidt-org/webpa-common/v2 v2.0.7
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	github.com/xmidt-org/wrp-listener v0.2.5
-	go.uber.org/fx v1.18.1
+	go.uber.org/fx v1.18.2
 	go.uber.org/ratelimit v0.2.0
 	go.uber.org/zap v1.23.0
 )
@@ -35,7 +36,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
