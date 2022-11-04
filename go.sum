@@ -63,8 +63,8 @@ emperror.dev/errors v0.8.1/go.mod h1:YcRvLPh626Ubn2xqtoprejnA5nFha+TJ+2vew48kWuE
 github.com/Azure/azure-sdk-for-go v16.0.0+incompatible/go.mod h1:9XXNKU+eRnpl9moKnB4QOLf1HestfXbmab5FXxiDBjc=
 github.com/Azure/go-autorest v10.7.0+incompatible/go.mod h1:r+4oMnoxhatjLLJ6zxSWATqVooLgysK6ZNox3g/xq24=
 github.com/Azure/go-autorest v10.15.3+incompatible/go.mod h1:r+4oMnoxhatjLLJ6zxSWATqVooLgysK6ZNox3g/xq24=
-github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/BurntSushi/toml v1.2.1 h1:9F2/+DoOYIOksmaJFPw1tGFy1eDnIJXg+UHjuD8lTak=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/datadog-go v2.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
@@ -968,8 +968,9 @@ github.com/xmidt-org/httpaux v0.3.2/go.mod h1:qmlPisXf80FTi3y4gX43eYbCVruSQyvu+F
 github.com/xmidt-org/interpreter v0.0.7 h1:Qiekg+YF0vGqRYSHKKd2iLmvXz0QjC5u9KeeqLQ6B+A=
 github.com/xmidt-org/interpreter v0.0.7/go.mod h1:ATGm0T0u1X6sL0TLzNtDsz+Y4hba8SGXNSt8hABwseY=
 github.com/xmidt-org/sallust v0.1.5/go.mod h1:azcKBypudADIeZ3Em8zGjVq3yQ7n4ueSvM/degHMIxo=
-github.com/xmidt-org/sallust v0.1.6 h1:MZAU0rD0flrGrKs6+Nx3mpjwKV6QsWJlEBegRfKVnQ4=
 github.com/xmidt-org/sallust v0.1.6/go.mod h1:c6J68AkKaSp0Nc6fSBTwkS1vgc3lVAC3AdofrD10ldA=
+github.com/xmidt-org/sallust v0.2.0 h1:XyRLZKNK7cq+mU9bNKtMt8nxJu/tv92gpYAUw7ClP4c=
+github.com/xmidt-org/sallust v0.2.0/go.mod h1:HCQQn7po8czynjxtNVyZ5vzWuTqJyJwnPWkQoqBX67s=
 github.com/xmidt-org/themis v0.4.4/go.mod h1:0qRYFvKdrQhwjxH/1nAiTgBGT4cegJR76gfEYF5P7so=
 github.com/xmidt-org/themis v0.4.7/go.mod h1:GlsC/hO9lpZKs6mJNZtbDOf/yDT8tS6NN0k3C+YsWFc=
 github.com/xmidt-org/themis v0.4.8 h1:VMp3c2mVM5mm06gyN64K6NcNNZzno8QZrwjEJPBT9Dc=
