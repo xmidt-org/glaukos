@@ -23,13 +23,12 @@ require (
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
 	github.com/xmidt-org/wrp-listener v0.2.6
 	go.uber.org/fx v1.20.0
-	go.uber.org/ratelimit v0.2.0
+	go.uber.org/ratelimit v0.3.0
 	go.uber.org/zap v1.24.0
 )
 
 require (
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
-	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
