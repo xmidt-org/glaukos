@@ -18,7 +18,7 @@ require (
 	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/interpreter v0.0.7
 	github.com/xmidt-org/sallust v0.2.0
-	github.com/xmidt-org/touchstone v0.1.2
+	github.com/xmidt-org/touchstone v0.1.3
 	github.com/xmidt-org/webpa-common/v2 v2.0.7
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
 	github.com/xmidt-org/wrp-listener v0.2.6
