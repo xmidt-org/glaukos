@@ -22,7 +22,7 @@ require (
 	github.com/xmidt-org/webpa-common/v2 v2.0.7
 	github.com/xmidt-org/wrp-go/v3 v3.2.0
 	github.com/xmidt-org/wrp-listener v0.2.6
-	go.uber.org/fx v1.20.0
+	go.uber.org/fx v1.20.1
 	go.uber.org/ratelimit v0.3.0
 	go.uber.org/zap v1.26.0
 )
