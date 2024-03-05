@@ -23,7 +23,7 @@ require (
 	github.com/xmidt-org/wrp-go/v3 v3.2.3
 	github.com/xmidt-org/wrp-listener v0.2.6
 	go.uber.org/fx v1.20.1
-	go.uber.org/ratelimit v0.3.0
+	go.uber.org/ratelimit v0.3.1
 	go.uber.org/zap v1.27.0
 )
 
