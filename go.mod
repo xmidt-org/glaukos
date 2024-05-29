@@ -9,7 +9,7 @@ require (
 	github.com/justinas/alice v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/prometheus/client_golang v1.18.0
-	github.com/sony/gobreaker v0.5.0
+	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
