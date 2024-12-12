@@ -15,7 +15,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/xmidt-org/arrange v0.4.0
 	github.com/xmidt-org/bascule v0.11.2
-	github.com/xmidt-org/httpaux v0.4.0
+	github.com/xmidt-org/httpaux v0.4.2
 	github.com/xmidt-org/interpreter v0.0.7
 	github.com/xmidt-org/sallust v0.2.0
 	github.com/xmidt-org/touchstone v0.1.3
